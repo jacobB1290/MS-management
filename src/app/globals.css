@@ -1,0 +1,287 @@
+@import "tailwindcss";
+
+/* ============================================================================
+ * Brand tokens — mirrored from ms.church website-V2.
+ * Every color, type, spacing, radius, shadow, and motion value lives here.
+ * Never inline raw hex/px/clamp in component CSS — reference these variables.
+ * ============================================================================ */
+:root {
+  /* Palette ----------------------------------------------------------------- */
+  --gold: #9d7853;
+  --gold-dark: #6e5239;
+  --gold-deeper: #4d3826;
+  --bg: #f6f1ea;
+  --surface: #fbf7f1;
+  --surface-elevated: #ffffff;
+  --white: #ffffff;
+  --ink: #1f1a14;
+
+  /* Alpha-based text scale (over warm cream) */
+  --text-primary: var(--ink);
+  --text-primary-soft: rgba(31, 26, 20, 0.85);
+  --text-muted: rgba(31, 26, 20, 0.72);
+  --text-faint: rgba(31, 26, 20, 0.55);
+  --text-fade: rgba(31, 26, 20, 0.30);
+  --text-hairline: rgba(31, 26, 20, 0.10);
+
+  /* Status */
+  --color-success: #3f7a52;
+  --color-warning: #b07a2a;
+  --color-danger: #a8413a;
+  --color-danger-dark: #6e2c27;
+
+  /* CTA pill — gold variant */
+  --btn-cta-bg: linear-gradient(180deg, #b08c64 0%, #9d7853 100%);
+  --btn-cta-bg-hover: linear-gradient(180deg, #bd9970 0%, #a98463 100%);
+  --btn-cta-shadow: 0 6px 18px rgba(157, 120, 83, 0.30);
+  --btn-cta-shadow-hover: 0 10px 26px rgba(157, 120, 83, 0.42);
+
+  /* CTA pill — danger variant (used for destructive confirmations) */
+  --btn-danger-bg: linear-gradient(180deg, #b65049 0%, #a8413a 100%);
+  --btn-danger-bg-hover: linear-gradient(180deg, #c25d56 0%, #b34e47 100%);
+
+  /* Fonts ------------------------------------------------------------------ */
+  --font-display: "Playfair Display", "Times New Roman", serif;
+  --font-body: "Inter", "Helvetica Neue", Arial, sans-serif;
+
+  /* Fluid type scale (clamp = no layout thrash between breakpoints) */
+  --text-hero: clamp(34px, 5vw, 56px);
+  --text-title: clamp(26px, 3vw, 36px);
+  --text-heading: clamp(20px, 2.4vw, 26px);
+  --text-lead: clamp(17px, 1.6vw, 19px);
+  --text-body: 16px;
+  --text-compact: 15px;
+  --text-small: 14px;
+  --text-label: 12px;
+  --text-micro: 11px;
+  --text-eyebrow: 10px;
+
+  /* Weights */
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* Line height */
+  --leading-tight: 1.1;
+  --leading-snug: 1.3;
+  --leading-prose: 1.5;
+  --leading-normal: 1.6;
+  --leading-loose: 1.8;
+
+  /* Tracking */
+  --tracking-tight: -0.02em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.12em;
+  --tracking-wider: 0.25em;
+
+  /* Spacing (t-shirt, fluid clamps) ---------------------------------------- */
+  --space-xs: clamp(8px, 1vw, 10px);
+  --space-sm: clamp(12px, 1.4vw, 14px);
+  --space-md: clamp(16px, 2vw, 20px);
+  --space-lg: clamp(22px, 2.8vw, 28px);
+  --space-xl: clamp(30px, 3.6vw, 36px);
+  --space-2xl: clamp(42px, 5.2vw, 52px);
+  --space-3xl: clamp(58px, 7.2vw, 72px);
+
+  /* Radius ----------------------------------------------------------------- */
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 22px;
+  --radius-xl: 26px;
+  --radius-2xl: 40px;
+  --radius-pill: 999px;
+
+  /* Shadows ---------------------------------------------------------------- */
+  --shadow-xs: 0 1px 2px rgba(31, 26, 20, 0.06);
+  --shadow-sm: 0 2px 8px rgba(31, 26, 20, 0.06), 0 1px 2px rgba(31, 26, 20, 0.04);
+  --shadow-md: 0 6px 20px rgba(31, 26, 20, 0.08), 0 2px 6px rgba(31, 26, 20, 0.05);
+  --shadow-lg: 0 14px 36px rgba(31, 26, 20, 0.10), 0 4px 12px rgba(31, 26, 20, 0.06);
+  --shadow-xl: 0 22px 60px rgba(31, 26, 20, 0.14), 0 6px 18px rgba(31, 26, 20, 0.08);
+  --shadow-overlay: 0 30px 80px rgba(31, 26, 20, 0.22);
+
+  /* Motion ----------------------------------------------------------------- */
+  --motion-fast: 0.2s;
+  --motion-medium: 0.3s;
+  --motion-slow: 0.6s;
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Tailwind v4 theme mapping — exposes our tokens as Tailwind utilities
+ * (e.g. `bg-bg`, `text-ink`, `font-display`, `rounded-lg`). */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-white: var(--white);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--text-primary-soft);
+  --color-ink-muted: var(--text-muted);
+  --color-ink-faint: var(--text-faint);
+  --color-ink-fade: var(--text-fade);
+  --color-ink-hairline: var(--text-hairline);
+  --color-gold: var(--gold);
+  --color-gold-dark: var(--gold-dark);
+  --color-gold-deeper: var(--gold-deeper);
+  --color-success: var(--color-success);
+  --color-warning: var(--color-warning);
+  --color-danger: var(--color-danger);
+
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
+  --font-sans: var(--font-body);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-2xl: var(--radius-2xl);
+  --radius-pill: var(--radius-pill);
+
+  --spacing-token-xs: var(--space-xs);
+  --spacing-token-sm: var(--space-sm);
+  --spacing-token-md: var(--space-md);
+  --spacing-token-lg: var(--space-lg);
+  --spacing-token-xl: var(--space-xl);
+  --spacing-token-2xl: var(--space-2xl);
+  --spacing-token-3xl: var(--space-3xl);
+}
+
+/* ============================================================================
+ * Base typography & body — restraint is the brand.
+ * Warm cream surface IS the design. Content sits flush by default.
+ * ============================================================================ */
+* {
+  border-color: var(--text-hairline);
+}
+
+html {
+  font-family: var(--font-body);
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: var(--text-body);
+  line-height: var(--leading-normal);
+  font-feature-settings: "ss01", "cv11";
+  -webkit-tap-highlight-color: transparent;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-tight);
+  color: var(--text-primary);
+}
+
+/* Identity phrase — italic gold, never wrap in ASCII quotes */
+.motto {
+  color: var(--gold-dark);
+  font-style: italic;
+  font-family: var(--font-display);
+  font-weight: var(--weight-medium);
+}
+
+/* Eyebrow / overline */
+.eyebrow {
+  font-size: var(--text-eyebrow);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+/* Canonical CTA pill — gold gradient, shadow lift on hover.
+ * One source of truth. Add modifiers; never fork the design. */
+.btn-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 22px;
+  font-family: var(--font-body);
+  font-size: var(--text-small);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--white);
+  background: var(--btn-cta-bg);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--btn-cta-shadow);
+  border: none;
+  cursor: pointer;
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
+  min-height: 44px;
+}
+.btn-cta:hover:not(:disabled) {
+  background: var(--btn-cta-bg-hover);
+  box-shadow: var(--btn-cta-shadow-hover);
+  transform: translateY(-1px);
+}
+.btn-cta:active:not(:disabled) { transform: translateY(0); }
+.btn-cta:disabled,
+.btn-cta[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn-cta--secondary {
+  color: var(--text-primary);
+  background: var(--white);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--text-hairline);
+}
+.btn-cta--secondary:hover:not(:disabled) {
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+.btn-cta--danger {
+  background: var(--btn-danger-bg);
+}
+.btn-cta--danger:hover:not(:disabled) {
+  background: var(--btn-danger-bg-hover);
+}
+
+/* Standard content area — every section inherits its width here */
+.page {
+  width: min(1280px, 94%);
+  max-width: 1400px;
+  margin-inline: auto;
+}
+@media (max-width: 960px) {
+  .page {
+    width: 100%;
+    padding: 0 clamp(0px, 2.5vw, 5%);
+  }
+}
+
+/* Focus ring — accessible, on-brand */
+:where(button, a, input, textarea, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Hide scrollbar but keep scroll (used in inbox conversation list) */
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
