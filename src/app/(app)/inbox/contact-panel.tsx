@@ -4,8 +4,10 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { format } from "date-fns"
 import { toast } from "sonner"
+import { Pencil } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Textarea } from "@/components/ui/textarea"
 import { formatPhone } from "@/lib/utils"
 import type { Tables } from "@/lib/database.types"
 
@@ -83,6 +85,8 @@ export function ContactPanel({ contact }: { contact: Tables<"contacts"> }) {
         </div>
       )}
 
+      <NotesBlock contactId={contact.id} initial={contact.notes ?? ""} />
+
       <div className="mt-8 border-t border-ink-hairline pt-6 space-y-3">
         <div>
           <p className="text-label text-ink-faint mb-1.5">SMS</p>
@@ -133,6 +137,91 @@ export function ContactPanel({ contact }: { contact: Tables<"contacts"> }) {
           )}
         </div>
       </div>
+    </div>
+  )
+}
+
+function NotesBlock({ contactId, initial }: { contactId: string; initial: string }) {
+  const router = useRouter()
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(initial)
+  const [saving, setSaving] = useState(false)
+
+  async function save() {
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/contacts/${contactId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notes: value.trim() || null }),
+      })
+      if (!res.ok) {
+        const j = await res.json().catch(() => null)
+        toast.error(`Save failed: ${j?.error ?? res.status}`)
+      } else {
+        toast.success("Note saved.")
+        setEditing(false)
+        router.refresh()
+      }
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (editing) {
+    return (
+      <div className="mt-6 border-t border-ink-hairline pt-6">
+        <p className="text-label text-ink-faint mb-1.5">Notes</p>
+        <Textarea
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          rows={4}
+          placeholder="Lives near the church; has two kids; spouse Maria…"
+          autoFocus
+        />
+        <div className="flex items-center justify-end gap-2 mt-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setValue(initial)
+              setEditing(false)
+            }}
+            disabled={saving}
+          >
+            Cancel
+          </Button>
+          <Button type="button" size="sm" onClick={save} disabled={saving}>
+            {saving ? "Saving…" : "Save note"}
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mt-6 border-t border-ink-hairline pt-6">
+      <div className="flex items-center justify-between mb-1.5">
+        <p className="text-label text-ink-faint">Notes</p>
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className="text-micro text-ink-muted hover:text-ink inline-flex items-center gap-1"
+        >
+          <Pencil size={12} />
+          {initial ? "Edit" : "Add"}
+        </button>
+      </div>
+      {initial ? (
+        <p className="text-small text-ink-muted whitespace-pre-wrap leading-prose">
+          {initial}
+        </p>
+      ) : (
+        <p className="text-small text-ink-faint italic">
+          No notes yet. Drop a quick reminder of what you talked about last.
+        </p>
+      )}
     </div>
   )
 }

@@ -15,6 +15,19 @@ export async function sendEmail(args: {
   sentByUserId?: string | null
   campaignId?: string | null
 }): Promise<SendEmailResult> {
+  // CAN-SPAM: bulk email MUST carry a working unsubscribe mechanism. We
+  // refuse rather than silently send without one. (1:1 transactional email
+  // without a campaign is also exempt from the strict bulk rules, so the
+  // group is only required when this send is part of a campaign.)
+  if (args.campaignId && !process.env.SENDGRID_UNSUBSCRIBE_GROUP_ID) {
+    return {
+      ok: false,
+      reason: "provider_failed",
+      detail:
+        "SENDGRID_UNSUBSCRIBE_GROUP_ID is not set — bulk email is refused for CAN-SPAM compliance.",
+    }
+  }
+
   const check = await assertCanSendEmail(args.contactId)
   if (!check.ok) return { ok: false, reason: check.reason }
 
