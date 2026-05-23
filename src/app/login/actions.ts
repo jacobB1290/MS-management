@@ -1,6 +1,7 @@
 "use server"
 import { redirect } from "next/navigation"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { safeNextPath } from "@/lib/safe-next"
 import { z } from "zod"
 
 export type LoginState = { ok: true; sentTo: string } | { ok: false; error: string } | null
@@ -28,7 +29,7 @@ export async function requestCode(_prev: LoginState, formData: FormData): Promis
 
   const supabase = await createSupabaseServerClient()
   const origin = process.env.APP_BASE_URL ?? "http://localhost:3000"
-  const next = parsed.data.next || "/inbox"
+  const next = safeNextPath(parsed.data.next)
   const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent(next)}`
 
   const { error } = await supabase.auth.signInWithOtp({
@@ -78,5 +79,5 @@ export async function verifyCode(_prev: LoginState, formData: FormData): Promise
     return { ok: false, error: "That code is incorrect or expired. Request a new one." }
   }
 
-  redirect(parsed.data.next || "/inbox")
+  redirect(safeNextPath(parsed.data.next))
 }

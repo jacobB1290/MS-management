@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { safeNextPath } from "@/lib/safe-next"
 
 /**
  * Magic link redirect handler. Supabase Auth sends the user here after
@@ -9,7 +10,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server"
 export async function GET(request: NextRequest) {
   const url = new URL(request.url)
   const code = url.searchParams.get("code")
-  const next = url.searchParams.get("next") || "/inbox"
+  const next = safeNextPath(url.searchParams.get("next"))
 
   if (!code) {
     return NextResponse.redirect(new URL("/login?error=missing_code", url.origin))
