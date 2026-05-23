@@ -3,6 +3,7 @@ import { format } from "date-fns"
 import { Check, X } from "lucide-react"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { requireStaff } from "@/server/auth"
+import { getSpendSummary, formatMoney, type SpendSummary } from "@/server/billing/twilio"
 import { PageHeader } from "@/components/ui/page-header"
 import { Badge } from "@/components/ui/badge"
 import { Avatar } from "@/components/ui/avatar"
@@ -14,11 +15,12 @@ export default async function SettingsPage() {
   const user = await requireStaff()
   const supabase = await createSupabaseServerClient()
 
-  const [teamRes, heartbeatRes] = await Promise.all([
+  const [teamRes, heartbeatRes, spend] = await Promise.all([
     user.role === "admin"
       ? supabase.from("app_users").select("user_id, role, display_name, created_at").order("created_at")
       : Promise.resolve({ data: null }),
     supabase.from("heartbeat").select("last_run_at").eq("id", 1).maybeSingle(),
+    getSpendSummary(),
   ])
   const team = teamRes.data
   const heartbeat = heartbeatRes.data
@@ -52,6 +54,8 @@ export default async function SettingsPage() {
           </div>
         </div>
       </section>
+
+      <SpendSection spend={spend} />
 
       {user.role === "admin" && (
         <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
@@ -119,6 +123,65 @@ export default async function SettingsPage() {
         </p>
       </section>
       </div>
+    </div>
+  )
+}
+
+function SpendSection({ spend }: { spend: SpendSummary }) {
+  return (
+    <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
+      <p className="eyebrow mb-1">Spend</p>
+      <p className="text-small text-ink-muted mb-4">
+        Pulled live from Twilio (cached 5 min). These are the same numbers on
+        the invoice, never estimated, and cover all Twilio usage on this
+        account.
+      </p>
+
+      {!spend.configured ? (
+        <p className="text-small text-ink-faint">
+          Connect Twilio (set TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN) to see
+          live spend.
+        </p>
+      ) : !spend.ok ? (
+        <p className="text-small text-danger">
+          Couldn&rsquo;t load Twilio usage: {spend.error}
+        </p>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <SpendStat
+              label="Balance"
+              value={spend.balance != null ? formatMoney(spend.balance, spend.currency) : "—"}
+            />
+            <SpendStat label="This month" value={formatMoney(spend.thisMonth, spend.currency)} />
+            <SpendStat label="Last month" value={formatMoney(spend.lastMonth, spend.currency)} />
+          </div>
+
+          <dl className="mt-5 space-y-2 border-t border-ink-hairline pt-4 text-small">
+            <p className="text-label text-ink-faint mb-1">This month by category</p>
+            {spend.breakdown.map((row) => (
+              <div key={row.category} className="flex items-center justify-between">
+                <dt className="text-ink-muted">
+                  {row.label}
+                  <span className="text-ink-faint"> · {row.count}</span>
+                </dt>
+                <dd className="font-medium text-ink">{formatMoney(row.price, spend.currency)}</dd>
+              </div>
+            ))}
+          </dl>
+        </>
+      )}
+    </section>
+  )
+}
+
+function SpendStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-ink-hairline bg-surface p-4">
+      <p className="text-label text-ink-faint">{label}</p>
+      <p className="font-display text-heading text-ink mt-0.5 leading-none" data-dynamic>
+        {value}
+      </p>
     </div>
   )
 }

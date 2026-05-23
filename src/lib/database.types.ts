@@ -7,6 +7,8 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
@@ -354,6 +356,9 @@ export type Database = {
           error: string | null
           id: string
           media_url: string | null
+          num_segments: number | null
+          price: number | null
+          price_unit: string | null
           sent_by: string | null
           status: string | null
           twilio_sid: string | null
@@ -368,6 +373,9 @@ export type Database = {
           error?: string | null
           id?: string
           media_url?: string | null
+          num_segments?: number | null
+          price?: number | null
+          price_unit?: string | null
           sent_by?: string | null
           status?: string | null
           twilio_sid?: string | null
@@ -382,6 +390,9 @@ export type Database = {
           error?: string | null
           id?: string
           media_url?: string | null
+          num_segments?: number | null
+          price?: number | null
+          price_unit?: string | null
           sent_by?: string | null
           status?: string | null
           twilio_sid?: string | null
@@ -432,14 +443,42 @@ export type Database = {
       }
     }
     Functions: {
-      show_limit: { Args: never; Returns: number }
-      show_trgm: { Args: { "": string }; Returns: string[] }
+      claim_campaign_batch: {
+        Args: { p_batch_size: number; p_campaign_id: string }
+        Returns: {
+          contact_id: string
+        }[]
+      }
+      upsert_contact_by_phone_or_email: {
+        Args: {
+          p_consent_at: string
+          p_consent_method: string
+          p_email: string
+          p_language?: string
+          p_name: string
+          p_phone: string
+          p_source: string
+          p_tags?: string[]
+        }
+        Returns: Database["public"]["CompositeTypes"]["contact_upsert_result"]
+        SetofOptions: {
+          from: "*"
+          to: "contact_upsert_result"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
     }
     Enums: {
       [_ in never]: never
     }
     CompositeTypes: {
-      [_ in never]: never
+      contact_upsert_result: {
+        contact_id: string | null
+        created: boolean | null
+        needs_review: boolean | null
+        conflict_with: string | null
+      }
     }
   }
 }
@@ -542,6 +581,23 @@ export type Enums<
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
     ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
 
 export const Constants = {

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { createSupabaseAdminClient } from "@/lib/supabase/server"
 import { processCampaignBatch } from "@/server/comms/campaignWorker"
+import { backfillMessagePrices } from "@/server/billing/twilio"
 
 /**
  * Vercel Cron / external scheduler hits this every minute. Picks up any
@@ -44,5 +45,9 @@ export async function GET(request: NextRequest) {
     summary.push({ id: c.id, processed, done: campaignDone })
   }
 
-  return NextResponse.json({ ok: true, campaigns: summary, ran_at: nowIso })
+  // Settle prices Twilio finalized after the status callback fired (or that we
+  // missed). Bounded and idempotent — no-ops once everything is priced.
+  const priced = await backfillMessagePrices(50)
+
+  return NextResponse.json({ ok: true, campaigns: summary, priced, ran_at: nowIso })
 }

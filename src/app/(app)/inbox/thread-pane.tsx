@@ -110,6 +110,9 @@ export function ThreadPane({ contact, initialMessages }: ThreadPaneProps) {
       error: null,
       campaign_id: null,
       sent_by: null,
+      num_segments: null,
+      price: null,
+      price_unit: null,
       created_at: new Date().toISOString(),
       _optimistic: true,
     }

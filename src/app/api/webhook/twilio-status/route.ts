@@ -1,14 +1,17 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { verifyTwilioRequest } from "@/server/webhooks/verify"
 import { createSupabaseAdminClient } from "@/lib/supabase/server"
+import { captureMessagePrice, PRICED_STATUSES } from "@/server/billing/twilio"
 
 /**
  * Twilio delivery status callback. Updates messages.status as the message
- * moves through queued → sent → delivered (or failed/undelivered).
+ * moves through queued → sent → delivered (or failed/undelivered), and
+ * captures the real billed price once Twilio has finalized it.
  *
- * Status precedence: a late-arriving 'sent' must not overwrite a
- * 'delivered' that landed first. We use `app.message_status_rank()` to
- * compare ranks server-side in a single UPDATE.
+ * Status precedence: a late-arriving 'sent' must not overwrite a 'delivered'
+ * that landed first. We read the current status and only write when the
+ * incoming rank is ≥ current. Race-acceptable because the same twilio_sid
+ * won't have concurrent updates from us.
  */
 export async function POST(request: NextRequest) {
   const rawBody = await request.text()
@@ -26,25 +29,10 @@ export async function POST(request: NextRequest) {
     return new NextResponse("Missing params", { status: 400 })
   }
 
-  // Precedence-aware update via a raw query (PostgREST doesn't let us
-  // compare to a computed value in an UPDATE WHERE clause inline).
   const admin = createSupabaseAdminClient()
-  const { error } = await admin.rpc(
-    "exec_sql" as never,
-    null as never,
-  ).single().then(() => {
-    // PostgREST doesn't support raw exec; instead we do a guarded read then
-    // update. Cheap because messages.twilio_sid is UNIQUE.
-    return { error: null as null }
-  })
-
-  // Fallback approach via two-step (read current rank, only update if new rank
-  // ≥ current). Wrapping in a single SECURITY DEFINER function would be the
-  // cleaner long-term move; for now this is correct and race-acceptable
-  // because the same twilio_sid won't have concurrent updates from us.
   const { data: current } = await admin
     .from("messages")
-    .select("status")
+    .select("status, price")
     .eq("twilio_sid", sid)
     .maybeSingle()
 
@@ -57,9 +45,15 @@ export async function POST(request: NextRequest) {
         .update({ status, error: errorCode })
         .eq("twilio_sid", sid)
     }
+
+    // Twilio attaches price asynchronously, so the callback body never carries
+    // it — fetch the Message resource once we're past handoff and not already
+    // settled. Self-heals via the cron backfill if it's still null here.
+    if (current.price == null && PRICED_STATUSES.has(status)) {
+      await captureMessagePrice(sid)
+    }
   }
 
-  void error
   return new NextResponse("", { status: 200 })
 }
 

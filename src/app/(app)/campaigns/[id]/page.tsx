@@ -5,6 +5,7 @@ import { format } from "date-fns"
 import { ArrowLeft, MessageSquare, Mail } from "lucide-react"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { requireStaff } from "@/server/auth"
+import { formatMoney } from "@/server/billing/twilio"
 import { PageHeader } from "@/components/ui/page-header"
 import { Badge } from "@/components/ui/badge"
 import { CampaignActions } from "./campaign-actions"
@@ -29,13 +30,45 @@ export default async function CampaignDetail({ params }: PageProps) {
   const { id } = await params
   const supabase = await createSupabaseServerClient()
 
-  const [campaignRes, recipientsRes] = await Promise.all([
+  const [campaignRes, recipientsRes, messagesRes] = await Promise.all([
     supabase.from("campaigns").select("*").eq("id", id).maybeSingle(),
     supabase.from("campaign_recipients").select("status").eq("campaign_id", id),
+    supabase
+      .from("messages")
+      .select("status, price, price_unit, twilio_sid")
+      .eq("campaign_id", id)
+      .eq("direction", "out"),
   ])
   const campaign = campaignRes.data
   const recipients = recipientsRes.data
   if (!campaign) notFound()
+
+  // Actual cost, summed from the per-message prices Twilio settled. Never
+  // estimated: a message with no price yet is "still settling", not guessed.
+  const cost = { total: 0, settled: 0, pending: 0, mock: 0, currency: "USD" }
+  for (const m of messagesRes.data ?? []) {
+    if (m.twilio_sid?.startsWith("MOCK_")) {
+      cost.mock += 1
+    } else if (m.price != null) {
+      cost.total += Math.abs(Number(m.price))
+      cost.settled += 1
+      if (m.price_unit) cost.currency = m.price_unit.toUpperCase()
+    } else {
+      cost.pending += 1
+    }
+  }
+  const realMessages = cost.settled + cost.pending
+  let costDetail: string
+  if (realMessages === 0 && cost.mock === 0) {
+    costDetail = "No messages sent yet."
+  } else if (realMessages === 0) {
+    costDetail = `${cost.mock} mock message${cost.mock === 1 ? "" : "s"}, no real charges.`
+  } else {
+    const parts = [`${cost.settled} of ${realMessages} settled`]
+    if (cost.pending > 0) parts.push("costs settle within a few minutes of sending")
+    if (cost.mock > 0) parts.push(`${cost.mock} mock`)
+    costDetail = parts.join(" · ")
+  }
 
   const counts = {
     total: recipients?.length ?? 0,
@@ -86,6 +119,18 @@ export default async function CampaignDetail({ params }: PageProps) {
         <Stat label="Queued" value={counts.queued + counts.sending} />
         <Stat label="Skipped / failed" value={counts.skipped_opt_out + counts.skipped_unsubscribed + counts.skipped_no_channel + counts.failed} />
       </div>
+
+      {campaign.channel === "sms" && (
+        <div className="mt-8 rounded-lg border border-ink-hairline bg-white p-6">
+          <p className="eyebrow mb-3">Cost</p>
+          <p className="font-display text-title text-ink leading-none" data-dynamic>
+            {formatMoney(cost.total, cost.currency)}
+          </p>
+          <p className="mt-2 text-small text-ink-muted" data-dynamic>
+            {costDetail}
+          </p>
+        </div>
+      )}
 
       <div className="mt-8 rounded-lg border border-ink-hairline bg-white p-6">
         <p className="eyebrow mb-3">Message</p>
