@@ -38,12 +38,11 @@ export default async function AuditPage() {
   return (
     <div className="flex flex-col h-full min-h-0">
       <div className="shrink-0 px-4 md:px-8 pt-6 md:pt-8 pb-4 bg-bg">
-        <PageHeader eyebrow="Console" title="Audit log" />
-        <p className="mt-2 text-ink-muted text-body leading-normal max-w-2xl">
-          Every privileged write — sends, opt-out toggles, contact edits,
-          campaign starts, logins, invites. Reads are not logged; the threat
-          is unauthorized writes, not legitimate viewing.
-        </p>
+        <PageHeader
+          eyebrow="Console"
+          title="Audit log"
+          info="Every privileged write — sends, opt-out toggles, contact edits, campaign starts, logins, invites. Reads are not logged; the threat is unauthorized writes, not legitimate viewing."
+        />
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 md:px-8 pb-6 md:pb-8">

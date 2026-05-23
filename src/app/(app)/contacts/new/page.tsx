@@ -10,12 +10,11 @@ export default async function NewContactPage() {
   return (
     <div className="flex flex-col h-full min-h-0">
       <div className="shrink-0 px-4 md:px-8 pt-6 md:pt-8 pb-4 bg-bg max-w-2xl w-full">
-        <PageHeader eyebrow="Directory" title="New contact" />
-        <p className="mt-2 text-ink-muted text-body leading-normal">
-          Add someone manually. For everyone arriving from the public website
-          form, the form receiver creates them automatically with the form as
-          the proof of opt-in.
-        </p>
+        <PageHeader
+          eyebrow="Directory"
+          title="New contact"
+          info="Add someone manually. For everyone arriving from the public website form, the form receiver creates them automatically with the form as the proof of opt-in."
+        />
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 md:px-8 pb-6 md:pb-8 max-w-2xl w-full">

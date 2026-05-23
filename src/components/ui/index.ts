@@ -64,3 +64,4 @@ export {
 export { FormField, type FormFieldProps } from "./form-field"
 export { EmptyState, type EmptyStateProps } from "./empty-state"
 export { PageHeader, type PageHeaderProps } from "./page-header"
+export { PageInfo } from "./page-info"

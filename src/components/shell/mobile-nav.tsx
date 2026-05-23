@@ -6,7 +6,13 @@ import { cn } from "@/lib/utils"
 
 export function MobileNav({ role }: { role: "admin" | "member" }) {
   const pathname = usePathname()
-  const items = NAV_ITEMS.filter((i) => !i.adminOnly || role === "admin").slice(0, 4)
+  // Mobile bottom nav is for the three primary surfaces only — Settings and
+  // Audit live in the user menu (top right) so the bottom rail doesn't get
+  // crowded and the three core actions stay one-thumb reachable.
+  void role
+  const items = NAV_ITEMS.filter(
+    (i) => i.href === "/inbox" || i.href === "/contacts" || i.href === "/campaigns",
+  )
 
   return (
     <nav
@@ -16,7 +22,7 @@ export function MobileNav({ role }: { role: "admin" | "member" }) {
       className="md:hidden shrink-0 border-t border-ink-hairline bg-surface/95 backdrop-blur supports-[backdrop-filter]:bg-surface/80"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
-      <ul className="grid grid-cols-4">
+      <ul className="grid grid-cols-3">
         {items.map((item) => {
           const active = pathname === item.href || pathname?.startsWith(item.href + "/")
           const Icon = item.icon

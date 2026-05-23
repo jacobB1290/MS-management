@@ -34,11 +34,11 @@ export default async function EditContactPage({ params }: PageProps) {
         >
           <ArrowLeft size={14} /> Back to contact
         </Link>
-        <PageHeader eyebrow="Directory" title="Edit contact" />
-        <p className="mt-2 text-ink-muted text-body leading-normal">
-          Update what we know. Consent and source are preserved from the
-          original record.
-        </p>
+        <PageHeader
+          eyebrow="Directory"
+          title="Edit contact"
+          info="Update what we know. Consent method and source are preserved from the original record."
+        />
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 md:px-8 pb-6 md:pb-8 max-w-2xl w-full">
