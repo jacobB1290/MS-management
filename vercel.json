@@ -2,10 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
     {
-      "path": "/api/cron/send-campaign-batch",
-      "schedule": "* * * * *"
-    },
-    {
       "path": "/api/heartbeat",
       "schedule": "0 9 * * *"
     }
