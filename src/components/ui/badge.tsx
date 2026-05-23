@@ -8,10 +8,13 @@ const badgeVariants = cva(
     variants: {
       variant: {
         default: "bg-surface text-ink-muted",
-        success: "bg-[color-mix(in_oklab,var(--color-success)_14%,transparent)] text-success",
-        warning: "bg-[color-mix(in_oklab,var(--color-warning)_18%,transparent)] text-warning",
-        danger: "bg-[color-mix(in_oklab,var(--color-danger)_14%,transparent)] text-danger",
-        gold: "bg-[color-mix(in_oklab,var(--gold)_16%,transparent)] text-gold-dark",
+        // Colored variants are SOLID fills with white text — consistent
+        // contrast against any backdrop and matches the canonical gold
+        // CTA pill's white-on-color treatment.
+        success: "bg-success text-white",
+        warning: "bg-warning text-white",
+        danger: "bg-danger text-white",
+        gold: "bg-gold text-white",
         muted: "bg-transparent text-ink-faint",
       },
     },
