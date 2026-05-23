@@ -1,5 +1,33 @@
 import { clsx, type ClassValue } from "clsx"
-import { twMerge } from "tailwind-merge"
+import { extendTailwindMerge } from "tailwind-merge"
+
+// Teach tailwind-merge about our custom font-size tokens. Without this it
+// treats `text-small`, `text-heading`, etc. as members of the same group as
+// `text-white` / `text-ink` (the text-color group) and drops the color when
+// both appear on one element — e.g. the gold Avatar (`bg-gold text-white
+// text-small`) lost its white text.
+const twMerge = extendTailwindMerge({
+  extend: {
+    classGroups: {
+      "font-size": [
+        {
+          text: [
+            "hero",
+            "title",
+            "heading",
+            "lead",
+            "body",
+            "compact",
+            "small",
+            "label",
+            "micro",
+            "eyebrow",
+          ],
+        },
+      ],
+    },
+  },
+})
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
