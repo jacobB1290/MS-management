@@ -64,6 +64,9 @@ export const contactCreateSchema = z
     consent_method: z.string().trim().max(60),
     consent_at: z.string().datetime().optional(),
     notes: z.string().trim().max(2000).optional().nullable(),
+    // When true, a phone collision returns the existing contact instead of a
+    // 409 — lets the inbox "new message" flow find-or-create in one call.
+    find_or_create: z.boolean().optional(),
   })
   .refine((d) => d.phone || d.email, {
     message: "Provide at least a phone or an email.",

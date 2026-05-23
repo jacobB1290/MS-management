@@ -1,12 +1,12 @@
 "use client"
-import Link from "next/link"
 import { useEffect, useMemo, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { formatDistanceToNow } from "date-fns"
-import { Search, Plus } from "lucide-react"
+import { Search } from "lucide-react"
 import { Avatar } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
+import { NewMessageDialog } from "./new-message-dialog"
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser"
 import { cn, formatPhone } from "@/lib/utils"
 import type { Tables } from "@/lib/database.types"
@@ -134,14 +134,7 @@ export function ConversationList({
       <div className="shrink-0 px-4 pt-5 pb-3 border-b border-ink-hairline bg-surface/95 backdrop-blur supports-[backdrop-filter]:bg-surface/85 z-10">
         <div className="flex items-center justify-between mb-3">
           <p className="font-display text-heading text-ink">Inbox</p>
-          <Link
-            href="/contacts/new"
-            prefetch
-            className="inline-flex items-center justify-center h-11 w-11 rounded-pill bg-white border border-ink-hairline text-ink hover:bg-bg transition-colors"
-            aria-label="New contact"
-          >
-            <Plus size={16} />
-          </Link>
+          <NewMessageDialog />
         </div>
         <div className="relative">
           <Search

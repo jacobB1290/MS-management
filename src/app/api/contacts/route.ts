@@ -32,6 +32,18 @@ export async function POST(request: NextRequest) {
 
   if (error || !created) {
     if (error?.message.includes("duplicate")) {
+      // find-or-create: hand back the existing contact (by normalized phone)
+      // so the caller can open/continue the thread instead of dead-ending.
+      if (data.find_or_create && data.phone) {
+        const { data: existing } = await admin
+          .from("contacts")
+          .select("id")
+          .eq("phone", data.phone)
+          .maybeSingle()
+        if (existing) {
+          return NextResponse.json({ ok: true, id: existing.id, existing: true })
+        }
+      }
       return NextResponse.json({ error: "duplicate_phone" }, { status: 409 })
     }
     return NextResponse.json({ error: error?.message ?? "insert_failed" }, { status: 500 })
