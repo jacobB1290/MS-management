@@ -3,7 +3,7 @@ import Link from "next/link"
 import { useState } from "react"
 import { format } from "date-fns"
 import { toast } from "sonner"
-import { Pencil } from "lucide-react"
+import { Pencil, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
@@ -72,11 +72,14 @@ export function ContactPanel({ contact }: { contact: Tables<"contacts"> }) {
     <div className="flex-1 overflow-y-auto p-6">
       <p className="eyebrow">Contact</p>
       <Link
-        href={`/contacts/${snapshot.id}`}
+        href={`/contacts/${snapshot.id}?from=inbox`}
         prefetch
-        className="block font-display text-heading text-ink leading-tight mt-1 hover:underline"
+        className="flex items-center gap-1.5 font-display text-heading text-ink leading-tight mt-1 hover:underline w-fit max-w-full"
       >
-        {snapshot.name ?? formatPhone(snapshot.phone) ?? snapshot.email ?? "Unknown"}
+        <span className="truncate">
+          {snapshot.name ?? formatPhone(snapshot.phone) ?? snapshot.email ?? "Unknown"}
+        </span>
+        <ChevronRight size={18} className="shrink-0 text-ink-faint" />
       </Link>
 
       <dl className="mt-6 space-y-4">

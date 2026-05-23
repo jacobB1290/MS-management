@@ -14,11 +14,17 @@ export const metadata: Metadata = { title: "Contact" }
 
 interface PageProps {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ from?: string }>
 }
 
-export default async function ContactDetailPage({ params }: PageProps) {
+export default async function ContactDetailPage({ params, searchParams }: PageProps) {
   await requireStaff()
   const { id } = await params
+  const { from } = await searchParams
+  const cameFromThread = from === "inbox"
+  const backHref = cameFromThread ? `/inbox?c=${id}` : "/contacts"
+  const backLabel = cameFromThread ? "Back to conversation" : "All contacts"
+  const editHref = cameFromThread ? `/contacts/${id}/edit?from=inbox` : `/contacts/${id}/edit`
 
   const supabase = await createSupabaseServerClient()
   const [{ data: contact }, { data: messages }, { data: submissions }] = await Promise.all([
@@ -33,11 +39,11 @@ export default async function ContactDetailPage({ params }: PageProps) {
     <div className="flex flex-col h-full min-h-0">
       <div className="shrink-0 px-4 md:px-8 pt-6 md:pt-8 pb-4 bg-bg max-w-4xl w-full">
         <Link
-          href="/contacts"
+          href={backHref}
           prefetch
           className="inline-flex items-center gap-1.5 text-small text-ink-muted active:text-ink mb-4 min-h-11"
         >
-          <ArrowLeft size={14} /> All contacts
+          <ArrowLeft size={14} /> {backLabel}
         </Link>
         <PageHeader
           eyebrow="Contact"
@@ -45,7 +51,7 @@ export default async function ContactDetailPage({ params }: PageProps) {
           actions={
             <div className="flex items-center gap-2">
               <Button asChild variant="secondary">
-                <Link href={`/contacts/${contact.id}/edit`}>
+                <Link href={editHref}>
                   <Pencil size={14} />
                   Edit
                 </Link>

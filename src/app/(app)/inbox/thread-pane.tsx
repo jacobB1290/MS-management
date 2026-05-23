@@ -1,7 +1,7 @@
 "use client"
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, AlertTriangle, Plus, Loader2, X } from "lucide-react"
+import { ArrowLeft, AlertTriangle, Plus, Loader2, X, ChevronRight } from "lucide-react"
 import { format, formatRelative } from "date-fns"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -203,11 +203,14 @@ export function ThreadPane({ contact, initialMessages }: ThreadPaneProps) {
         <Avatar name={contact.name ?? contact.phone} size="md" />
         <div className="min-w-0 flex-1">
           <Link
-            href={`/contacts/${contact.id}`}
+            href={`/contacts/${contact.id}?from=inbox`}
             prefetch
-            className="font-medium text-ink truncate hover:underline block"
+            className="font-medium text-ink truncate hover:underline active:text-gold-dark flex items-center gap-1 w-fit max-w-full"
           >
-            {contact.name ?? formatPhone(contact.phone) ?? contact.email ?? "Unknown"}
+            <span className="truncate">
+              {contact.name ?? formatPhone(contact.phone) ?? contact.email ?? "Unknown"}
+            </span>
+            <ChevronRight size={15} className="shrink-0 text-ink-faint" />
           </Link>
           {/* Secondary line: only show when there's something *new* beyond the
               title — otherwise we end up with the phone number printed twice. */}
@@ -217,7 +220,7 @@ export function ThreadPane({ contact, initialMessages }: ThreadPaneProps) {
             </p>
           ) : !contact.name ? (
             <Link
-              href={`/contacts/${contact.id}/edit`}
+              href={`/contacts/${contact.id}/edit?from=inbox`}
               prefetch
               className="text-small text-gold hover:underline truncate block"
             >
@@ -265,7 +268,7 @@ export function ThreadPane({ contact, initialMessages }: ThreadPaneProps) {
             <p>
               No phone number on file.{" "}
               <Link
-                href={`/contacts/${contact.id}/edit`}
+                href={`/contacts/${contact.id}/edit?from=inbox`}
                 prefetch
                 className="text-gold underline underline-offset-2"
               >

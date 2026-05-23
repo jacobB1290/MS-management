@@ -11,11 +11,14 @@ export const metadata: Metadata = { title: "Edit contact" }
 
 interface PageProps {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ from?: string }>
 }
 
-export default async function EditContactPage({ params }: PageProps) {
+export default async function EditContactPage({ params, searchParams }: PageProps) {
   await requireStaff()
   const { id } = await params
+  const { from } = await searchParams
+  const backHref = from === "inbox" ? `/contacts/${id}?from=inbox` : `/contacts/${id}`
   const supabase = await createSupabaseServerClient()
   const { data: contact } = await supabase
     .from("contacts")
@@ -28,7 +31,7 @@ export default async function EditContactPage({ params }: PageProps) {
     <div className="flex flex-col h-full min-h-0">
       <div className="shrink-0 px-4 md:px-8 pt-6 md:pt-8 pb-4 bg-bg max-w-2xl w-full">
         <Link
-          href={`/contacts/${id}`}
+          href={backHref}
           prefetch
           className="inline-flex items-center gap-1.5 text-small text-ink-muted active:text-ink mb-4 min-h-11"
         >
