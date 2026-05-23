@@ -20,6 +20,13 @@ export function formatPhone(e164: string | null | undefined): string {
 
 export function initials(name: string | null | undefined): string {
   if (!name) return "·"
-  const parts = name.trim().split(/\s+/).slice(0, 2)
+  const trimmed = name.trim()
+  // If the "name" is a phone number, show the last 2 digits instead of "+1".
+  if (/^[+\d]/.test(trimmed)) {
+    const digits = trimmed.replace(/\D/g, "")
+    if (digits.length >= 2) return digits.slice(-2)
+    return "·"
+  }
+  const parts = trimmed.split(/\s+/).slice(0, 2)
   return parts.map((p) => p[0]?.toUpperCase() ?? "").join("") || "·"
 }

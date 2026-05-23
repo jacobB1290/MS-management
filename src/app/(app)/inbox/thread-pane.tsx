@@ -162,13 +162,25 @@ export function ThreadPane({ contact, initialMessages }: ThreadPaneProps) {
           <Link
             href={`/contacts/${contact.id}`}
             prefetch
-            className="font-medium text-ink truncate hover:underline"
+            className="font-medium text-ink truncate hover:underline block"
           >
             {contact.name ?? formatPhone(contact.phone) ?? contact.email ?? "Unknown"}
           </Link>
-          <p className="text-small text-ink-faint truncate">
-            {contact.phone ? formatPhone(contact.phone) : contact.email ?? "—"}
-          </p>
+          {/* Secondary line: only show when there's something *new* beyond the
+              title — otherwise we end up with the phone number printed twice. */}
+          {contact.name && (contact.phone || contact.email) ? (
+            <p className="text-small text-ink-faint truncate">
+              {contact.phone ? formatPhone(contact.phone) : contact.email}
+            </p>
+          ) : !contact.name ? (
+            <Link
+              href={`/contacts/${contact.id}/edit`}
+              prefetch
+              className="text-small text-gold hover:underline truncate block"
+            >
+              Add name
+            </Link>
+          ) : null}
         </div>
         {optedOut && (
           <Badge variant="warning" className="shrink-0">

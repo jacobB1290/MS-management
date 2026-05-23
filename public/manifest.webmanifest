@@ -1,0 +1,12 @@
+{
+  "name": "MS Management",
+  "short_name": "MS Mgmt",
+  "description": "Staff console for Morning Star Christian Church.",
+  "start_url": "/inbox",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f6f1ea",
+  "theme_color": "#9d7853",
+  "categories": ["productivity", "business"]
+}

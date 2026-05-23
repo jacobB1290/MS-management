@@ -129,7 +129,9 @@ export function ConversationList({
 
   return (
     <>
-      <div className="px-4 pt-5 pb-3 border-b border-ink-hairline">
+      {/* Sticky header: stays put while the conversation list scrolls
+          beneath it on mobile. */}
+      <div className="shrink-0 px-4 pt-5 pb-3 border-b border-ink-hairline bg-surface/95 backdrop-blur supports-[backdrop-filter]:bg-surface/85 z-10">
         <div className="flex items-center justify-between mb-3">
           <p className="font-display text-heading text-ink">Inbox</p>
           <Link
@@ -156,7 +158,7 @@ export function ConversationList({
         </div>
       </div>
 
-      <ol className="flex-1 overflow-y-auto no-scrollbar divide-y divide-ink-hairline">
+      <ol className="flex-1 min-h-0 overflow-y-auto no-scrollbar divide-y divide-ink-hairline">
         {filtered.length === 0 && (
           <li className="px-5 py-12 text-center text-ink-faint text-small">
             {query ? "No matches." : "No conversations yet."}

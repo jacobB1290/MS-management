@@ -23,11 +23,23 @@ export const metadata: Metadata = {
   },
   description: "Staff console for Morning Star Christian Church.",
   robots: { index: false, follow: false },
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    title: "MS Mgmt",
+    statusBarStyle: "default",
+  },
+  formatDetection: {
+    telephone: false,
+  },
 }
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
   themeColor: "#f6f1ea",
 }
 
@@ -38,7 +50,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${inter.variable} ${playfair.variable}`}>
-      <body className="min-h-dvh bg-bg text-ink antialiased">
+      <body className="h-dvh bg-bg text-ink antialiased overscroll-none">
         {children}
         <Toaster
           position="top-right"

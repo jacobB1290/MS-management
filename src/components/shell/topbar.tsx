@@ -27,7 +27,13 @@ export function Topbar({ user, title }: TopbarProps) {
   }
 
   return (
-    <header className="md:hidden sticky top-0 z-30 flex items-center justify-between border-b border-ink-hairline bg-bg/95 backdrop-blur supports-[backdrop-filter]:bg-bg/80 px-4 py-3">
+    // shrink-0 keeps the topbar at its natural height inside the parent
+    // flex chain so it doesn't compete with `main` for space (was sticky
+    // before, which counted on document scroll — we don't have that now).
+    <header
+      className="md:hidden shrink-0 flex items-center justify-between border-b border-ink-hairline bg-bg/95 backdrop-blur supports-[backdrop-filter]:bg-bg/80 px-4 py-3"
+      style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
+    >
       <div>
         <p className="eyebrow">Morning Star</p>
         <p className="font-display text-lead text-ink leading-none mt-0.5">

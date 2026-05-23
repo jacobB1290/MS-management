@@ -9,7 +9,13 @@ export function MobileNav({ role }: { role: "admin" | "member" }) {
   const items = NAV_ITEMS.filter((i) => !i.adminOnly || role === "admin").slice(0, 4)
 
   return (
-    <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-ink-hairline bg-surface/95 backdrop-blur supports-[backdrop-filter]:bg-surface/80">
+    <nav
+      // Natural-flow (not fixed) so the parent flex chain reserves its space
+      // — content above can't collide with it. iOS home-indicator clearance
+      // via env(safe-area-inset-bottom) painted inside the nav itself.
+      className="md:hidden shrink-0 border-t border-ink-hairline bg-surface/95 backdrop-blur supports-[backdrop-filter]:bg-surface/80"
+      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+    >
       <ul className="grid grid-cols-4">
         {items.map((item) => {
           const active = pathname === item.href || pathname?.startsWith(item.href + "/")
@@ -18,6 +24,7 @@ export function MobileNav({ role }: { role: "admin" | "member" }) {
             <li key={item.href}>
               <Link
                 href={item.href}
+                prefetch
                 className={cn(
                   "flex flex-col items-center justify-center gap-1 py-2.5 px-3 min-h-[58px] text-micro transition-colors",
                   active ? "text-gold" : "text-ink-faint",
@@ -33,7 +40,6 @@ export function MobileNav({ role }: { role: "admin" | "member" }) {
           )
         })}
       </ul>
-      <div className="h-[env(safe-area-inset-bottom)]" />
     </nav>
   )
 }
