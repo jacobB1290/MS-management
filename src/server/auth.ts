@@ -3,6 +3,7 @@ import { cache } from "react"
 import { unstable_cache } from "next/cache"
 import { redirect } from "next/navigation"
 import { createSupabaseServerClient, createSupabaseAdminClient } from "@/lib/supabase/server"
+import { isDemoEnabled, hasDemoSession, DEMO_USER } from "@/server/demo"
 
 export type StaffUser = {
   id: string
@@ -42,6 +43,13 @@ const getAppUserCached = (userId: string) =>
  * the same dedup'd Promise instead of fanning out into N auth round-trips.
  */
 export const requireStaff = cache(async (): Promise<StaffUser> => {
+  // Demo mode: the static demo user, gated on the demo cookie so the login
+  // step still applies. Never touches Supabase.
+  if (isDemoEnabled()) {
+    if (await hasDemoSession()) return DEMO_USER
+    redirect("/login")
+  }
+
   const supabase = await createSupabaseServerClient()
   const {
     data: { user },

@@ -1,7 +1,9 @@
 "use server"
 import { redirect } from "next/navigation"
+import { cookies } from "next/headers"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { safeNextPath } from "@/lib/safe-next"
+import { isDemoEnabled, DEMO_COOKIE } from "@/server/demo"
 import { z } from "zod"
 
 export type LoginState = { ok: true; sentTo: string } | { ok: false; error: string } | null
@@ -19,6 +21,24 @@ const requestSchema = z.object({
  * browser on iOS.
  */
 export async function requestCode(_prev: LoginState, formData: FormData): Promise<LoginState> {
+  // Demo entry: typing `demo` sets the demo cookie and drops into the app.
+  // Inert unless DEMO_MODE is enabled on this deployment.
+  const rawEmail = String(formData.get("email") ?? "").trim().toLowerCase()
+  if (rawEmail === "demo") {
+    if (isDemoEnabled()) {
+      const store = await cookies()
+      store.set(DEMO_COOKIE, "1", {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        path: "/",
+        maxAge: 60 * 60 * 8,
+      })
+      redirect("/inbox")
+    }
+    return { ok: false, error: "Enter a valid email address." }
+  }
+
   const parsed = requestSchema.safeParse({
     email: formData.get("email"),
     next: formData.get("next"),

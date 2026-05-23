@@ -1,5 +1,6 @@
 import { requireStaff } from "@/server/auth"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { isDemoEnabled } from "@/server/demo"
 import { Sidebar } from "@/components/shell/sidebar"
 import { MobileNav } from "@/components/shell/mobile-nav"
 import { Topbar } from "@/components/shell/topbar"
@@ -30,6 +31,11 @@ export default async function AppLayout({
 
       <div className="flex-1 flex flex-col min-w-0">
         <Topbar user={user} />
+        {isDemoEnabled() && (
+          <div className="shrink-0 bg-gold/12 border-b border-gold/25 px-4 py-1.5 text-center text-micro text-gold-dark">
+            Demo mode · sample data, nothing is actually sent
+          </div>
+        )}
         {/*
          * Each page owns its own scroll region (sticky header + scrolling
          * body). Main itself never scrolls; that's what kills the "everything

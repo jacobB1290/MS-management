@@ -9,6 +9,12 @@ import type { Database } from "@/lib/database.types"
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request })
 
+  // Demo mode: gate purely on the demo cookie, never contacting Supabase.
+  // When DEMO_MODE isn't "1" this block is skipped entirely.
+  if (process.env.DEMO_MODE === "1") {
+    return updateDemoSession(request)
+  }
+
   const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
@@ -61,4 +67,34 @@ export async function updateSession(request: NextRequest) {
   }
 
   return response
+}
+
+/**
+ * Demo-mode routing. The demo "session" is a single cookie; there is no real
+ * auth. Mirrors the gating above (login/webhook/machine routes stay open) but
+ * decides solely on the cookie, so no Supabase call is made.
+ */
+function updateDemoSession(request: NextRequest) {
+  const hasDemo = request.cookies.get("ms_demo")?.value === "1"
+  const path = request.nextUrl.pathname
+  const isAuthRoute = path.startsWith("/login") || path.startsWith("/auth")
+  const isPublicWebhook = path.startsWith("/api/webhook") || path.startsWith("/api/public-form")
+  const isMachineRoute =
+    path.startsWith("/api/cron/") ||
+    path.startsWith("/api/heartbeat") ||
+    path.startsWith("/api/dev/")
+
+  if (!hasDemo && !isAuthRoute && !isPublicWebhook && !isMachineRoute) {
+    const url = request.nextUrl.clone()
+    url.pathname = "/login"
+    url.searchParams.set("next", path)
+    return NextResponse.redirect(url)
+  }
+  if (hasDemo && isAuthRoute) {
+    const url = request.nextUrl.clone()
+    url.pathname = "/inbox"
+    url.search = ""
+    return NextResponse.redirect(url)
+  }
+  return NextResponse.next({ request })
 }

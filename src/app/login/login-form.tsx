@@ -25,7 +25,7 @@ const errorBox =
 const fieldClass =
   "block w-full rounded-md border border-ink-hairline bg-white px-4 py-3 text-body text-ink placeholder:text-ink-fade focus:outline-none focus:ring-2 focus:ring-gold min-h-11"
 
-export function LoginForm() {
+export function LoginForm({ demoEnabled = false }: { demoEnabled?: boolean }) {
   const params = useSearchParams()
   const nextPath = params.get("next") || ""
 
@@ -179,7 +179,9 @@ export function LoginForm() {
             <input
               id="email"
               name="email"
-              type="email"
+              // In demo, accept the `demo` sentinel as well as emails, so the
+              // browser's email validation doesn't block it.
+              type={demoEnabled ? "text" : "email"}
               autoComplete="email"
               required
               autoFocus
@@ -187,6 +189,11 @@ export function LoginForm() {
               placeholder="you@morningstarchurchboise.org"
               className={fieldClass}
             />
+            {demoEnabled && (
+              <p className="text-micro text-ink-faint">
+                Demo build: type <span className="font-mono">demo</span> to explore with sample data. Nothing is sent.
+              </p>
+            )}
           </div>
 
           {reqError && (

@@ -1,12 +1,14 @@
 import type { Metadata } from "next"
 import { Suspense } from "react"
 import { LoginForm } from "./login-form"
+import { isDemoEnabled } from "@/server/demo"
 
 export const metadata: Metadata = {
   title: "Sign in",
 }
 
 export default function LoginPage() {
+  const demoEnabled = isDemoEnabled()
   return (
     <main className="min-h-dvh flex items-center justify-center px-6 py-12 bg-bg">
       <div className="w-full max-w-md">
@@ -22,7 +24,7 @@ export default function LoginPage() {
 
         <div className="rounded-lg bg-white border border-ink-hairline shadow-[var(--shadow-sm)] p-7">
           <Suspense fallback={<div className="h-44" />}>
-            <LoginForm />
+            <LoginForm demoEnabled={demoEnabled} />
           </Suspense>
         </div>
 
