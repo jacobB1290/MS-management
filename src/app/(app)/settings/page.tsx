@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar } from "@/components/ui/avatar"
 import { TeamPanel } from "./team-panel"
 import { StoragePanel } from "./storage-panel"
+import { NotificationsPanel } from "./notifications-panel"
 
 export const metadata: Metadata = { title: "Settings" }
 
@@ -58,6 +59,11 @@ export default async function SettingsPage() {
             </Badge>
           </div>
         </div>
+      </section>
+
+      <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
+        <p className="eyebrow mb-3">Notifications</p>
+        <NotificationsPanel />
       </section>
 
       <SpendSection spend={spend} />

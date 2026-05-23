@@ -4,6 +4,8 @@ import { createSupabaseAdminClient } from "@/lib/supabase/server"
 import { logAudit } from "@/server/audit"
 import { detectOptOutKeyword } from "@/server/comms/optOut"
 import { toE164 } from "@/server/validation/phone"
+import { sendPushToStaff } from "@/server/push/send"
+import { formatPhone } from "@/lib/utils"
 
 /**
  * Twilio inbound message webhook. Configure this URL in the Twilio
@@ -148,6 +150,28 @@ export async function POST(request: NextRequest) {
     targetId: inserted?.id ?? messageSid,
     diff: { contact_id: contactId, from: phone, to, keyword },
   })
+
+  // Push-notify staff of a genuinely new inbound message (not a Twilio retry
+  // of one we already stored). Best-effort: never fail the webhook on push.
+  if (inserted?.id) {
+    try {
+      const { data: c } = await admin
+        .from("contacts")
+        .select("name")
+        .eq("id", contactId)
+        .maybeSingle()
+      const title = c?.name || formatPhone(phone) || "New message"
+      const preview = body.trim() || (mediaUrl ? "Sent a photo" : "New message")
+      await sendPushToStaff({
+        title,
+        body: preview.slice(0, 140),
+        url: `/inbox?c=${contactId}`,
+        tag: `contact-${contactId}`,
+      })
+    } catch {
+      /* swallow — delivery is best-effort */
+    }
+  }
 
   return new NextResponse(`<?xml version="1.0" encoding="UTF-8"?>\n<Response/>`, {
     status: 200,
