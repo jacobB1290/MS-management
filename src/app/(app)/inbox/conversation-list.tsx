@@ -163,9 +163,10 @@ export function ConversationList({
 
         {filtered.map((c) => {
           const active = c.id === activeId
-          // Needs a reply: their message is the last one in the thread. Clears
-          // when you reply (direction flips to "out"), not when you read.
-          const awaitingReply = c.last_message_direction === "in"
+          // Needs a reply: their message is the last one in the thread AND we
+          // can still reply. An opted-out (STOP) contact can't be messaged, so
+          // no dot — it would just be a task you can't action.
+          const awaitingReply = c.last_message_direction === "in" && !c.sms_opted_out_at
           const lastAt = c.last_message_at
             ? formatDistanceToNow(new Date(c.last_message_at), { addSuffix: false })
             : null

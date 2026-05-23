@@ -12,13 +12,15 @@ export default async function AppLayout({
 }) {
   const user = await requireStaff()
 
-  // Threads whose last message is inbound are awaiting a reply — surfaced as
-  // a count on the Inbox nav item. Server-rendered; refreshes on navigation.
+  // Threads whose last message is inbound and that we can still reply to are
+  // awaiting a reply — surfaced as a count on the Inbox nav item. Opted-out
+  // contacts are excluded (no reply possible). Refreshes on navigation.
   const supabase = await createSupabaseServerClient()
   const { count } = await supabase
     .from("contact_summary")
     .select("id", { count: "exact", head: true })
     .eq("last_message_direction", "in")
+    .is("sms_opted_out_at", null)
   const awaitingReply = count ?? 0
 
   return (
