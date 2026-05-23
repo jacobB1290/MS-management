@@ -1,8 +1,15 @@
 "use client"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useTransition, type ReactNode } from "react"
-import { Search } from "lucide-react"
+import { Search, Tag, Check, ChevronDown } from "lucide-react"
 import { Input } from "@/components/ui/input"
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu"
+import { cn } from "@/lib/utils"
 
 export function ContactsSearch({
   initialQuery,
@@ -34,8 +41,13 @@ export function ContactsSearch({
     startTransition(() => router.replace(`/contacts?${sp.toString()}`))
   }
 
+  function pickTag(value: string) {
+    setTag(value)
+    commit({ tag: value })
+  }
+
   return (
-    <div className="space-y-2">
+    <div className="space-y-2.5">
       {/* Search inline with the primary action (passed in as children). */}
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
@@ -57,23 +69,35 @@ export function ContactsSearch({
         {children}
       </div>
 
-      {/* Tag filter: a dropdown of existing tags, not free text. */}
-      <select
-        aria-label="Filter by tag"
-        value={tag}
-        onChange={(e) => {
-          setTag(e.target.value)
-          commit({ tag: e.target.value })
-        }}
-        className="block w-full md:max-w-[240px] rounded-md border border-ink-hairline bg-white px-3 py-2.5 text-small text-ink min-h-11"
-      >
-        <option value="">All tags</option>
-        {tags.map((t) => (
-          <option key={t} value={t}>
-            {t}
-          </option>
-        ))}
-      </select>
+      {/* Tag filter: a small, secondary dropdown chip — not a full-width field. */}
+      {tags.length > 0 && (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-pill border px-3 py-1.5 min-h-9 text-small transition-colors",
+              tag
+                ? "border-[color-mix(in_oklab,var(--gold)_45%,white)] bg-[color-mix(in_oklab,var(--gold)_12%,white)] text-gold-dark font-medium"
+                : "border-ink-hairline bg-white text-ink-muted hover:text-ink",
+            )}
+          >
+            <Tag size={13} />
+            {tag || "All tags"}
+            <ChevronDown size={13} className="text-ink-faint" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="max-h-64 overflow-y-auto">
+            <DropdownMenuItem onClick={() => pickTag("")}>
+              <Check size={14} className={cn("shrink-0", tag ? "opacity-0" : "text-gold")} />
+              All tags
+            </DropdownMenuItem>
+            {tags.map((t) => (
+              <DropdownMenuItem key={t} onClick={() => pickTag(t)}>
+                <Check size={14} className={cn("shrink-0", t === tag ? "text-gold" : "opacity-0")} />
+                {t}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
     </div>
   )
 }
