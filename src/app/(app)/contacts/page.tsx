@@ -5,7 +5,6 @@ import { format } from "date-fns"
 import { Plus } from "lucide-react"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { requireStaff } from "@/server/auth"
-import { PageHeader } from "@/components/ui/page-header"
 import { Button } from "@/components/ui/button"
 import { Avatar } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -24,24 +23,23 @@ export default async function ContactsPage({ searchParams }: PageProps) {
   await requireStaff()
   const { q, tag } = await searchParams
 
+  // Distinct tags across contacts, for the filter dropdown.
+  const supabase = await createSupabaseServerClient()
+  const { data: tagRows } = await supabase.from("contacts").select("tags").limit(1000)
+  const allTags = Array.from(
+    new Set((tagRows ?? []).flatMap((r) => (r.tags ?? []) as string[])),
+  ).sort((a, b) => a.localeCompare(b))
+
   return (
     <div className="px-4 md:px-8 py-6 md:py-8">
-      <PageHeader
-        eyebrow="Directory"
-        title="Contacts"
-        actions={
-          <Button asChild>
-            <Link href="/contacts/new">
-              <Plus size={16} />
-              New contact
-            </Link>
-          </Button>
-        }
-      />
-
-      <div className="mt-6">
-        <ContactsSearch initialQuery={q ?? ""} initialTag={tag ?? ""} />
-      </div>
+      <ContactsSearch initialQuery={q ?? ""} initialTag={tag ?? ""} tags={allTags}>
+        <Button asChild aria-label="New contact">
+          <Link href="/contacts/new">
+            <Plus size={16} />
+            <span className="hidden sm:inline">New contact</span>
+          </Link>
+        </Button>
+      </ContactsSearch>
 
       <div className="mt-6">
         <Suspense key={`${q ?? ""}-${tag ?? ""}`} fallback={<ContactsTableSkeleton />}>

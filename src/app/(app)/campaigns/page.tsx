@@ -4,7 +4,6 @@ import { format } from "date-fns"
 import { Plus, Mail, MessageSquare } from "lucide-react"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { requireStaff } from "@/server/auth"
-import { PageHeader } from "@/components/ui/page-header"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { EmptyState } from "@/components/ui/empty-state"
@@ -33,18 +32,12 @@ export default async function CampaignsPage() {
   return (
     <div className="flex flex-col h-full min-h-0">
       <div className="shrink-0 px-4 md:px-8 pt-6 md:pt-8 pb-4 bg-bg">
-        <PageHeader
-          eyebrow="Outreach"
-          title="Campaigns"
-          actions={
-            <Button asChild>
-              <Link href="/campaigns/new">
-                <Plus size={16} />
-                New campaign
-              </Link>
-            </Button>
-          }
-        />
+        <Button asChild>
+          <Link href="/campaigns/new">
+            <Plus size={16} />
+            New campaign
+          </Link>
+        </Button>
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 md:px-8 pb-6 md:pb-8">

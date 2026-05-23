@@ -133,24 +133,24 @@ export function ConversationList({
   return (
     <>
       {/* Sticky header: stays put while the conversation list scrolls
-          beneath it on mobile. */}
+          beneath it on mobile. Search sits inline with the compose action;
+          the page name already lives in the top bar / sidebar. */}
       <div className="shrink-0 px-4 pt-5 pb-3 border-b border-ink-hairline bg-surface/95 backdrop-blur supports-[backdrop-filter]:bg-surface/85 z-10">
-        <div className="flex items-center justify-between mb-3">
-          <p className="font-display text-heading text-ink">Inbox</p>
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint pointer-events-none"
+            />
+            <Input
+              type="search"
+              placeholder="Search by name, phone, email"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="pl-9 text-small"
+            />
+          </div>
           <NewMessageDialog />
-        </div>
-        <div className="relative">
-          <Search
-            size={14}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint pointer-events-none"
-          />
-          <Input
-            type="search"
-            placeholder="Search by name, phone, email"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="pl-9 text-small"
-          />
         </div>
       </div>
 
