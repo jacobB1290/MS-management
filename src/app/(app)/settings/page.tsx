@@ -1,10 +1,12 @@
 import type { Metadata } from "next"
+import type { ReactNode } from "react"
 import { format } from "date-fns"
 import { Check, X } from "lucide-react"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { requireStaff } from "@/server/auth"
 import { getSpendSummary, formatMoney, type SpendSummary } from "@/server/billing/twilio"
 import { PageHeader } from "@/components/ui/page-header"
+import { PageInfo } from "@/components/ui/page-info"
 import { Badge } from "@/components/ui/badge"
 import { Avatar } from "@/components/ui/avatar"
 import { TeamPanel } from "./team-panel"
@@ -59,24 +61,23 @@ export default async function SettingsPage() {
 
       {user.role === "admin" && (
         <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
-          <p className="eyebrow mb-1">Team</p>
-          <p className="text-small text-ink-muted mb-4">
-            Sign-in is by invitation only. Admins can invite, demote, or remove
-            people here. Removed people can still sign in but hit the no-access
-            page.
-          </p>
+          <SectionTitle
+            label="About team settings"
+            info="Sign-in is by invitation only. Admins can invite, demote, or remove people here. Removed people can still sign in but hit the no-access page."
+          >
+            Team
+          </SectionTitle>
           <TeamPanel team={team ?? []} currentUserId={user.id} />
         </section>
       )}
 
       <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
-        <p className="eyebrow mb-1">Provider configuration</p>
-        <p className="text-small text-ink-muted mb-4">
-          Set the provider env vars in Vercel and redeploy. Until a given
-          provider is configured, the matching send path records the
-          attempt without contacting the carrier — useful for staging,
-          never for real delivery.
-        </p>
+        <SectionTitle
+          label="About provider configuration"
+          info="Set the provider env vars in Vercel and redeploy. Until a given provider is configured, the matching send path records the attempt without contacting the carrier — useful for staging, never for real delivery."
+        >
+          Provider configuration
+        </SectionTitle>
         <dl className="space-y-2">
           <StatusRow
             label="Twilio (account + auth)"
@@ -112,10 +113,12 @@ export default async function SettingsPage() {
       </section>
 
       <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
-        <p className="eyebrow mb-1">Heartbeat</p>
-        <p className="text-small text-ink-muted mb-3">
-          A daily ping keeps the free-tier Supabase project from pausing.
-        </p>
+        <SectionTitle
+          label="About the heartbeat"
+          info="A daily ping keeps the free-tier Supabase project from pausing."
+        >
+          Heartbeat
+        </SectionTitle>
         <p className="text-body" data-dynamic>
           {heartbeat?.last_run_at
             ? `Last run: ${format(new Date(heartbeat.last_run_at), "PPp")}`
@@ -127,15 +130,32 @@ export default async function SettingsPage() {
   )
 }
 
+function SectionTitle({
+  children,
+  info,
+  label,
+}: {
+  children: ReactNode
+  info: ReactNode
+  label: string
+}) {
+  return (
+    <div className="flex items-center gap-1 mb-3">
+      <p className="eyebrow">{children}</p>
+      <PageInfo label={label}>{info}</PageInfo>
+    </div>
+  )
+}
+
 function SpendSection({ spend }: { spend: SpendSummary }) {
   return (
     <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
-      <p className="eyebrow mb-1">Spend</p>
-      <p className="text-small text-ink-muted mb-4">
-        Pulled live from Twilio (cached 5 min). These are the same numbers on
-        the invoice, never estimated, and cover all Twilio usage on this
-        account.
-      </p>
+      <SectionTitle
+        label="About spend"
+        info="Pulled live from Twilio (cached 5 min). These are the same numbers on the invoice, never estimated, and cover all Twilio usage on this account."
+      >
+        Spend
+      </SectionTitle>
 
       {!spend.configured ? (
         <p className="text-small text-ink-faint">
