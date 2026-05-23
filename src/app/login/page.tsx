@@ -16,7 +16,7 @@ export default function LoginPage() {
             Welcome back
           </h1>
           <p className="mt-2 text-ink-muted text-lead">
-            Sign in with the email on file. We&rsquo;ll send you a one-time link.
+            Sign in with the email on file. We&rsquo;ll send you a one-time code.
           </p>
         </div>
 
