@@ -52,11 +52,6 @@ export default async function CampaignsPage() {
           <EmptyState
             title="No campaigns yet"
             body="Send a one-off announcement to a tagged audience over SMS or email. Opted-out contacts are automatically excluded."
-            action={
-              <Button asChild>
-                <Link href="/campaigns/new">Compose the first campaign</Link>
-              </Button>
-            }
           />
         ) : (
           <div className="overflow-x-auto rounded-lg border border-ink-hairline bg-white">
