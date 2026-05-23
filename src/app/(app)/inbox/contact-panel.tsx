@@ -7,6 +7,7 @@ import { Pencil, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { formatPhone } from "@/lib/utils"
 import type { Tables } from "@/lib/database.types"
 
@@ -21,19 +22,14 @@ export function ContactPanel({ contact }: { contact: Tables<"contacts"> }) {
   }
 
   const [toggling, setToggling] = useState(false)
+  const [pending, setPending] = useState<{
+    channel: "sms" | "email"
+    optedOut: boolean
+  } | null>(null)
   const optedOutSms = Boolean(snapshot.sms_opted_out_at)
   const unsubEmail = Boolean(snapshot.email_unsubscribed_at)
 
   async function toggleOptOut(channel: "sms" | "email", optedOut: boolean) {
-    if (
-      !confirm(
-        optedOut
-          ? `Mark this contact as opted-out for ${channel.toUpperCase()}? They will be excluded from all future ${channel === "sms" ? "messages" : "emails"}.`
-          : `Re-enable ${channel.toUpperCase()} for this contact? Make sure they've explicitly asked to receive ${channel === "sms" ? "messages" : "emails"} again — never opt someone back in without consent.`,
-      )
-    )
-      return
-
     // Optimistic flip.
     const nowIso = optedOut ? new Date().toISOString() : null
     const before = snapshot
@@ -56,8 +52,8 @@ export function ContactPanel({ contact }: { contact: Tables<"contacts"> }) {
       } else {
         toast.success(
           optedOut
-            ? `${channel.toUpperCase()} disabled.`
-            : `${channel.toUpperCase()} re-enabled.`,
+            ? `${channel.toUpperCase()} disabled`
+            : `${channel.toUpperCase()} re-enabled`,
         )
       }
     } catch (err) {
@@ -65,6 +61,7 @@ export function ContactPanel({ contact }: { contact: Tables<"contacts"> }) {
       toast.error(`Network error: ${err instanceof Error ? err.message : String(err)}`)
     } finally {
       setToggling(false)
+      setPending(null)
     }
   }
 
@@ -122,7 +119,7 @@ export function ContactPanel({ contact }: { contact: Tables<"contacts"> }) {
               variant="secondary"
               size="sm"
               disabled={toggling}
-              onClick={() => toggleOptOut("sms", false)}
+              onClick={() => setPending({ channel: "sms", optedOut: false })}
               className="w-full"
             >
               Re-enable SMS
@@ -132,7 +129,7 @@ export function ContactPanel({ contact }: { contact: Tables<"contacts"> }) {
               variant="ghost"
               size="sm"
               disabled={toggling || !snapshot.phone}
-              onClick={() => toggleOptOut("sms", true)}
+              onClick={() => setPending({ channel: "sms", optedOut: true })}
               className="w-full justify-start text-ink-muted hover:text-danger"
             >
               Mark opted-out
@@ -146,7 +143,7 @@ export function ContactPanel({ contact }: { contact: Tables<"contacts"> }) {
               variant="secondary"
               size="sm"
               disabled={toggling}
-              onClick={() => toggleOptOut("email", false)}
+              onClick={() => setPending({ channel: "email", optedOut: false })}
               className="w-full"
             >
               Re-enable email
@@ -156,7 +153,7 @@ export function ContactPanel({ contact }: { contact: Tables<"contacts"> }) {
               variant="ghost"
               size="sm"
               disabled={toggling || !snapshot.email}
-              onClick={() => toggleOptOut("email", true)}
+              onClick={() => setPending({ channel: "email", optedOut: true })}
               className="w-full justify-start text-ink-muted hover:text-danger"
             >
               Mark unsubscribed
@@ -164,6 +161,29 @@ export function ContactPanel({ contact }: { contact: Tables<"contacts"> }) {
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={pending !== null}
+        onOpenChange={(next) => {
+          if (!next) setPending(null)
+        }}
+        title={
+          pending?.optedOut
+            ? `Opt out of ${pending.channel.toUpperCase()}?`
+            : `Re-enable ${pending?.channel.toUpperCase()}?`
+        }
+        description={
+          pending?.optedOut
+            ? `They’ll be excluded from all future ${pending.channel === "sms" ? "messages" : "emails"} until they opt back in.`
+            : `Only do this if they’ve explicitly asked to receive ${pending?.channel === "sms" ? "messages" : "emails"} again. Never opt someone back in without consent.`
+        }
+        confirmLabel={pending?.optedOut ? "Opt out" : "Re-enable"}
+        destructive={pending?.optedOut ?? false}
+        loading={toggling}
+        onConfirm={() => {
+          if (pending) void toggleOptOut(pending.channel, pending.optedOut)
+        }}
+      />
     </div>
   )
 }
@@ -208,7 +228,7 @@ function NotesBlock({
         setValue(initial)
         setEditing(true)
       } else {
-        toast.success("Note saved.")
+        toast.success("Note saved")
       }
     } finally {
       setSaving(false)

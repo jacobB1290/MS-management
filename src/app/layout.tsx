@@ -42,6 +42,9 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover",
+  // Resize the layout when the on-screen keyboard opens so the sticky compose
+  // bar stays above it instead of being covered.
+  interactiveWidget: "resizes-content",
   themeColor: "#f6f1ea",
 }
 
@@ -55,7 +58,7 @@ export default function RootLayout({
       <body className="bg-bg text-ink antialiased">
         {children}
         <Toaster
-          position="top-right"
+          position="bottom-center"
           richColors
           theme="light"
           toastOptions={{

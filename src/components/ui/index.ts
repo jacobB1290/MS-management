@@ -61,6 +61,7 @@ export {
   type DropdownMenuContentProps,
   type DropdownMenuItemProps,
 } from "./dropdown-menu"
+export { ConfirmDialog, type ConfirmDialogProps } from "./confirm-dialog"
 export { FormField, type FormFieldProps } from "./form-field"
 export { EmptyState, type EmptyStateProps } from "./empty-state"
 export { PageHeader, type PageHeaderProps } from "./page-header"

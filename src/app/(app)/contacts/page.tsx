@@ -62,11 +62,13 @@ async function ContactsTable({ q, tag }: { q?: string; tag?: string }) {
 
   if (q) {
     const safe = q.replace(/[^a-zA-Z0-9 @+\-.]/g, "").slice(0, 80)
-    if (safe) {
-      query = query.or(
-        `name.ilike.%${safe}%,email.ilike.%${safe}%,phone.ilike.%${safe}%`,
-      )
-    }
+    // Phone is stored E.164; match on digits so "(208) 473" finds it too.
+    const digits = q.replace(/\D/g, "").slice(0, 20)
+    const clauses: string[] = []
+    if (safe) clauses.push(`name.ilike.%${safe}%`, `email.ilike.%${safe}%`)
+    if (digits.length >= 3) clauses.push(`phone.ilike.%${digits}%`)
+    else if (safe) clauses.push(`phone.ilike.%${safe}%`)
+    if (clauses.length) query = query.or(clauses.join(","))
   }
   if (tag) {
     const safeTag = tag.replace(/[^a-zA-Z0-9_\-]/g, "").slice(0, 40)

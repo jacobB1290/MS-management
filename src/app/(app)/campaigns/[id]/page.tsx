@@ -5,6 +5,7 @@ import { format } from "date-fns"
 import { ArrowLeft, MessageSquare, Mail } from "lucide-react"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { requireStaff } from "@/server/auth"
+import { resolveAudienceMode } from "@/server/comms/campaignAudience"
 import { formatMoney } from "@/server/billing/twilio"
 import { isVideoUrl } from "@/lib/media"
 import { PageHeader } from "@/components/ui/page-header"
@@ -87,6 +88,22 @@ export default async function CampaignDetail({ params }: PageProps) {
       (counts[r.status as keyof typeof counts] ?? 0) + 1
   }
 
+  // Before sending, preview how many contacts the audience filter matches so
+  // the start confirmation isn't a blind blast. Opted-out contacts are still
+  // counted here (they get skipped at send time, shown in the breakdown).
+  let audienceCount: number | null = null
+  if (campaign.status === "draft" || campaign.status === "scheduled") {
+    const mode = resolveAudienceMode(
+      campaign.audience_filter as Record<string, unknown> | null,
+    )
+    if (mode.mode !== "invalid") {
+      let q = supabase.from("contacts").select("id", { count: "exact", head: true })
+      if (mode.mode === "tags") q = q.overlaps("tags", mode.tags)
+      const { count } = await q
+      audienceCount = count ?? 0
+    }
+  }
+
   return (
     <div className="flex flex-col h-full min-h-0">
       <div className="shrink-0 px-4 md:px-8 pt-6 md:pt-8 pb-4 bg-bg max-w-4xl w-full">
@@ -100,7 +117,7 @@ export default async function CampaignDetail({ params }: PageProps) {
         <PageHeader
           eyebrow="Campaign"
           title={campaign.name}
-          actions={<CampaignActions campaign={campaign} />}
+          actions={<CampaignActions campaign={campaign} audienceCount={audienceCount} />}
         />
         <div className="mt-2 flex items-center gap-2 flex-wrap">
           <Badge variant={STATUS_VARIANT[campaign.status] ?? "muted"}>

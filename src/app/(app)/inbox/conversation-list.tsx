@@ -112,11 +112,14 @@ export function ConversationList({
   const filtered = useMemo(() => {
     if (!query.trim()) return items
     const q = query.toLowerCase()
+    // Match phone numbers on digits only, so "(208) 473" finds the stored
+    // E.164 form just like a bare "208473" would.
+    const qDigits = query.replace(/\D/g, "")
     return items.filter(
       (c) =>
         c.name?.toLowerCase().includes(q) ||
-        c.phone?.includes(q) ||
-        c.email?.toLowerCase().includes(q),
+        c.email?.toLowerCase().includes(q) ||
+        (qDigits.length >= 2 && c.phone?.replace(/\D/g, "").includes(qDigits)),
     )
   }, [items, query])
 

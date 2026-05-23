@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 
 type Member = {
   user_id: string
@@ -19,6 +20,8 @@ export function TeamPanel({ team, currentUserId }: { team: Member[]; currentUser
   const router = useRouter()
   const [showInvite, setShowInvite] = useState(false)
   const [inviting, setInviting] = useState(false)
+  const [pendingRemove, setPendingRemove] = useState<{ userId: string; name: string } | null>(null)
+  const [removing, setRemoving] = useState(false)
 
   async function invite(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -38,7 +41,7 @@ export function TeamPanel({ team, currentUserId }: { team: Member[]; currentUser
       if (!res.ok) {
         toast.error(`Invite failed: ${json.error ?? res.status}`)
       } else {
-        toast.success("Invitation sent.")
+        toast.success("Invitation sent")
         setShowInvite(false)
         router.refresh()
       }
@@ -47,15 +50,21 @@ export function TeamPanel({ team, currentUserId }: { team: Member[]; currentUser
     }
   }
 
-  async function remove(userId: string, name: string) {
-    if (!confirm(`Remove ${name} from the team? They can still sign in but won't have access.`)) return
-    const res = await fetch(`/api/team/${userId}`, { method: "DELETE" })
-    if (!res.ok) {
-      const j = await res.json().catch(() => null)
-      toast.error(`Failed: ${j?.error ?? res.status}`)
-    } else {
-      toast.success("Removed.")
-      router.refresh()
+  async function remove() {
+    if (!pendingRemove) return
+    setRemoving(true)
+    try {
+      const res = await fetch(`/api/team/${pendingRemove.userId}`, { method: "DELETE" })
+      if (!res.ok) {
+        const j = await res.json().catch(() => null)
+        toast.error(`Failed: ${j?.error ?? res.status}`)
+      } else {
+        toast.success("Removed")
+        router.refresh()
+      }
+    } finally {
+      setRemoving(false)
+      setPendingRemove(null)
     }
   }
 
@@ -104,7 +113,12 @@ export function TeamPanel({ team, currentUserId }: { team: Member[]; currentUser
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => remove(m.user_id, m.display_name ?? "this user")}
+                  onClick={() =>
+                    setPendingRemove({
+                      userId: m.user_id,
+                      name: m.display_name ?? "this user",
+                    })
+                  }
                   aria-label={`Remove ${m.display_name ?? "user"}`}
                 >
                   <Trash2 size={16} />
@@ -130,7 +144,7 @@ export function TeamPanel({ team, currentUserId }: { team: Member[]; currentUser
             <select
               name="role"
               defaultValue="member"
-              className="rounded-md border border-ink-hairline bg-white px-3 py-2 text-small text-ink min-h-10"
+              className="rounded-md border border-ink-hairline bg-white px-3 py-2 text-small text-ink min-h-11"
             >
               <option value="member">Member</option>
               <option value="admin">Admin</option>
@@ -146,6 +160,19 @@ export function TeamPanel({ team, currentUserId }: { team: Member[]; currentUser
           </div>
         </form>
       )}
+
+      <ConfirmDialog
+        open={pendingRemove !== null}
+        onOpenChange={(next) => {
+          if (!next) setPendingRemove(null)
+        }}
+        title={`Remove ${pendingRemove?.name ?? "this user"}?`}
+        description="They can still sign in but won’t have access to the console."
+        confirmLabel="Remove"
+        destructive
+        loading={removing}
+        onConfirm={remove}
+      />
     </div>
   )
 }

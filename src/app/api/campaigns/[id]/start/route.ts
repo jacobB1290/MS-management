@@ -3,6 +3,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/server"
 import { requireStaff } from "@/server/auth"
 import { logAudit } from "@/server/audit"
 import { processCampaignBatch } from "@/server/comms/campaignWorker"
+import { resolveAudienceMode } from "@/server/comms/campaignAudience"
 import type { Json } from "@/lib/database.types"
 
 /**
@@ -36,17 +37,18 @@ export async function POST(
   //   { all: true }              → every contact
   //   { tags: ["a","b"] }        → contacts whose tags contain any of these
   const filter = (campaign.audience_filter ?? {}) as Record<string, unknown>
-  let audienceQuery = admin
-    .from("contacts")
-    .select("id, phone, email, sms_opted_out_at, email_unsubscribed_at")
-
-  if (Array.isArray(filter.tags) && filter.tags.length > 0) {
-    audienceQuery = audienceQuery.overlaps("tags", filter.tags as string[])
-  } else if (filter.all !== true) {
+  const audience_mode = resolveAudienceMode(filter)
+  if (audience_mode.mode === "invalid") {
     return NextResponse.json(
       { error: "no_audience_filter", detail: "Provide {all:true} or {tags:[...]}." },
       { status: 400 },
     )
+  }
+  let audienceQuery = admin
+    .from("contacts")
+    .select("id, phone, email, sms_opted_out_at, email_unsubscribed_at")
+  if (audience_mode.mode === "tags") {
+    audienceQuery = audienceQuery.overlaps("tags", audience_mode.tags)
   }
 
   const { data: audience, error: audienceErr } = await audienceQuery

@@ -81,7 +81,7 @@ export function ContactForm({ initialValues, contactId }: ContactFormProps) {
           toast.error(`Failed: ${json.error}`)
         }
       } else {
-        toast.success(isEdit ? "Contact updated." : "Contact added.")
+        toast.success(isEdit ? "Contact updated" : "Contact added")
         router.push(`/contacts/${isEdit ? contactId : json.id}`)
         router.refresh()
       }
@@ -135,7 +135,7 @@ export function ContactForm({ initialValues, contactId }: ContactFormProps) {
             name="consent_method"
             required
             defaultValue="verbal"
-            className="block w-full rounded-md border border-ink-hairline bg-white px-3 py-2.5 text-body text-ink focus:outline-none focus:ring-2 focus:ring-gold min-h-11"
+            className="block w-full rounded-md border border-ink-hairline bg-white px-3 py-2.5 text-body text-ink min-h-11"
           >
             {CONSENT_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -152,7 +152,7 @@ export function ContactForm({ initialValues, contactId }: ContactFormProps) {
             id="language"
             name="language"
             defaultValue={initialValues?.language ?? "en"}
-            className="block w-full rounded-md border border-ink-hairline bg-white px-3 py-2.5 text-body text-ink focus:outline-none focus:ring-2 focus:ring-gold min-h-11"
+            className="block w-full rounded-md border border-ink-hairline bg-white px-3 py-2.5 text-body text-ink min-h-11"
           >
             <option value="en">English</option>
             <option value="ru">Russian</option>

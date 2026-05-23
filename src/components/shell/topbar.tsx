@@ -1,6 +1,6 @@
 "use client"
 import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { ChevronDown, LogOut, Settings, FileText } from "lucide-react"
 import {
   DropdownMenu,
@@ -17,9 +17,20 @@ interface TopbarProps {
   title?: string
 }
 
+const SECTION_TITLES: Record<string, string> = {
+  inbox: "Inbox",
+  contacts: "Contacts",
+  campaigns: "Campaigns",
+  settings: "Settings",
+  audit: "Audit log",
+}
+
 export function Topbar({ user, title }: TopbarProps) {
   const [open, setOpen] = useState(false)
   const router = useRouter()
+  const pathname = usePathname()
+  const section = pathname?.split("/")[1] ?? ""
+  const derivedTitle = title ?? SECTION_TITLES[section] ?? "Management"
 
   async function handleSignOut() {
     await fetch("/logout", { method: "POST" })
@@ -39,7 +50,7 @@ export function Topbar({ user, title }: TopbarProps) {
       <div>
         <p className="eyebrow">Morning Star</p>
         <p className="font-display text-lead text-ink leading-none mt-0.5">
-          {title ?? "Management"}
+          {derivedTitle}
         </p>
       </div>
 
