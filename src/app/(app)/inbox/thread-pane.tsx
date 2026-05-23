@@ -1,8 +1,7 @@
 "use client"
-import { useEffect, useMemo, useRef, useState } from "react"
 /* eslint-disable react/no-unescaped-entities */
+import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { ArrowLeft, AlertTriangle } from "lucide-react"
 import { format, formatRelative } from "date-fns"
 import { toast } from "sonner"
@@ -23,9 +22,12 @@ interface ThreadPaneProps {
   currentUserId: string
 }
 
+/** Optimistic message rows are real Message shape but with a temp id and
+ *  status='pending'; once the server returns the real row id, we swap. */
+type OptimisticMessage = Message & { _optimistic?: boolean }
+
 export function ThreadPane({ contact, initialMessages }: ThreadPaneProps) {
-  const router = useRouter()
-  const [messages, setMessages] = useState<Message[]>(initialMessages)
+  const [messages, setMessages] = useState<OptimisticMessage[]>(initialMessages)
   const [body, setBody] = useState("")
   const [sending, setSending] = useState(false)
   const scrollerRef = useRef<HTMLDivElement>(null)
@@ -52,8 +54,22 @@ export function ThreadPane({ contact, initialMessages }: ThreadPaneProps) {
         (payload) => {
           if (payload.eventType === "INSERT") {
             setMessages((cur) => {
-              if (cur.some((m) => m.id === (payload.new as Message).id)) return cur
-              return [...cur, payload.new as Message]
+              const incoming = payload.new as Message
+              if (cur.some((m) => m.id === incoming.id)) return cur
+              // Swap a matching pending optimistic row with the real one
+              // (matched on body since temp ids are random).
+              const swapIdx = cur.findIndex(
+                (m) =>
+                  m._optimistic &&
+                  m.direction === "out" &&
+                  m.body === incoming.body,
+              )
+              if (swapIdx >= 0) {
+                const next = cur.slice()
+                next[swapIdx] = incoming
+                return next
+              }
+              return [...cur, incoming]
             })
           } else if (payload.eventType === "UPDATE") {
             setMessages((cur) =>
@@ -77,25 +93,53 @@ export function ThreadPane({ contact, initialMessages }: ThreadPaneProps) {
 
   async function handleSend(e: React.FormEvent) {
     e.preventDefault()
-    if (!body.trim() || sending || optedOut || noPhone) return
+    const text = body.trim()
+    if (!text || sending || optedOut || noPhone) return
     setSending(true)
+
+    // Optimistic: append a pending bubble immediately so the UI feels native.
+    const tempId = `tmp_${crypto.randomUUID()}`
+    const optimistic: OptimisticMessage = {
+      id: tempId,
+      contact_id: contact.id,
+      direction: "out",
+      body: text,
+      media_url: null,
+      channel: "sms",
+      twilio_sid: null,
+      status: "sending",
+      error: null,
+      campaign_id: null,
+      sent_by: null,
+      created_at: new Date().toISOString(),
+      _optimistic: true,
+    }
+    setMessages((cur) => [...cur, optimistic])
+    setBody("")
+
     try {
       const res = await fetch("/api/messages/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contact_id: contact.id, body }),
+        body: JSON.stringify({ contact_id: contact.id, body: text }),
       })
       const json = await res.json()
       if (!res.ok) {
+        // Roll the optimistic message back, restore the textarea.
+        setMessages((cur) => cur.filter((m) => m.id !== tempId))
+        setBody(text)
         toast.error(json.error === "opt_out" ? "Contact has opted out." : `Send failed: ${json.error}`)
-      } else {
-        setBody("")
-        if (json.mock) {
-          toast.message("Recorded without sending — Twilio not configured yet.")
-        }
-        router.refresh()
+      } else if (json.mock) {
+        // Mark the optimistic row as 'mocked' visibly until realtime swaps it.
+        setMessages((cur) =>
+          cur.map((m) => (m.id === tempId ? { ...m, status: "mocked" } : m)),
+        )
+        toast.message("Recorded without sending — Twilio not configured yet.")
       }
+      // No router.refresh() — realtime + optimistic state already covers it.
     } catch (err) {
+      setMessages((cur) => cur.filter((m) => m.id !== tempId))
+      setBody(text)
       toast.error(`Network error: ${err instanceof Error ? err.message : String(err)}`)
     } finally {
       setSending(false)
@@ -107,6 +151,7 @@ export function ThreadPane({ contact, initialMessages }: ThreadPaneProps) {
       <header className="shrink-0 flex items-center gap-3 px-4 md:px-6 py-3 border-b border-ink-hairline bg-bg/95 backdrop-blur">
         <Link
           href="/inbox"
+          prefetch
           className="md:hidden inline-flex items-center justify-center h-11 w-11 -ml-2 rounded-pill hover:bg-white transition-colors"
           aria-label="Back to inbox"
         >
@@ -116,6 +161,7 @@ export function ThreadPane({ contact, initialMessages }: ThreadPaneProps) {
         <div className="min-w-0 flex-1">
           <Link
             href={`/contacts/${contact.id}`}
+            prefetch
             className="font-medium text-ink truncate hover:underline"
           >
             {contact.name ?? formatPhone(contact.phone) ?? contact.email ?? "Unknown"}
@@ -170,7 +216,7 @@ export function ThreadPane({ contact, initialMessages }: ThreadPaneProps) {
             value={body}
             onChange={(e) => setBody(e.target.value)}
             placeholder={optedOut ? "Cannot send — opted out" : "Write a reply…"}
-            disabled={optedOut || noPhone || sending}
+            disabled={optedOut || noPhone}
             rows={2}
             autoGrow
             className="flex-1 min-h-[44px] max-h-40 resize-none"
@@ -183,10 +229,10 @@ export function ThreadPane({ contact, initialMessages }: ThreadPaneProps) {
           />
           <Button
             type="submit"
-            disabled={optedOut || noPhone || sending || !body.trim()}
+            disabled={optedOut || noPhone || !body.trim()}
             size="md"
           >
-            {sending ? "Sending…" : "Send"}
+            Send
           </Button>
         </form>
         <p className="mt-2 text-micro text-ink-faint">
@@ -197,20 +243,22 @@ export function ThreadPane({ contact, initialMessages }: ThreadPaneProps) {
   )
 }
 
-function MessageBubble({ message }: { message: Message }) {
+function MessageBubble({ message }: { message: OptimisticMessage }) {
   const isOut = message.direction === "out"
   const time = useMemo(() => {
     return formatRelative(new Date(message.created_at), new Date())
   }, [message.created_at])
+  const pending = message.status === "sending" || message._optimistic
 
   return (
     <div className={cn("flex", isOut ? "justify-end" : "justify-start")}>
       <div
         className={cn(
-          "max-w-[78%] md:max-w-[60%] rounded-lg px-4 py-2.5 text-body leading-normal",
+          "max-w-[78%] md:max-w-[60%] rounded-lg px-4 py-2.5 text-body leading-normal transition-opacity",
           isOut
             ? "bg-gold text-white rounded-br-sm"
             : "bg-white border border-ink-hairline text-ink rounded-bl-sm",
+          pending && "opacity-70",
         )}
       >
         {message.media_url && (
@@ -237,8 +285,8 @@ function MessageBubble({ message }: { message: Message }) {
           )}
           title={format(new Date(message.created_at), "PPpp")}
         >
-          {time}
-          {message.status && message.status !== "received" && (
+          {pending ? "Sending…" : time}
+          {!pending && message.status && message.status !== "received" && (
             <span className="ml-2 capitalize">· {message.status}</span>
           )}
         </p>

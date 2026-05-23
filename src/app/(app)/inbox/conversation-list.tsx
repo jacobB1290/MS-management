@@ -1,11 +1,13 @@
 "use client"
 import Link from "next/link"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState, useTransition } from "react"
+import { useRouter } from "next/navigation"
 import { formatDistanceToNow } from "date-fns"
 import { Search, Plus } from "lucide-react"
 import { Avatar } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser"
 import { cn, formatPhone } from "@/lib/utils"
 import type { Tables } from "@/lib/database.types"
 
@@ -23,21 +25,107 @@ interface ConversationListProps {
 }
 
 export function ConversationList({
-  conversations,
+  conversations: initial,
   selectedId,
 }: ConversationListProps) {
+  const router = useRouter()
+  const [pending, startTransition] = useTransition()
+  // Optimistic selection: flip immediately so the active row paints before
+  // the route navigation finishes.
+  const [optimisticId, setOptimisticId] = useState<string | undefined>(selectedId)
+  if (selectedId !== undefined && selectedId !== optimisticId && !pending) {
+    // Server caught up — sync.
+    setOptimisticId(selectedId)
+  }
+  const activeId = optimisticId ?? selectedId
+
   const [query, setQuery] = useState("")
+  const [items, setItems] = useState<Conversation[]>(initial)
+
+  // Reseed when the parent provides a fresh server-side snapshot.
+  const [seedSig, setSeedSig] = useState(initial.length)
+  if (initial.length !== seedSig) {
+    setSeedSig(initial.length)
+    setItems(initial)
+  }
+
+  // Realtime: new inbound + outbound messages bump conversations to top
+  // without requiring a navigation/refresh.
+  useEffect(() => {
+    const supabase = createSupabaseBrowserClient()
+    const channel = supabase
+      .channel("inbox:conversation-list")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "messages" },
+        (payload) => {
+          const m = payload.new as Tables<"messages">
+          setItems((cur) => {
+            const idx = cur.findIndex((c) => c.id === m.contact_id)
+            if (idx < 0) {
+              // New contact we don't have in the list yet — trigger a refresh
+              // so the server re-fetches via contact_summary.
+              router.refresh()
+              return cur
+            }
+            const updated: Conversation = {
+              ...cur[idx],
+              last_message_at: m.created_at,
+              last_message_body: m.body,
+              last_message_direction: m.direction,
+              message_count: (cur[idx].message_count ?? 0) + 1,
+            }
+            const next = cur.slice()
+            next.splice(idx, 1)
+            return [updated, ...next]
+          })
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "contacts" },
+        (payload) => {
+          const c = payload.new as Tables<"contacts">
+          setItems((cur) => {
+            const idx = cur.findIndex((x) => x.id === c.id)
+            if (idx < 0) return cur
+            const next = cur.slice()
+            next[idx] = {
+              ...next[idx],
+              name: c.name,
+              phone: c.phone,
+              email: c.email,
+              tags: c.tags,
+              sms_opted_out_at: c.sms_opted_out_at,
+              email_unsubscribed_at: c.email_unsubscribed_at,
+            }
+            return next
+          })
+        },
+      )
+      .subscribe()
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  }, [router])
 
   const filtered = useMemo(() => {
-    if (!query.trim()) return conversations
+    if (!query.trim()) return items
     const q = query.toLowerCase()
-    return conversations.filter(
+    return items.filter(
       (c) =>
         c.name?.toLowerCase().includes(q) ||
         c.phone?.includes(q) ||
         c.email?.toLowerCase().includes(q),
     )
-  }, [conversations, query])
+  }, [items, query])
+
+  function selectConversation(id: string) {
+    setOptimisticId(id)
+    startTransition(() => {
+      router.push(`/inbox?c=${id}`, { scroll: false })
+    })
+  }
 
   return (
     <>
@@ -46,6 +134,7 @@ export function ConversationList({
           <p className="font-display text-heading text-ink">Inbox</p>
           <Link
             href="/contacts/new"
+            prefetch
             className="inline-flex items-center justify-center h-11 w-11 rounded-pill bg-white border border-ink-hairline text-ink hover:bg-bg transition-colors"
             aria-label="New contact"
           >
@@ -75,16 +164,18 @@ export function ConversationList({
         )}
 
         {filtered.map((c) => {
-          const active = c.id === selectedId
+          const active = c.id === activeId
           const lastAt = c.last_message_at
             ? formatDistanceToNow(new Date(c.last_message_at), { addSuffix: false })
             : null
           return (
             <li key={c.id}>
-              <Link
-                href={`/inbox?c=${c.id}`}
+              <button
+                type="button"
+                onClick={() => c.id && selectConversation(c.id)}
+                onMouseEnter={() => c.id && router.prefetch(`/inbox?c=${c.id}`)}
                 className={cn(
-                  "flex items-center gap-3 px-4 py-3.5 transition-colors",
+                  "w-full text-left flex items-center gap-3 px-4 py-3.5 transition-colors",
                   active
                     ? "bg-white shadow-[inset_3px_0_0_var(--gold)]"
                     : "hover:bg-white/60",
@@ -125,7 +216,7 @@ export function ConversationList({
                     {c.email_unsubscribed_at && <Badge variant="muted">UNSUB</Badge>}
                   </div>
                 </div>
-              </Link>
+              </button>
             </li>
           )
         })}

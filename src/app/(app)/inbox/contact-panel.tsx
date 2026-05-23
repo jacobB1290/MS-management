@@ -1,7 +1,6 @@
 "use client"
 import Link from "next/link"
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import { format } from "date-fns"
 import { toast } from "sonner"
 import { Pencil } from "lucide-react"
@@ -12,10 +11,18 @@ import { formatPhone } from "@/lib/utils"
 import type { Tables } from "@/lib/database.types"
 
 export function ContactPanel({ contact }: { contact: Tables<"contacts"> }) {
-  const router = useRouter()
+  // Optimistic local state — Realtime on the contacts table will sync any
+  // server-side change (made elsewhere) back into this view.
+  const [snapshot, setSnapshot] = useState(contact)
+  const [lastId, setLastId] = useState(contact.id)
+  if (lastId !== contact.id) {
+    setLastId(contact.id)
+    setSnapshot(contact)
+  }
+
   const [toggling, setToggling] = useState(false)
-  const optedOutSms = Boolean(contact.sms_opted_out_at)
-  const unsubEmail = Boolean(contact.email_unsubscribed_at)
+  const optedOutSms = Boolean(snapshot.sms_opted_out_at)
+  const unsubEmail = Boolean(snapshot.email_unsubscribed_at)
 
   async function toggleOptOut(channel: "sms" | "email", optedOut: boolean) {
     if (
@@ -26,15 +33,25 @@ export function ContactPanel({ contact }: { contact: Tables<"contacts"> }) {
       )
     )
       return
+
+    // Optimistic flip.
+    const nowIso = optedOut ? new Date().toISOString() : null
+    const before = snapshot
+    setSnapshot((cur) =>
+      channel === "sms"
+        ? { ...cur, sms_opted_out_at: nowIso }
+        : { ...cur, email_unsubscribed_at: nowIso },
+    )
     setToggling(true)
     try {
-      const res = await fetch(`/api/contacts/${contact.id}/opt-out`, {
+      const res = await fetch(`/api/contacts/${snapshot.id}/opt-out`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ channel, opted_out: optedOut }),
       })
       if (!res.ok) {
         const j = await res.json().catch(() => null)
+        setSnapshot(before)
         toast.error(`Failed: ${j?.error ?? res.status}`)
       } else {
         toast.success(
@@ -42,8 +59,10 @@ export function ContactPanel({ contact }: { contact: Tables<"contacts"> }) {
             ? `${channel.toUpperCase()} disabled.`
             : `${channel.toUpperCase()} re-enabled.`,
         )
-        router.refresh()
       }
+    } catch (err) {
+      setSnapshot(before)
+      toast.error(`Network error: ${err instanceof Error ? err.message : String(err)}`)
     } finally {
       setToggling(false)
     }
@@ -53,39 +72,44 @@ export function ContactPanel({ contact }: { contact: Tables<"contacts"> }) {
     <div className="flex-1 overflow-y-auto p-6">
       <p className="eyebrow">Contact</p>
       <Link
-        href={`/contacts/${contact.id}`}
+        href={`/contacts/${snapshot.id}`}
+        prefetch
         className="block font-display text-heading text-ink leading-tight mt-1 hover:underline"
       >
-        {contact.name ?? formatPhone(contact.phone) ?? contact.email ?? "Unknown"}
+        {snapshot.name ?? formatPhone(snapshot.phone) ?? snapshot.email ?? "Unknown"}
       </Link>
 
       <dl className="mt-6 space-y-4">
-        <Row label="Phone" value={contact.phone ? formatPhone(contact.phone) : "—"} />
-        <Row label="Email" value={contact.email ?? "—"} />
-        <Row label="Language" value={contact.language === "ru" ? "Russian" : "English"} />
-        <Row label="Source" value={contact.source ?? "—"} />
+        <Row label="Phone" value={snapshot.phone ? formatPhone(snapshot.phone) : "—"} />
+        <Row label="Email" value={snapshot.email ?? "—"} />
+        <Row label="Language" value={snapshot.language === "ru" ? "Russian" : "English"} />
+        <Row label="Source" value={snapshot.source ?? "—"} />
         <Row
           label="Consent"
           value={
-            contact.consent_method
-              ? `${contact.consent_method}${contact.consent_at ? ` · ${format(new Date(contact.consent_at), "PP")}` : ""}`
+            snapshot.consent_method
+              ? `${snapshot.consent_method}${snapshot.consent_at ? ` · ${format(new Date(snapshot.consent_at), "PP")}` : ""}`
               : "—"
           }
         />
       </dl>
 
-      {contact.tags && contact.tags.length > 0 && (
+      {snapshot.tags && snapshot.tags.length > 0 && (
         <div className="mt-6">
           <p className="text-label text-ink-faint mb-2">Tags</p>
           <div className="flex flex-wrap gap-1.5">
-            {contact.tags.map((t: string) => (
+            {snapshot.tags.map((t: string) => (
               <Badge key={t} variant="muted">{t}</Badge>
             ))}
           </div>
         </div>
       )}
 
-      <NotesBlock contactId={contact.id} initial={contact.notes ?? ""} />
+      <NotesBlock
+        contactId={snapshot.id}
+        value={snapshot.notes ?? ""}
+        onSaved={(notes) => setSnapshot((cur) => ({ ...cur, notes }))}
+      />
 
       <div className="mt-8 border-t border-ink-hairline pt-6 space-y-3">
         <div>
@@ -104,7 +128,7 @@ export function ContactPanel({ contact }: { contact: Tables<"contacts"> }) {
             <Button
               variant="ghost"
               size="sm"
-              disabled={toggling || !contact.phone}
+              disabled={toggling || !snapshot.phone}
               onClick={() => toggleOptOut("sms", true)}
               className="w-full justify-start text-ink-muted hover:text-danger"
             >
@@ -128,7 +152,7 @@ export function ContactPanel({ contact }: { contact: Tables<"contacts"> }) {
             <Button
               variant="ghost"
               size="sm"
-              disabled={toggling || !contact.email}
+              disabled={toggling || !snapshot.email}
               onClick={() => toggleOptOut("email", true)}
               className="w-full justify-start text-ink-muted hover:text-danger"
             >
@@ -141,27 +165,47 @@ export function ContactPanel({ contact }: { contact: Tables<"contacts"> }) {
   )
 }
 
-function NotesBlock({ contactId, initial }: { contactId: string; initial: string }) {
-  const router = useRouter()
+function NotesBlock({
+  contactId,
+  value: initial,
+  onSaved,
+}: {
+  contactId: string
+  value: string
+  onSaved: (next: string) => void
+}) {
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState(initial)
   const [saving, setSaving] = useState(false)
 
+  // Sync when parent's snapshot.notes changes (e.g., after a successful save).
+  const [lastInitial, setLastInitial] = useState(initial)
+  if (lastInitial !== initial) {
+    setLastInitial(initial)
+    if (!editing) setValue(initial)
+  }
+
   async function save() {
+    const trimmed = value.trim() || null
     setSaving(true)
+    // Optimistic: close the editor + push the new value up immediately.
+    onSaved(trimmed ?? "")
+    setEditing(false)
     try {
       const res = await fetch(`/api/contacts/${contactId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ notes: value.trim() || null }),
+        body: JSON.stringify({ notes: trimmed }),
       })
       if (!res.ok) {
         const j = await res.json().catch(() => null)
         toast.error(`Save failed: ${j?.error ?? res.status}`)
+        // Roll back.
+        onSaved(initial)
+        setValue(initial)
+        setEditing(true)
       } else {
         toast.success("Note saved.")
-        setEditing(false)
-        router.refresh()
       }
     } finally {
       setSaving(false)
@@ -193,7 +237,7 @@ function NotesBlock({ contactId, initial }: { contactId: string; initial: string
             Cancel
           </Button>
           <Button type="button" size="sm" onClick={save} disabled={saving}>
-            {saving ? "Saving…" : "Save note"}
+            Save note
           </Button>
         </div>
       </div>

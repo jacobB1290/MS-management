@@ -29,17 +29,13 @@ export default async function CampaignDetail({ params }: PageProps) {
   const { id } = await params
   const supabase = await createSupabaseServerClient()
 
-  const { data: campaign } = await supabase
-    .from("campaigns")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle()
+  const [campaignRes, recipientsRes] = await Promise.all([
+    supabase.from("campaigns").select("*").eq("id", id).maybeSingle(),
+    supabase.from("campaign_recipients").select("status").eq("campaign_id", id),
+  ])
+  const campaign = campaignRes.data
+  const recipients = recipientsRes.data
   if (!campaign) notFound()
-
-  const { data: recipients } = await supabase
-    .from("campaign_recipients")
-    .select("status")
-    .eq("campaign_id", id)
 
   const counts = {
     total: recipients?.length ?? 0,

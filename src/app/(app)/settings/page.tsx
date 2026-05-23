@@ -14,16 +14,14 @@ export default async function SettingsPage() {
   const user = await requireStaff()
   const supabase = await createSupabaseServerClient()
 
-  const { data: team } =
+  const [teamRes, heartbeatRes] = await Promise.all([
     user.role === "admin"
-      ? await supabase.from("app_users").select("user_id, role, display_name, created_at").order("created_at")
-      : { data: null }
-
-  const { data: heartbeat } = await supabase
-    .from("heartbeat")
-    .select("last_run_at")
-    .eq("id", 1)
-    .maybeSingle()
+      ? supabase.from("app_users").select("user_id, role, display_name, created_at").order("created_at")
+      : Promise.resolve({ data: null }),
+    supabase.from("heartbeat").select("last_run_at").eq("id", 1).maybeSingle(),
+  ])
+  const team = teamRes.data
+  const heartbeat = heartbeatRes.data
 
   const status = {
     twilio: Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN),
