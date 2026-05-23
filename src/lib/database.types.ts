@@ -133,6 +133,7 @@ export type Database = {
           created_by: string | null
           email_subject: string | null
           id: string
+          media_url: string | null
           name: string
           scheduled_at: string | null
           sendgrid_template_id: string | null
@@ -149,6 +150,7 @@ export type Database = {
           created_by?: string | null
           email_subject?: string | null
           id?: string
+          media_url?: string | null
           name: string
           scheduled_at?: string | null
           sendgrid_template_id?: string | null
@@ -165,6 +167,7 @@ export type Database = {
           created_by?: string | null
           email_subject?: string | null
           id?: string
+          media_url?: string | null
           name?: string
           scheduled_at?: string | null
           sendgrid_template_id?: string | null

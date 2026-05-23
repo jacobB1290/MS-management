@@ -79,29 +79,45 @@ export const contactUpdateSchema = z.object({
   notes: z.string().trim().max(2000).optional().nullable(),
 })
 
-export const sendSmsSchema = z.object({
-  contact_id: z.string().uuid(),
-  body: z.string().trim().min(1).max(1600), // 10 SMS segments
-  media_url: z.string().url().optional().nullable(),
-})
+export const sendSmsSchema = z
+  .object({
+    contact_id: z.string().uuid(),
+    body: z.string().trim().max(1600).optional().default(""), // 10 SMS segments
+    media_url: z.string().url().optional().nullable(),
+  })
+  .refine((d) => d.body.length > 0 || Boolean(d.media_url), {
+    message: "Add a message or an attachment.",
+    path: ["body"],
+  })
 
-export const campaignCreateSchema = z.discriminatedUnion("channel", [
-  z.object({
-    channel: z.literal("sms"),
-    name: z.string().trim().min(1).max(120),
-    body: z.string().trim().min(1).max(1600),
-    audience_filter: z.record(z.string(), z.unknown()).optional().default({}),
-    scheduled_at: z.string().datetime().optional().nullable(),
-  }),
-  z.object({
-    channel: z.literal("email"),
-    name: z.string().trim().min(1).max(120),
-    sendgrid_template_id: z.string().trim().min(1).max(60),
-    email_subject: z.string().trim().min(1).max(200),
-    audience_filter: z.record(z.string(), z.unknown()).optional().default({}),
-    scheduled_at: z.string().datetime().optional().nullable(),
-  }),
-])
+export const campaignCreateSchema = z
+  .discriminatedUnion("channel", [
+    z.object({
+      channel: z.literal("sms"),
+      name: z.string().trim().min(1).max(120),
+      body: z.string().trim().max(1600).optional().default(""),
+      media_url: z.string().url().optional().nullable(),
+      audience_filter: z.record(z.string(), z.unknown()).optional().default({}),
+      scheduled_at: z.string().datetime().optional().nullable(),
+    }),
+    z.object({
+      channel: z.literal("email"),
+      name: z.string().trim().min(1).max(120),
+      sendgrid_template_id: z.string().trim().min(1).max(60),
+      email_subject: z.string().trim().min(1).max(200),
+      audience_filter: z.record(z.string(), z.unknown()).optional().default({}),
+      scheduled_at: z.string().datetime().optional().nullable(),
+    }),
+  ])
+  .superRefine((data, ctx) => {
+    if (data.channel === "sms" && data.body.length === 0 && !data.media_url) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Add a message or an attachment.",
+        path: ["body"],
+      })
+    }
+  })
 
 export const publicFormSubmissionSchema = z.object({
   form_id: z.string().trim().min(1).max(60),
