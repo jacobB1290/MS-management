@@ -54,31 +54,33 @@ export default async function CampaignDetail({ params }: PageProps) {
   }
 
   return (
-    <div className="px-4 md:px-8 py-6 md:py-8 max-w-4xl">
-      <Link
-        href="/campaigns"
-        className="inline-flex items-center gap-1.5 text-small text-ink-muted hover:text-ink mb-4"
-      >
-        <ArrowLeft size={14} /> All campaigns
-      </Link>
-
-      <PageHeader
-        eyebrow="Campaign"
-        title={campaign.name}
-        actions={<CampaignActions campaign={campaign} />}
-      />
-
-      <div className="mt-2 flex items-center gap-2 flex-wrap">
-        <Badge variant={STATUS_VARIANT[campaign.status] ?? "muted"}>
-          {campaign.status}
-        </Badge>
-        <span className="inline-flex items-center gap-1.5 text-ink-muted text-small">
-          {campaign.channel === "sms" ? <MessageSquare size={14} /> : <Mail size={14} />}
-          {campaign.channel.toUpperCase()}
-        </span>
+    <div className="flex flex-col h-full min-h-0">
+      <div className="shrink-0 px-4 md:px-8 pt-6 md:pt-8 pb-4 bg-bg max-w-4xl w-full">
+        <Link
+          href="/campaigns"
+          prefetch
+          className="inline-flex items-center gap-1.5 text-small text-ink-muted active:text-ink mb-4 min-h-11"
+        >
+          <ArrowLeft size={14} /> All campaigns
+        </Link>
+        <PageHeader
+          eyebrow="Campaign"
+          title={campaign.name}
+          actions={<CampaignActions campaign={campaign} />}
+        />
+        <div className="mt-2 flex items-center gap-2 flex-wrap">
+          <Badge variant={STATUS_VARIANT[campaign.status] ?? "muted"}>
+            {campaign.status}
+          </Badge>
+          <span className="inline-flex items-center gap-1.5 text-ink-muted text-small">
+            {campaign.channel === "sms" ? <MessageSquare size={14} /> : <Mail size={14} />}
+            {campaign.channel.toUpperCase()}
+          </span>
+        </div>
       </div>
 
-      <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 md:px-8 pb-6 md:pb-8 max-w-4xl w-full">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Stat label="Total" value={counts.total} />
         <Stat label="Sent / delivered" value={counts.sent + counts.delivered} />
         <Stat label="Queued" value={counts.queued + counts.sending} />
@@ -133,6 +135,7 @@ export default async function CampaignDetail({ params }: PageProps) {
             <Row label="Completed" value={format(new Date(campaign.completed_at), "PPp")} />
           )}
         </dl>
+      </div>
       </div>
     </div>
   )

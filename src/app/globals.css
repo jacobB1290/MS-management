@@ -332,15 +332,44 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
-/* iOS Safari "tap-then-stuck-on-hover" fix. Anywhere we rely on hover for
- * row/button feedback, the hover state persists after a tap. Disable hover
- * on coarse pointers entirely — `:active` handles touch press feedback. */
+/* Aggressive resets so iOS Safari never paints links or buttons in its
+ * own native colors. Without these, on tap an <a> falls back to
+ * -webkit-link (blue) and a <button> momentarily reads as the OS default
+ * (white-on-blue), which is the "things go blue when I tap" bug. */
+a,
+a:link,
+a:visited,
+a:hover,
+a:active {
+  color: inherit;
+  text-decoration: none;
+}
+button,
+[role="button"] {
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: transparent;
+  color: inherit;
+  font: inherit;
+}
+button:active,
+[role="button"]:active,
+a:active {
+  color: inherit;
+}
+
+/* iOS Safari fires :hover on touch and the state persists after the tap
+ * ("sticky hover"). Gate hover-only style changes by hover capability so
+ * coarse pointers only see :active feedback. Specific to interactive
+ * containers — not a blanket `*` rule, which previously reverted link
+ * colors to the browser default. */
 @media (hover: none) and (pointer: coarse) {
-  *:hover {
-    background-color: revert !important;
-    color: revert !important;
-    transform: revert !important;
-    box-shadow: revert !important;
+  a:hover,
+  button:hover,
+  [role="button"]:hover,
+  [role="tab"]:hover,
+  [role="menuitem"]:hover {
+    background-color: transparent;
   }
 }
 
