@@ -1,0 +1,113 @@
+import { z } from "zod"
+import { toE164 } from "./phone"
+
+/** A phone field that accepts any input and stores the E.164 form. */
+export const phoneField = z
+  .string()
+  .trim()
+  .min(1)
+  .transform((v, ctx) => {
+    const e164 = toE164(v)
+    if (!e164) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Enter a valid phone number.",
+      })
+      return z.NEVER
+    }
+    return e164
+  })
+
+export const optionalPhoneField = z
+  .string()
+  .trim()
+  .optional()
+  .nullable()
+  .transform((v, ctx) => {
+    if (!v) return null
+    const e164 = toE164(v)
+    if (!e164) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Enter a valid phone number.",
+      })
+      return z.NEVER
+    }
+    return e164
+  })
+
+export const emailField = z
+  .string()
+  .trim()
+  .email()
+  .transform((v) => v.toLowerCase())
+
+export const optionalEmailField = z
+  .string()
+  .trim()
+  .optional()
+  .nullable()
+  .transform((v) => (v ? v.toLowerCase() : null))
+  .refine(
+    (v) => v === null || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v),
+    "Enter a valid email.",
+  )
+
+export const contactCreateSchema = z
+  .object({
+    name: z.string().trim().min(1).max(120).optional().nullable(),
+    phone: optionalPhoneField,
+    email: optionalEmailField,
+    source: z.string().trim().max(60).optional().nullable(),
+    tags: z.array(z.string().trim().min(1).max(40)).max(50).optional().default([]),
+    language: z.enum(["en", "ru"]).optional().default("en"),
+    consent_method: z.string().trim().max(60),
+    consent_at: z.string().datetime().optional(),
+    notes: z.string().trim().max(2000).optional().nullable(),
+  })
+  .refine((d) => d.phone || d.email, {
+    message: "Provide at least a phone or an email.",
+    path: ["phone"],
+  })
+
+export const contactUpdateSchema = z.object({
+  name: z.string().trim().min(1).max(120).optional().nullable(),
+  phone: optionalPhoneField,
+  email: optionalEmailField,
+  tags: z.array(z.string().trim().min(1).max(40)).max(50).optional(),
+  language: z.enum(["en", "ru"]).optional(),
+  notes: z.string().trim().max(2000).optional().nullable(),
+})
+
+export const sendSmsSchema = z.object({
+  contact_id: z.string().uuid(),
+  body: z.string().trim().min(1).max(1600), // 10 SMS segments
+  media_url: z.string().url().optional().nullable(),
+})
+
+export const campaignCreateSchema = z.discriminatedUnion("channel", [
+  z.object({
+    channel: z.literal("sms"),
+    name: z.string().trim().min(1).max(120),
+    body: z.string().trim().min(1).max(1600),
+    audience_filter: z.record(z.string(), z.unknown()).optional().default({}),
+    scheduled_at: z.string().datetime().optional().nullable(),
+  }),
+  z.object({
+    channel: z.literal("email"),
+    name: z.string().trim().min(1).max(120),
+    sendgrid_template_id: z.string().trim().min(1).max(60),
+    email_subject: z.string().trim().min(1).max(200),
+    audience_filter: z.record(z.string(), z.unknown()).optional().default({}),
+    scheduled_at: z.string().datetime().optional().nullable(),
+  }),
+])
+
+export const publicFormSubmissionSchema = z.object({
+  form_id: z.string().trim().min(1).max(60),
+  name: z.string().trim().min(1).max(120).optional().nullable(),
+  phone: optionalPhoneField,
+  email: optionalEmailField,
+  consent_method: z.string().trim().min(1).max(60),
+  payload: z.record(z.string(), z.unknown()).optional().default({}),
+})

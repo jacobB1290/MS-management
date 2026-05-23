@@ -1,0 +1,175 @@
+import type { Metadata } from "next"
+import { notFound } from "next/navigation"
+import Link from "next/link"
+import { format } from "date-fns"
+import { ArrowLeft, MessageSquare, Mail } from "lucide-react"
+import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { requireStaff } from "@/server/auth"
+import { PageHeader } from "@/components/ui/page-header"
+import { Badge } from "@/components/ui/badge"
+import { CampaignActions } from "./campaign-actions"
+
+export const metadata: Metadata = { title: "Campaign" }
+
+const STATUS_VARIANT: Record<string, "default" | "success" | "warning" | "danger" | "muted" | "gold"> = {
+  draft: "muted",
+  scheduled: "gold",
+  sending: "gold",
+  done: "success",
+  failed: "danger",
+  cancelled: "muted",
+}
+
+interface PageProps {
+  params: Promise<{ id: string }>
+}
+
+export default async function CampaignDetail({ params }: PageProps) {
+  await requireStaff()
+  const { id } = await params
+  const supabase = await createSupabaseServerClient()
+
+  const { data: campaign } = await supabase
+    .from("campaigns")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle()
+  if (!campaign) notFound()
+
+  const { data: recipients } = await supabase
+    .from("campaign_recipients")
+    .select("status")
+    .eq("campaign_id", id)
+
+  const counts = {
+    total: recipients?.length ?? 0,
+    queued: 0,
+    sending: 0,
+    sent: 0,
+    delivered: 0,
+    failed: 0,
+    skipped_opt_out: 0,
+    skipped_unsubscribed: 0,
+    skipped_no_channel: 0,
+  }
+  for (const r of recipients ?? []) {
+    counts[r.status as keyof typeof counts] =
+      (counts[r.status as keyof typeof counts] ?? 0) + 1
+  }
+
+  return (
+    <div className="px-4 md:px-8 py-6 md:py-8 max-w-4xl">
+      <Link
+        href="/campaigns"
+        className="inline-flex items-center gap-1.5 text-small text-ink-muted hover:text-ink mb-4"
+      >
+        <ArrowLeft size={14} /> All campaigns
+      </Link>
+
+      <PageHeader
+        eyebrow="Campaign"
+        title={campaign.name}
+        actions={<CampaignActions campaign={campaign} />}
+      />
+
+      <div className="mt-2 flex items-center gap-2 flex-wrap">
+        <Badge variant={STATUS_VARIANT[campaign.status] ?? "muted"}>
+          {campaign.status}
+        </Badge>
+        <span className="inline-flex items-center gap-1.5 text-ink-muted text-small">
+          {campaign.channel === "sms" ? <MessageSquare size={14} /> : <Mail size={14} />}
+          {campaign.channel.toUpperCase()}
+        </span>
+      </div>
+
+      <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Stat label="Total" value={counts.total} />
+        <Stat label="Sent / delivered" value={counts.sent + counts.delivered} />
+        <Stat label="Queued" value={counts.queued + counts.sending} />
+        <Stat label="Skipped / failed" value={counts.skipped_opt_out + counts.skipped_unsubscribed + counts.skipped_no_channel + counts.failed} />
+      </div>
+
+      <div className="mt-8 rounded-lg border border-ink-hairline bg-white p-6">
+        <p className="eyebrow mb-3">Message</p>
+        {campaign.channel === "sms" ? (
+          <pre className="whitespace-pre-wrap font-body text-body text-ink leading-normal">
+            {campaign.body}
+          </pre>
+        ) : (
+          <dl className="space-y-2 text-small">
+            <div>
+              <dt className="text-label text-ink-faint">Template ID</dt>
+              <dd className="font-mono text-ink">{campaign.sendgrid_template_id}</dd>
+            </div>
+            <div>
+              <dt className="text-label text-ink-faint">Subject</dt>
+              <dd className="text-ink">{campaign.email_subject}</dd>
+            </div>
+          </dl>
+        )}
+      </div>
+
+      <div className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
+        <p className="eyebrow mb-3">Recipient breakdown</p>
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-small">
+          <Row label="Queued" value={counts.queued} />
+          <Row label="Sending" value={counts.sending} />
+          <Row label="Sent" value={counts.sent} />
+          <Row label="Delivered" value={counts.delivered} />
+          <Row label="Failed" value={counts.failed} highlight={counts.failed > 0 ? "danger" : undefined} />
+          <Row label="Skipped — opt-out" value={counts.skipped_opt_out} highlight={counts.skipped_opt_out > 0 ? "muted" : undefined} />
+          <Row label="Skipped — unsubscribed" value={counts.skipped_unsubscribed} highlight={counts.skipped_unsubscribed > 0 ? "muted" : undefined} />
+          <Row label="Skipped — no channel" value={counts.skipped_no_channel} highlight={counts.skipped_no_channel > 0 ? "muted" : undefined} />
+        </dl>
+      </div>
+
+      <div className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
+        <p className="eyebrow mb-3">Timeline</p>
+        <dl className="space-y-2 text-small">
+          <Row label="Created" value={format(new Date(campaign.created_at), "PPp")} />
+          {campaign.scheduled_at && (
+            <Row label="Scheduled" value={format(new Date(campaign.scheduled_at), "PPp")} />
+          )}
+          {campaign.started_at && (
+            <Row label="Started" value={format(new Date(campaign.started_at), "PPp")} />
+          )}
+          {campaign.completed_at && (
+            <Row label="Completed" value={format(new Date(campaign.completed_at), "PPp")} />
+          )}
+        </dl>
+      </div>
+    </div>
+  )
+}
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-lg border border-ink-hairline bg-white p-4">
+      <p className="text-label text-ink-faint">{label}</p>
+      <p className="font-display text-title text-ink mt-0.5 leading-none">{value}</p>
+    </div>
+  )
+}
+
+function Row({
+  label,
+  value,
+  highlight,
+}: {
+  label: string
+  value: number | string
+  highlight?: "danger" | "muted"
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <dt className="text-ink-faint">{label}</dt>
+      <dd
+        className={`font-medium ${
+          highlight === "danger" ? "text-danger" : "text-ink"
+        }`}
+      >
+        {value}
+      </dd>
+    </div>
+  )
+}
