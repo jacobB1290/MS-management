@@ -37,10 +37,16 @@ export async function updateSession(request: NextRequest) {
   const path = request.nextUrl.pathname
   const isAuthRoute = path.startsWith("/login") || path.startsWith("/auth")
   const isPublicWebhook = path.startsWith("/api/webhook") || path.startsWith("/api/public-form")
-  const isDevRoute =
-    process.env.NODE_ENV !== "production" && path.startsWith("/api/dev/")
+  // Server-to-server endpoints — they authenticate via bearer header
+  // (CRON_SECRET) or their own production fence. The proxy must NOT redirect
+  // them to /login; the route handler must be allowed to run so it can
+  // return 401 / 403 / 404 with the correct semantics.
+  const isMachineRoute =
+    path.startsWith("/api/cron/") ||
+    path.startsWith("/api/heartbeat") ||
+    path.startsWith("/api/dev/")
 
-  if (!user && !isAuthRoute && !isPublicWebhook && !isDevRoute) {
+  if (!user && !isAuthRoute && !isPublicWebhook && !isMachineRoute) {
     const url = request.nextUrl.clone()
     url.pathname = "/login"
     url.searchParams.set("next", path)
