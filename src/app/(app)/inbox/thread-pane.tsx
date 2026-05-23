@@ -32,7 +32,11 @@ interface ThreadPaneProps {
  *  status='pending'; once the server returns the real row id, we swap. */
 type OptimisticMessage = Message & { _optimistic?: boolean }
 
-export function ThreadPane({ contact, initialMessages }: ThreadPaneProps) {
+export function ThreadPane({ contact: contactProp, initialMessages }: ThreadPaneProps) {
+  // Contact is held in state so realtime row updates (e.g. a STOP reply
+  // flipping sms_opted_out_at) reflect in the thread immediately, without
+  // re-navigating. Seeded from the server prop, resynced on thread switch.
+  const [contact, setContact] = useState<Contact>(contactProp)
   const [messages, setMessages] = useState<OptimisticMessage[]>(initialMessages)
   const [body, setBody] = useState("")
   const [sending, setSending] = useState(false)
@@ -45,22 +49,31 @@ export function ThreadPane({ contact, initialMessages }: ThreadPaneProps) {
   const noPhone = !contact.phone
 
   // Sync local state when the parent feeds a fresh thread (URL `?c=` change).
-  const [lastContactId, setLastContactId] = useState(contact.id)
-  if (lastContactId !== contact.id) {
-    setLastContactId(contact.id)
+  const [lastContactId, setLastContactId] = useState(contactProp.id)
+  if (lastContactId !== contactProp.id) {
+    setLastContactId(contactProp.id)
+    setContact(contactProp)
     setMessages(initialMessages)
     setBody("")
     setMedia(null)
   }
 
-  // Realtime subscription on inbound + status updates for this contact.
+  // Realtime: new messages + status updates AND the contact row itself, so a
+  // STOP reply (carrier opt-out) blocks the composer live.
   useEffect(() => {
     const supabase = createSupabaseBrowserClient()
     const channel = supabase
-      .channel(`messages:${contact.id}`)
+      .channel(`thread:${contactProp.id}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "messages", filter: `contact_id=eq.${contact.id}` },
+        { event: "UPDATE", schema: "public", table: "contacts", filter: `id=eq.${contactProp.id}` },
+        (payload) => {
+          setContact((cur) => ({ ...cur, ...(payload.new as Contact) }))
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "messages", filter: `contact_id=eq.${contactProp.id}` },
         (payload) => {
           if (payload.eventType === "INSERT") {
             setMessages((cur) => {
@@ -93,7 +106,7 @@ export function ThreadPane({ contact, initialMessages }: ThreadPaneProps) {
     return () => {
       void supabase.removeChannel(channel)
     }
-  }, [contact.id])
+  }, [contactProp.id])
 
   // Auto-scroll to bottom on new message
   useEffect(() => {

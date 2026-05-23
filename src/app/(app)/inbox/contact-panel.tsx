@@ -1,6 +1,6 @@
 "use client"
 import Link from "next/link"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { format } from "date-fns"
 import { toast } from "sonner"
 import { Pencil, ChevronRight } from "lucide-react"
@@ -8,18 +8,36 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser"
 import { formatPhone, humanizeSource } from "@/lib/utils"
 import type { Tables } from "@/lib/database.types"
 
 export function ContactPanel({ contact }: { contact: Tables<"contacts"> }) {
-  // Optimistic local state — Realtime on the contacts table will sync any
-  // server-side change (made elsewhere) back into this view.
+  // Optimistic local state, kept live by a realtime subscription on this
+  // contact row so external changes (e.g. a STOP reply) reflect immediately.
   const [snapshot, setSnapshot] = useState(contact)
   const [lastId, setLastId] = useState(contact.id)
   if (lastId !== contact.id) {
     setLastId(contact.id)
     setSnapshot(contact)
   }
+
+  useEffect(() => {
+    const supabase = createSupabaseBrowserClient()
+    const channel = supabase
+      .channel(`contact-panel:${contact.id}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "contacts", filter: `id=eq.${contact.id}` },
+        (payload) => {
+          setSnapshot((cur) => ({ ...cur, ...(payload.new as Tables<"contacts">) }))
+        },
+      )
+      .subscribe()
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  }, [contact.id])
 
   const [toggling, setToggling] = useState(false)
   const [pending, setPending] = useState<{
