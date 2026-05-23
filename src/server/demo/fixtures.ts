@@ -107,11 +107,16 @@ const contacts: Row[] = [
 
 const messages: Row[] = [
   // c3 — awaiting reply (last message inbound)
-  { id: "m1", contact_id: "c3", direction: "out", body: "Hi Elena! Glad you joined us Sunday. Small group meets Wednesday at 7pm — want me to save you a seat?", media_url: null, channel: "sms", twilio_sid: "SM_demo1", status: "delivered", error: null, campaign_id: null, sent_by: "demo-admin", num_segments: 1, price: -0.0079, price_unit: "USD", created_at: hoursAgo(5) },
+  { id: "m1", contact_id: "c3", direction: "out", body: "Hi Elena! Glad you joined us Sunday. Small group meets Wednesday at 7pm. Want me to save you a seat?", media_url: null, channel: "sms", twilio_sid: "SM_demo1", status: "delivered", error: null, campaign_id: null, sent_by: "demo-admin", num_segments: 1, price: -0.0079, price_unit: "USD", created_at: hoursAgo(5) },
   { id: "m2", contact_id: "c3", direction: "in", body: "Yes please! And can I bring a friend?", media_url: null, channel: "sms", twilio_sid: "SM_demo2", status: "received", error: null, campaign_id: null, sent_by: null, num_segments: 1, price: null, price_unit: null, created_at: hoursAgo(4) },
   // c1 — replied (last outbound)
   { id: "m3", contact_id: "c1", direction: "in", body: "What time does the Wednesday study start?", media_url: null, channel: "sms", twilio_sid: "SM_demo3", status: "received", error: null, campaign_id: null, sent_by: null, num_segments: 1, price: null, price_unit: null, created_at: hoursAgo(28) },
-  { id: "m4", contact_id: "c1", direction: "out", body: "7pm in the fellowship hall. Coffee from 6:45 — come early and meet a few folks.", media_url: null, channel: "sms", twilio_sid: "SM_demo4", status: "delivered", error: null, campaign_id: null, sent_by: "demo-admin", num_segments: 1, price: -0.0079, price_unit: "USD", created_at: hoursAgo(27) },
+  { id: "m4", contact_id: "c1", direction: "out", body: "7pm in the fellowship hall. Coffee from 6:45, so come early and meet a few folks.", media_url: null, channel: "sms", twilio_sid: "SM_demo4", status: "delivered", error: null, campaign_id: null, sent_by: "demo-admin", num_segments: 1, price: -0.0079, price_unit: "USD", created_at: hoursAgo(27) },
+  // Campaign sends (Easter reminder) — give the campaign real settled cost.
+  { id: "mc1", contact_id: "c1", direction: "out", body: "He is risen! Join us this Sunday at 9 & 11am. Bring a friend, childcare provided.", media_url: null, channel: "sms", twilio_sid: "SMcamp_a", status: "delivered", error: null, campaign_id: "camp1", sent_by: "demo-admin", num_segments: 1, price: -0.0079, price_unit: "USD", created_at: daysAgo(9) },
+  { id: "mc2", contact_id: "c2", direction: "out", body: "He is risen! Join us this Sunday at 9 & 11am. Bring a friend, childcare provided.", media_url: null, channel: "sms", twilio_sid: "SMcamp_b", status: "delivered", error: null, campaign_id: "camp1", sent_by: "demo-admin", num_segments: 1, price: -0.0079, price_unit: "USD", created_at: daysAgo(9) },
+  { id: "mc3", contact_id: "c3", direction: "out", body: "He is risen! Join us this Sunday at 9 & 11am. Bring a friend, childcare provided.", media_url: null, channel: "sms", twilio_sid: "SMcamp_c", status: "sent", error: null, campaign_id: "camp1", sent_by: "demo-admin", num_segments: 1, price: -0.0079, price_unit: "USD", created_at: daysAgo(9) },
+  { id: "mc4", contact_id: "c5", direction: "out", body: "He is risen! Join us this Sunday at 9 & 11am. Bring a friend, childcare provided.", media_url: null, channel: "sms", twilio_sid: "SMcamp_d", status: "delivered", error: null, campaign_id: "camp1", sent_by: "demo-admin", num_segments: 1, price: -0.0079, price_unit: "USD", created_at: daysAgo(9) },
   // c2 — awaiting reply
   { id: "m5", contact_id: "c2", direction: "in", body: "Thank you for the warm welcome on Sunday 🙏", media_url: null, channel: "sms", twilio_sid: "SM_demo5", status: "received", error: null, campaign_id: null, sent_by: null, num_segments: 1, price: null, price_unit: null, created_at: hoursAgo(2) },
   // c4 — opted out, a failed send
@@ -130,7 +135,7 @@ const contactSummary: Row[] = [
 ]
 
 const campaigns: Row[] = [
-  { id: "camp1", name: "Easter weekend reminder", channel: "sms", status: "done", body: "He is risen! Join us this Sunday at 9 & 11am. Bring a friend — childcare provided.", media_url: null, sendgrid_template_id: null, email_subject: null, audience_filter: { all: true }, scheduled_at: null, started_at: daysAgo(9), completed_at: daysAgo(9), created_at: daysAgo(10) },
+  { id: "camp1", name: "Easter weekend reminder", channel: "sms", status: "done", body: "He is risen! Join us this Sunday at 9 & 11am. Bring a friend, childcare provided.", media_url: null, sendgrid_template_id: null, email_subject: null, audience_filter: { all: true }, scheduled_at: null, started_at: daysAgo(9), completed_at: daysAgo(9), created_at: daysAgo(10) },
   { id: "camp2", name: "Volunteer thank-you (draft)", channel: "email", status: "draft", body: null, media_url: null, sendgrid_template_id: "d-demo-template-001", email_subject: "Thank you for serving", audience_filter: { tags: ["volunteer"] }, scheduled_at: null, started_at: null, completed_at: null, created_at: daysAgo(1) },
 ]
 

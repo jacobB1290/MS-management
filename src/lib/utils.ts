@@ -46,6 +46,20 @@ export function formatPhone(e164: string | null | undefined): string {
   return e164
 }
 
+/** Plain-English label for a contact's `source`, which is otherwise raw
+ *  snake_case ("sms_inbound") that reads as computer-speak in the UI. */
+export function humanizeSource(source: string | null | undefined): string {
+  if (!source) return "—"
+  const map: Record<string, string> = {
+    sms_inbound: "Texted us first",
+    website_form: "Website form",
+    public_form: "Website form",
+    manual: "Added manually",
+    csv_import: "Imported (CSV)",
+  }
+  return map[source] ?? source.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
 export function initials(name: string | null | undefined): string {
   if (!name) return "·"
   const trimmed = name.trim()

@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useMemo, useState, useTransition } from "react"
+import { useEffect, useMemo, useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { formatDistanceToNow } from "date-fns"
 import { Search } from "lucide-react"
@@ -39,6 +39,20 @@ export function ConversationList({
   }
   const activeId = optimisticId ?? selectedId
 
+  // Conversations the operator has opened this session. Opening a thread clears
+  // its awaiting-reply dot (you've read it); a new inbound message re-surfaces
+  // it. Session-scoped — cross-device read state would need a stored read marker.
+  const [read, setRead] = useState<Set<string>>(() => new Set(selectedId ? [selectedId] : []))
+  // Mark the currently-open conversation read (clears its dot). Adjusting
+  // derived state during render, guarded so it settles after one pass.
+  if (activeId && !read.has(activeId)) {
+    setRead((prev) => new Set(prev).add(activeId))
+  }
+  const activeIdRef = useRef(activeId)
+  useEffect(() => {
+    activeIdRef.current = activeId
+  }, [activeId])
+
   const [query, setQuery] = useState("")
   const [items, setItems] = useState<Conversation[]>(initial)
 
@@ -60,6 +74,16 @@ export function ConversationList({
         { event: "INSERT", schema: "public", table: "messages" },
         (payload) => {
           const m = payload.new as Tables<"messages">
+          // A fresh inbound message to a thread you're not currently viewing
+          // makes it unread again.
+          if (m.direction === "in" && m.contact_id !== activeIdRef.current) {
+            setRead((prev) => {
+              if (!prev.has(m.contact_id)) return prev
+              const next = new Set(prev)
+              next.delete(m.contact_id)
+              return next
+            })
+          }
           setItems((cur) => {
             const idx = cur.findIndex((c) => c.id === m.contact_id)
             if (idx < 0) {
@@ -125,6 +149,7 @@ export function ConversationList({
 
   function selectConversation(id: string) {
     setOptimisticId(id)
+    setRead((prev) => (prev.has(id) ? prev : new Set(prev).add(id)))
     startTransition(() => {
       router.push(`/inbox?c=${id}`, { scroll: false })
     })
@@ -163,9 +188,10 @@ export function ConversationList({
 
         {filtered.map((c) => {
           const active = c.id === activeId
-          // A thread whose last message is inbound is awaiting our reply.
-          // Self-clears the moment we respond (direction flips to "out").
-          const awaitingReply = c.last_message_direction === "in"
+          // Awaiting a reply: last message inbound AND not yet opened this
+          // session. Opening the thread (read) clears it; a new inbound returns it.
+          const awaitingReply =
+            c.last_message_direction === "in" && !(c.id && read.has(c.id))
           const lastAt = c.last_message_at
             ? formatDistanceToNow(new Date(c.last_message_at), { addSuffix: false })
             : null
@@ -176,35 +202,32 @@ export function ConversationList({
                 onClick={() => c.id && selectConversation(c.id)}
                 onMouseEnter={() => c.id && router.prefetch(`/inbox?c=${c.id}`)}
                 className={cn(
-                  "w-full text-left flex items-center gap-3 px-4 py-3.5 transition-colors",
+                  "w-full text-left flex items-center gap-2.5 px-4 py-3.5 transition-colors",
                   active
                     ? "bg-white shadow-[inset_3px_0_0_var(--gold)]"
                     : "hover:bg-white/60 active:bg-white/60",
                 )}
                 aria-current={active ? "page" : undefined}
               >
+                <span className="w-2 shrink-0 flex justify-center" aria-hidden={!awaitingReply}>
+                  {awaitingReply && (
+                    <span className="h-2.5 w-2.5 rounded-pill bg-gold" aria-label="Awaiting reply" />
+                  )}
+                </span>
                 <Avatar name={c.name ?? c.phone ?? c.email} size="md" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-baseline justify-between gap-2">
                     <p className={cn("truncate", awaitingReply ? "font-semibold text-ink" : "font-medium text-ink")}>
                       {c.name ?? formatPhone(c.phone) ?? c.email ?? "Unknown"}
                     </p>
-                    <span className="flex items-center gap-1.5 shrink-0">
-                      {lastAt && (
-                        <span
-                          data-dynamic
-                          className={cn("text-micro", awaitingReply ? "text-gold-dark font-medium" : "text-ink-faint")}
-                        >
-                          {lastAt}
-                        </span>
-                      )}
-                      {awaitingReply && (
-                        <span
-                          className="h-2 w-2 rounded-pill bg-gold"
-                          aria-label="Awaiting reply"
-                        />
-                      )}
-                    </span>
+                    {lastAt && (
+                      <span
+                        data-dynamic
+                        className={cn("text-micro shrink-0", awaitingReply ? "text-gold-dark font-medium" : "text-ink-faint")}
+                      >
+                        {lastAt}
+                      </span>
+                    )}
                   </div>
                   <p className={cn("text-small truncate mt-0.5", awaitingReply ? "text-ink" : "text-ink-muted")}>
                     {c.last_message_body ? (

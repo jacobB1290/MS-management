@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
-import { formatPhone } from "@/lib/utils"
+import { formatPhone, humanizeSource } from "@/lib/utils"
 import type { Tables } from "@/lib/database.types"
 
 export function ContactPanel({ contact }: { contact: Tables<"contacts"> }) {
@@ -83,7 +83,7 @@ export function ContactPanel({ contact }: { contact: Tables<"contacts"> }) {
         <Row label="Phone" value={snapshot.phone ? formatPhone(snapshot.phone) : "—"} />
         <Row label="Email" value={snapshot.email ?? "—"} />
         <Row label="Language" value={snapshot.language === "ru" ? "Russian" : "English"} />
-        <Row label="Source" value={snapshot.source ?? "—"} />
+        <Row label="Source" value={humanizeSource(snapshot.source)} />
         <Row
           label="Consent"
           value={
@@ -126,11 +126,11 @@ export function ContactPanel({ contact }: { contact: Tables<"contacts"> }) {
             </Button>
           ) : (
             <Button
-              variant="ghost"
+              variant="secondary"
               size="sm"
               disabled={toggling || !snapshot.phone}
               onClick={() => setPending({ channel: "sms", optedOut: true })}
-              className="w-full justify-start text-ink-muted hover:text-danger"
+              className="w-full"
             >
               Mark opted-out
             </Button>
@@ -150,11 +150,11 @@ export function ContactPanel({ contact }: { contact: Tables<"contacts"> }) {
             </Button>
           ) : (
             <Button
-              variant="ghost"
+              variant="secondary"
               size="sm"
               disabled={toggling || !snapshot.email}
               onClick={() => setPending({ channel: "email", optedOut: true })}
-              className="w-full justify-start text-ink-muted hover:text-danger"
+              className="w-full"
             >
               Mark unsubscribed
             </Button>

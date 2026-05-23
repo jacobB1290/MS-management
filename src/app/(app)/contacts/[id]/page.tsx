@@ -8,7 +8,7 @@ import { requireStaff } from "@/server/auth"
 import { PageHeader } from "@/components/ui/page-header"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { formatPhone } from "@/lib/utils"
+import { formatPhone, humanizeSource } from "@/lib/utils"
 
 export const metadata: Metadata = { title: "Contact" }
 
@@ -81,7 +81,7 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
             <Row label="Phone" value={contact.phone ? formatPhone(contact.phone) : "—"} mono={Boolean(contact.phone)} />
             <Row label="Email" value={contact.email ?? "—"} />
             <Row label="Language" value={contact.language === "ru" ? "Russian" : "English"} />
-            <Row label="Source" value={contact.source ?? "—"} />
+            <Row label="Source" value={humanizeSource(contact.source)} />
             <Row
               label="Consent"
               value={

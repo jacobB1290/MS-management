@@ -382,7 +382,7 @@ function MessageBubble({
     <div className={cn("flex flex-col", isOut ? "items-end" : "items-start")}>
       <div
         className={cn(
-          "max-w-[78%] md:max-w-[60%] rounded-lg px-4 py-2.5 text-body leading-normal transition-opacity",
+          "max-w-[85%] md:max-w-[72%] rounded-lg px-4 py-2.5 text-body leading-normal transition-opacity",
           isOut
             ? "bg-gold text-white rounded-br-sm"
             : "bg-white border border-ink-hairline text-ink rounded-bl-sm",

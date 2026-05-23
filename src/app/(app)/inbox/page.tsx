@@ -35,7 +35,7 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
       <Suspense fallback={<ThreadSkeleton />} key={selectedId}>
         <ThreadLoader contactId={selectedId} currentUserId={user.id} />
       </Suspense>
-      <div className="hidden lg:flex w-80 shrink-0 border-l border-ink-hairline bg-surface flex-col min-h-0">
+      <div className="hidden lg:flex w-72 xl:w-80 shrink-0 border-l border-ink-hairline bg-surface flex-col min-h-0">
         <Suspense fallback={<ContactPanelSkeleton />} key={selectedId}>
           <ContactPanelLoader contactId={selectedId} />
         </Suspense>
