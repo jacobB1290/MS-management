@@ -30,7 +30,7 @@ export default async function NewCampaignPage() {
         <PageHeader
           eyebrow="Outreach"
           title="New campaign"
-          info="Compose a one-off SMS or email blast. Opted-out and unsubscribed contacts are automatically excluded — the recipient list records who was skipped and why."
+          info="Compose a one-off SMS or email blast. Opted-out and unsubscribed contacts are automatically excluded; the recipient list records who was skipped and why."
         />
       </div>
 

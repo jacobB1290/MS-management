@@ -65,7 +65,7 @@ export default async function SettingsPage() {
       <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
         <SectionTitle
           label="About storage"
-          info="MMS attachments you send are stored here. Supabase's free tier gives 1 GB of file storage, separate from your contacts and messages. Delete old media to free space — note that removing a file breaks its preview in any past message that used it."
+          info="MMS attachments you send are stored here. Supabase’s free tier gives 1 GB of file storage, separate from your contacts and messages. Delete old media to free space. Note that removing a file breaks its preview in any past message that used it."
         >
           Storage
         </SectionTitle>
@@ -87,7 +87,7 @@ export default async function SettingsPage() {
       <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
         <SectionTitle
           label="About provider configuration"
-          info="Set the provider env vars in Vercel and redeploy. Until a given provider is configured, the matching send path records the attempt without contacting the carrier — useful for staging, never for real delivery."
+          info="Set the provider env vars in Vercel and redeploy. Until a given provider is configured, the matching send path records the attempt without contacting the carrier; useful for staging, never for real delivery."
         >
           Provider configuration
         </SectionTitle>
@@ -100,7 +100,7 @@ export default async function SettingsPage() {
           <StatusRow
             label="Twilio Messaging Service"
             ready={status.twilioMessaging}
-            detail={status.twilioMessaging ? "Configured" : "TWILIO_MESSAGING_SERVICE_SID missing — campaign batches won't auto-meter"}
+            detail={status.twilioMessaging ? "Configured" : "TWILIO_MESSAGING_SERVICE_SID missing; campaign batches won’t auto-meter"}
           />
           <StatusRow
             label="SendGrid API"
@@ -110,7 +110,7 @@ export default async function SettingsPage() {
           <StatusRow
             label="SendGrid event webhook"
             ready={status.sendgridWebhook}
-            detail={status.sendgridWebhook ? "Public key configured" : "SENDGRID_WEBHOOK_PUBLIC_KEY missing — events won't be verified"}
+            detail={status.sendgridWebhook ? "Public key configured" : "SENDGRID_WEBHOOK_PUBLIC_KEY missing; events won’t be verified"}
           />
           <StatusRow
             label="Public form receiver"
@@ -120,7 +120,7 @@ export default async function SettingsPage() {
           <StatusRow
             label="Cron secret"
             ready={status.cronSecret}
-            detail={status.cronSecret ? "Cron endpoints protected" : "CRON_SECRET missing — anyone can hit the cron endpoint"}
+            detail={status.cronSecret ? "Cron endpoints protected" : "CRON_SECRET missing; anyone can hit the cron endpoint"}
           />
         </dl>
       </section>

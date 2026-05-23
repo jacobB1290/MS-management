@@ -18,9 +18,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { FormField } from "@/components/ui/form-field"
 
 const CONSENT_OPTIONS = [
-  { value: "verbal", label: "Verbal — given in person" },
-  { value: "written", label: "Written — paper form or text reply" },
-  { value: "manual_admin", label: "Manual — staff attests" },
+  { value: "verbal", label: "Verbal (given in person)" },
+  { value: "written", label: "Written (paper form or text reply)" },
+  { value: "manual_admin", label: "Manual (staff attests)" },
 ]
 
 /**
@@ -88,7 +88,7 @@ export function NewMessageDialog() {
         // Contact exists now; open the thread so they can see why and recover.
         toast.error(
           j?.error === "opt_out"
-            ? "That contact has opted out — message not sent"
+            ? "That contact has opted out, so the message wasn’t sent"
             : `Message not sent: ${j?.error ?? sendRes.status}`,
         )
       }
@@ -137,7 +137,7 @@ export function NewMessageDialog() {
             />
           </FormField>
 
-          <FormField label="Name" htmlFor="nm-name" hint="Optional — add it now or later.">
+          <FormField label="Name" htmlFor="nm-name" hint="Optional; add it now or later.">
             <Input
               id="nm-name"
               autoComplete="name"

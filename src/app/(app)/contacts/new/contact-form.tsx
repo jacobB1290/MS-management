@@ -9,10 +9,10 @@ import { FormField } from "@/components/ui/form-field"
 import type { Tables } from "@/lib/database.types"
 
 const CONSENT_OPTIONS = [
-  { value: "verbal", label: "Verbal — given in person" },
-  { value: "written", label: "Written — paper form or text reply" },
+  { value: "verbal", label: "Verbal (given in person)" },
+  { value: "written", label: "Written (paper form or text reply)" },
   { value: "csv_import", label: "CSV import (legacy contact)" },
-  { value: "manual_admin", label: "Manual — admin attests" },
+  { value: "manual_admin", label: "Manual (admin attests)" },
 ]
 
 interface ContactFormProps {

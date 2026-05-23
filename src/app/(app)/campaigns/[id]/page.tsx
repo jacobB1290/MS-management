@@ -166,7 +166,7 @@ export default async function CampaignDetail({ params }: PageProps) {
                 {campaign.body}
               </pre>
             ) : (
-              <p className="text-small text-ink-faint">Media only — no text.</p>
+              <p className="text-small text-ink-faint">Media only, no text</p>
             )}
           </div>
         ) : (
@@ -191,9 +191,9 @@ export default async function CampaignDetail({ params }: PageProps) {
           <Row label="Sent" value={counts.sent} />
           <Row label="Delivered" value={counts.delivered} />
           <Row label="Failed" value={counts.failed} highlight={counts.failed > 0 ? "danger" : undefined} />
-          <Row label="Skipped — opt-out" value={counts.skipped_opt_out} highlight={counts.skipped_opt_out > 0 ? "muted" : undefined} />
-          <Row label="Skipped — unsubscribed" value={counts.skipped_unsubscribed} highlight={counts.skipped_unsubscribed > 0 ? "muted" : undefined} />
-          <Row label="Skipped — no channel" value={counts.skipped_no_channel} highlight={counts.skipped_no_channel > 0 ? "muted" : undefined} />
+          <Row label="Skipped (opt-out)" value={counts.skipped_opt_out} highlight={counts.skipped_opt_out > 0 ? "muted" : undefined} />
+          <Row label="Skipped (unsubscribed)" value={counts.skipped_unsubscribed} highlight={counts.skipped_unsubscribed > 0 ? "muted" : undefined} />
+          <Row label="Skipped (no channel)" value={counts.skipped_no_channel} highlight={counts.skipped_no_channel > 0 ? "muted" : undefined} />
         </dl>
       </div>
 

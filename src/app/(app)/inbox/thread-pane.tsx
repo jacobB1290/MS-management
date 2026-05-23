@@ -111,7 +111,7 @@ export function ThreadPane({ contact, initialMessages }: ThreadPaneProps) {
       return
     }
     if (file.size > MAX_MEDIA_BYTES) {
-      toast.error("File too large — 5 MB max for MMS.")
+      toast.error("File too large. 5 MB max for MMS")
       return
     }
     setUploading(true)
@@ -172,7 +172,7 @@ export function ThreadPane({ contact, initialMessages }: ThreadPaneProps) {
         setMessages((cur) =>
           cur.map((m) => (m.id === tempId ? { ...m, status: "mocked" } : m)),
         )
-        toast.message("Recorded without sending — Twilio not configured yet")
+        toast.message("Recorded without sending. Twilio isn’t configured yet")
       }
       // No router.refresh() — realtime + optimistic state already covers it.
     } catch (err) {

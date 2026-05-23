@@ -27,7 +27,7 @@ export function CampaignActions({
         toast.error(`Start failed: ${json.error ?? res.status}`)
       } else {
         toast.success(
-          `Started — ${json.queued} queued, ${json.skipped_opt_out + json.skipped_unsubscribed + json.skipped_no_channel} skipped`,
+          `Started: ${json.queued} queued, ${json.skipped_opt_out + json.skipped_unsubscribed + json.skipped_no_channel} skipped`,
         )
         router.refresh()
       }

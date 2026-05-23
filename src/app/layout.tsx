@@ -18,7 +18,7 @@ const playfair = Playfair_Display({
 
 export const metadata: Metadata = {
   title: {
-    default: "Morning Star — Management",
+    default: "Morning Star Management",
     template: "%s · MS Management",
   },
   description: "Staff console for Morning Star Christian Church.",

@@ -41,7 +41,7 @@ export default async function AuditPage() {
         <PageHeader
           eyebrow="Console"
           title="Audit log"
-          info="Every privileged write — sends, opt-out toggles, contact edits, campaign starts, logins, invites. Reads are not logged; the threat is unauthorized writes, not legitimate viewing."
+          info="Every privileged write is logged: sends, opt-out toggles, contact edits, campaign starts, logins, invites. Reads are not logged; the threat is unauthorized writes, not legitimate viewing."
         />
       </div>
 

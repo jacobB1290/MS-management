@@ -46,7 +46,7 @@ export function CampaignComposer({ tagOptions }: ComposerProps) {
       return
     }
     if (file.size > MAX_MEDIA_BYTES) {
-      toast.error("File too large — 5 MB max for MMS.")
+      toast.error("File too large. 5 MB max for MMS")
       return
     }
     setUploading(true)
@@ -117,7 +117,7 @@ export function CampaignComposer({ tagOptions }: ComposerProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <FormField label="Campaign name" htmlFor="name" hint="Internal — recipients don't see this.">
+      <FormField label="Campaign name" htmlFor="name" hint="Internal; recipients don’t see this.">
         <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
       </FormField>
 
@@ -140,7 +140,7 @@ export function CampaignComposer({ tagOptions }: ComposerProps) {
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 rows={4}
-                placeholder="Hi friend — Sunday service is at 10am this week. See you there."
+                placeholder="Hi friend, Sunday service is at 10am this week. See you there."
               />
               <p className="mt-1 text-micro text-ink-faint text-right">
                 {body.length} / 1600 chars
