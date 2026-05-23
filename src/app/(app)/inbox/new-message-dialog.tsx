@@ -1,7 +1,7 @@
 "use client"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Pencil } from "lucide-react"
+import { Plus } from "lucide-react"
 import { toast } from "sonner"
 import {
   Dialog,
@@ -109,11 +109,8 @@ export function NewMessageDialog() {
         if (!next) reset()
       }}
     >
-      <DialogTrigger
-        aria-label="New message"
-        className="inline-flex items-center justify-center h-11 w-11 rounded-pill bg-white border border-ink-hairline text-ink hover:bg-bg active:bg-bg transition-colors"
-      >
-        <Pencil size={16} />
+      <DialogTrigger aria-label="New message" className="btn-icon-action">
+        <Plus size={20} strokeWidth={2.5} />
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>

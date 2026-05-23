@@ -31,17 +31,16 @@ export default async function ContactsPage({ searchParams }: PageProps) {
   ).sort((a, b) => a.localeCompare(b))
 
   return (
-    <div className="px-4 md:px-8 py-6 md:py-8">
-      <ContactsSearch initialQuery={q ?? ""} initialTag={tag ?? ""} tags={allTags}>
-        <Button asChild aria-label="New contact">
-          <Link href="/contacts/new">
-            <Plus size={16} />
-            <span className="hidden sm:inline">New contact</span>
+    <div className="flex flex-col h-full min-h-0">
+      <div className="shrink-0 px-4 md:px-8 pt-4 pb-3 border-b border-ink-hairline bg-bg">
+        <ContactsSearch initialQuery={q ?? ""} initialTag={tag ?? ""} tags={allTags}>
+          <Link href="/contacts/new" aria-label="New contact" className="btn-icon-action">
+            <Plus size={20} strokeWidth={2.5} />
           </Link>
-        </Button>
-      </ContactsSearch>
+        </ContactsSearch>
+      </div>
 
-      <div className="mt-6">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 md:px-8 py-6">
         <Suspense key={`${q ?? ""}-${tag ?? ""}`} fallback={<ContactsTableSkeleton />}>
           <ContactsTable q={q} tag={tag} />
         </Suspense>

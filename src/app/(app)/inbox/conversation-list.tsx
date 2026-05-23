@@ -135,7 +135,7 @@ export function ConversationList({
       {/* Sticky header: stays put while the conversation list scrolls
           beneath it on mobile. Search sits inline with the compose action;
           the page name already lives in the top bar / sidebar. */}
-      <div className="shrink-0 px-4 pt-5 pb-3 border-b border-ink-hairline bg-surface/95 backdrop-blur supports-[backdrop-filter]:bg-surface/85 z-10">
+      <div className="shrink-0 px-4 pt-4 pb-3 border-b border-ink-hairline bg-surface/95 backdrop-blur supports-[backdrop-filter]:bg-surface/85 z-10">
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <Search

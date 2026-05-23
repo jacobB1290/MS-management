@@ -304,6 +304,28 @@ h1, h2, h3, h4, h5, h6 {
   background: var(--btn-danger-bg-hover);
 }
 
+/* Circular icon action button (e.g. the "+" in list headers). Solid deep gold
+ * so a single thin glyph stays high-contrast in white — the gradient CTA's
+ * light top washes a lone icon out. Defined here (unlayered) so it wins over
+ * the button/anchor color+background resets, like .btn-cta does. */
+.btn-icon-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  width: 44px;
+  flex-shrink: 0;
+  border-radius: var(--radius-pill);
+  background: var(--gold-dark);
+  color: var(--white);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: background var(--motion-fast) var(--ease-standard);
+}
+.btn-icon-action:hover {
+  background: var(--gold-deeper);
+}
+
 /* Standard content area — every section inherits its width here */
 .page {
   width: min(1280px, 94%);
