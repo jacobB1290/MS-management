@@ -167,8 +167,46 @@
  * Base typography & body — restraint is the brand.
  * Warm cream surface IS the design. Content sits flush by default.
  * ============================================================================ */
+/* ============================================================================
+ * Lock the document. iOS Safari (and to a lesser extent Chrome) will
+ * rubber-band the entire document on touch even when nothing inside
+ * overflows — that's what makes a web app feel like a web page, not a
+ * native app. `position: fixed` on the body removes the document from the
+ * scroll viewport entirely; every scrollable region inside the app
+ * (conversation list, message thread, contacts table, etc.) opts in
+ * explicitly with `overflow-y-auto + overscroll-contain`.
+ * ============================================================================ */
+html {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  /* Stop iOS from auto-zooming when an input gets focus. */
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior: none;
+  /* Disable double-tap-to-zoom and pinch-zoom on the chrome — inner
+   * regions that want it can opt back in with touch-action: auto. */
+  touch-action: manipulation;
+}
+
+/* Inputs at 16px+ prevent iOS from zooming the viewport on focus. */
+input,
+textarea,
+select {
+  font-size: max(16px, var(--text-body));
+}
+
 * {
   border-color: var(--text-hairline);
+  /* No grey tap highlight on iOS — `:active` styles handle press feedback. */
+  -webkit-tap-highlight-color: transparent;
 }
 
 html {

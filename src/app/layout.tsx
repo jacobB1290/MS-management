@@ -52,7 +52,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${inter.variable} ${playfair.variable}`}>
-      <body className="h-dvh bg-bg text-ink antialiased overscroll-none">
+      <body className="bg-bg text-ink antialiased">
         {children}
         <Toaster
           position="top-right"
