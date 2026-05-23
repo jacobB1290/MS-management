@@ -18,7 +18,7 @@ export async function processCampaignBatch(
 
   const { data: campaign, error: cErr } = await admin
     .from("campaigns")
-    .select("id, channel, body, sendgrid_template_id, email_subject, status")
+    .select("id, channel, body, media_url, sendgrid_template_id, email_subject, status")
     .eq("id", campaignId)
     .maybeSingle()
   if (cErr || !campaign) return { processed: 0, campaignDone: false }
@@ -62,6 +62,7 @@ export async function processCampaignBatch(
         ? await sendSms({
             contactId: row.contact_id,
             body: campaign.body ?? "",
+            mediaUrl: campaign.media_url,
             campaignId,
           })
         : await sendEmail({

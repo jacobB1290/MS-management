@@ -17,6 +17,8 @@ export type AuditAction =
   | "campaign.start"
   | "campaign.cancel"
   | "form.submitted"
+  | "media.upload"
+  | "media.delete"
   | "webhook.twilio.inbound"
   | "webhook.sendgrid.event"
   | "user.invite"

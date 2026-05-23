@@ -6,6 +6,7 @@ import { ArrowLeft, MessageSquare, Mail } from "lucide-react"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { requireStaff } from "@/server/auth"
 import { formatMoney } from "@/server/billing/twilio"
+import { isVideoUrl } from "@/lib/media"
 import { PageHeader } from "@/components/ui/page-header"
 import { Badge } from "@/components/ui/badge"
 import { CampaignActions } from "./campaign-actions"
@@ -135,9 +136,22 @@ export default async function CampaignDetail({ params }: PageProps) {
       <div className="mt-8 rounded-lg border border-ink-hairline bg-white p-6">
         <p className="eyebrow mb-3">Message</p>
         {campaign.channel === "sms" ? (
-          <pre className="whitespace-pre-wrap font-body text-body text-ink leading-normal">
-            {campaign.body}
-          </pre>
+          <div className="space-y-3">
+            {campaign.media_url &&
+              (isVideoUrl(campaign.media_url) ? (
+                <video src={campaign.media_url} controls className="rounded-md max-h-72 w-auto" />
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={campaign.media_url} alt="Attachment" className="rounded-md max-h-72 w-auto" />
+              ))}
+            {campaign.body ? (
+              <pre className="whitespace-pre-wrap font-body text-body text-ink leading-normal">
+                {campaign.body}
+              </pre>
+            ) : (
+              <p className="text-small text-ink-faint">Media only — no text.</p>
+            )}
+          </div>
         ) : (
           <dl className="space-y-2 text-small">
             <div>

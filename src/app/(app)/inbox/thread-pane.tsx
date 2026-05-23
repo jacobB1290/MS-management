@@ -1,7 +1,7 @@
 "use client"
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, AlertTriangle } from "lucide-react"
+import { ArrowLeft, AlertTriangle, Plus, Loader2, X } from "lucide-react"
 import { format, formatRelative } from "date-fns"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -10,6 +10,13 @@ import { Avatar } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser"
 import { formatPhone, cn } from "@/lib/utils"
+import {
+  MEDIA_ACCEPT_ATTR,
+  ACCEPTED_MEDIA_TYPES,
+  MAX_MEDIA_BYTES,
+  isVideoUrl,
+  uploadMedia,
+} from "@/lib/media"
 import type { Tables } from "@/lib/database.types"
 
 type Contact = Tables<"contacts">
@@ -29,6 +36,9 @@ export function ThreadPane({ contact, initialMessages }: ThreadPaneProps) {
   const [messages, setMessages] = useState<OptimisticMessage[]>(initialMessages)
   const [body, setBody] = useState("")
   const [sending, setSending] = useState(false)
+  const [media, setMedia] = useState<{ url: string; isVideo: boolean } | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const scrollerRef = useRef<HTMLDivElement>(null)
 
   const optedOut = Boolean(contact.sms_opted_out_at)
@@ -40,6 +50,7 @@ export function ThreadPane({ contact, initialMessages }: ThreadPaneProps) {
     setLastContactId(contact.id)
     setMessages(initialMessages)
     setBody("")
+    setMedia(null)
   }
 
   // Realtime subscription on inbound + status updates for this contact.
@@ -61,7 +72,8 @@ export function ThreadPane({ contact, initialMessages }: ThreadPaneProps) {
                 (m) =>
                   m._optimistic &&
                   m.direction === "out" &&
-                  m.body === incoming.body,
+                  m.body === incoming.body &&
+                  m.media_url === incoming.media_url,
               )
               if (swapIdx >= 0) {
                 const next = cur.slice()
@@ -90,21 +102,43 @@ export function ThreadPane({ contact, initialMessages }: ThreadPaneProps) {
     el.scrollTop = el.scrollHeight
   }, [messages.length])
 
+  function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = "" // allow re-selecting the same file
+    if (!file) return
+    if (!ACCEPTED_MEDIA_TYPES.includes(file.type)) {
+      toast.error("Unsupported file type. Use an image or short video.")
+      return
+    }
+    if (file.size > MAX_MEDIA_BYTES) {
+      toast.error("File too large — 5 MB max for MMS.")
+      return
+    }
+    setUploading(true)
+    uploadMedia(file)
+      .then(({ url }) => setMedia({ url, isVideo: file.type.startsWith("video/") }))
+      .catch((err) =>
+        toast.error(`Upload failed: ${err instanceof Error ? err.message : String(err)}`),
+      )
+      .finally(() => setUploading(false))
+  }
+
   async function handleSend(e: React.FormEvent) {
     e.preventDefault()
     const text = body.trim()
-    if (!text || sending || optedOut || noPhone) return
+    if ((!text && !media) || sending || uploading || optedOut || noPhone) return
     setSending(true)
 
     // Optimistic: append a pending bubble immediately so the UI feels native.
+    const sentMedia = media
     const tempId = `tmp_${crypto.randomUUID()}`
     const optimistic: OptimisticMessage = {
       id: tempId,
       contact_id: contact.id,
       direction: "out",
       body: text,
-      media_url: null,
-      channel: "sms",
+      media_url: sentMedia?.url ?? null,
+      channel: sentMedia ? "mms" : "sms",
       twilio_sid: null,
       status: "sending",
       error: null,
@@ -118,18 +152,24 @@ export function ThreadPane({ contact, initialMessages }: ThreadPaneProps) {
     }
     setMessages((cur) => [...cur, optimistic])
     setBody("")
+    setMedia(null)
 
     try {
       const res = await fetch("/api/messages/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contact_id: contact.id, body: text }),
+        body: JSON.stringify({
+          contact_id: contact.id,
+          body: text,
+          media_url: sentMedia?.url ?? null,
+        }),
       })
       const json = await res.json()
       if (!res.ok) {
-        // Roll the optimistic message back, restore the textarea.
+        // Roll the optimistic message back, restore the draft + attachment.
         setMessages((cur) => cur.filter((m) => m.id !== tempId))
         setBody(text)
+        setMedia(sentMedia)
         toast.error(json.error === "opt_out" ? "Contact has opted out." : `Send failed: ${json.error}`)
       } else if (json.mock) {
         // Mark the optimistic row as 'mocked' visibly until realtime swaps it.
@@ -142,6 +182,7 @@ export function ThreadPane({ contact, initialMessages }: ThreadPaneProps) {
     } catch (err) {
       setMessages((cur) => cur.filter((m) => m.id !== tempId))
       setBody(text)
+      setMedia(sentMedia)
       toast.error(`Network error: ${err instanceof Error ? err.message : String(err)}`)
     } finally {
       setSending(false)
@@ -235,7 +276,49 @@ export function ThreadPane({ contact, initialMessages }: ThreadPaneProps) {
           </div>
         ) : (
           <>
+            {media && (
+              <div className="mb-2 relative inline-block">
+                {media.isVideo ? (
+                  <video
+                    src={media.url}
+                    className="h-20 rounded-md border border-ink-hairline"
+                    muted
+                  />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={media.url}
+                    alt="Attachment preview"
+                    className="h-20 rounded-md border border-ink-hairline"
+                  />
+                )}
+                <button
+                  type="button"
+                  onClick={() => setMedia(null)}
+                  aria-label="Remove attachment"
+                  className="absolute -top-2 -right-2 inline-flex items-center justify-center h-6 w-6 rounded-pill bg-ink text-white shadow-sm"
+                >
+                  <X size={13} />
+                </button>
+              </div>
+            )}
             <form onSubmit={handleSend} className="flex items-end gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept={MEDIA_ACCEPT_ATTR}
+                className="hidden"
+                onChange={onPickFile}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                aria-label="Attach photo or video"
+                className="inline-flex items-center justify-center h-11 w-11 shrink-0 rounded-pill border border-ink-hairline text-ink-muted hover:bg-white active:bg-white transition-colors disabled:opacity-50"
+              >
+                {uploading ? <Loader2 size={18} className="animate-spin" /> : <Plus size={20} />}
+              </button>
               <Textarea
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
@@ -250,12 +333,12 @@ export function ThreadPane({ contact, initialMessages }: ThreadPaneProps) {
                   }
                 }}
               />
-              <Button type="submit" disabled={!body.trim()} size="md">
+              <Button type="submit" disabled={(!body.trim() && !media) || uploading} size="md">
                 Send
               </Button>
             </form>
             <p className="mt-2 text-micro text-ink-faint">
-              Press <span className="font-mono">⌘↵</span> to send · Replies route to the same thread
+              Press <span className="font-mono">⌘↵</span> to send · Tap + to attach a photo or short video
             </p>
           </>
         )}
@@ -282,21 +365,28 @@ function MessageBubble({ message }: { message: OptimisticMessage }) {
           pending && "opacity-70",
         )}
       >
-        {message.media_url && (
-          <a
-            href={message.media_url}
-            target="_blank"
-            rel="noreferrer"
-            className="block mb-2"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+        {message.media_url &&
+          (isVideoUrl(message.media_url) ? (
+            <video
               src={message.media_url}
-              alt="Attachment"
-              className="rounded-md max-h-64 w-auto"
+              controls
+              className="rounded-md max-h-64 w-auto mb-2"
             />
-          </a>
-        )}
+          ) : (
+            <a
+              href={message.media_url}
+              target="_blank"
+              rel="noreferrer"
+              className="block mb-2"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={message.media_url}
+                alt="Attachment"
+                className="rounded-md max-h-64 w-auto"
+              />
+            </a>
+          ))}
         {message.body && <p className="whitespace-pre-wrap">{message.body}</p>}
         <p
           data-dynamic

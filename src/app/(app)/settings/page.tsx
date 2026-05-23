@@ -5,11 +5,13 @@ import { Check, X } from "lucide-react"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { requireStaff } from "@/server/auth"
 import { getSpendSummary, formatMoney, type SpendSummary } from "@/server/billing/twilio"
+import { listMmsMedia } from "@/server/media/storage"
 import { PageHeader } from "@/components/ui/page-header"
 import { PageInfo } from "@/components/ui/page-info"
 import { Badge } from "@/components/ui/badge"
 import { Avatar } from "@/components/ui/avatar"
 import { TeamPanel } from "./team-panel"
+import { StoragePanel } from "./storage-panel"
 
 export const metadata: Metadata = { title: "Settings" }
 
@@ -17,12 +19,13 @@ export default async function SettingsPage() {
   const user = await requireStaff()
   const supabase = await createSupabaseServerClient()
 
-  const [teamRes, heartbeatRes, spend] = await Promise.all([
+  const [teamRes, heartbeatRes, spend, media] = await Promise.all([
     user.role === "admin"
       ? supabase.from("app_users").select("user_id, role, display_name, created_at").order("created_at")
       : Promise.resolve({ data: null }),
     supabase.from("heartbeat").select("last_run_at").eq("id", 1).maybeSingle(),
     getSpendSummary(),
+    listMmsMedia(),
   ])
   const team = teamRes.data
   const heartbeat = heartbeatRes.data
@@ -58,6 +61,16 @@ export default async function SettingsPage() {
       </section>
 
       <SpendSection spend={spend} />
+
+      <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
+        <SectionTitle
+          label="About storage"
+          info="MMS attachments you send are stored here. Supabase's free tier gives 1 GB of file storage, separate from your contacts and messages. Delete old media to free space — note that removing a file breaks its preview in any past message that used it."
+        >
+          Storage
+        </SectionTitle>
+        <StoragePanel files={media.files} totalBytes={media.totalBytes} />
+      </section>
 
       {user.role === "admin" && (
         <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">

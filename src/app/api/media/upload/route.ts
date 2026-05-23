@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { requireStaff } from "@/server/auth"
 import { createSupabaseAdminClient } from "@/lib/supabase/server"
+import { logAudit } from "@/server/audit"
+import { MAX_MEDIA_BYTES, MEDIA_EXT_BY_TYPE } from "@/lib/media"
 
 /**
  * MMS media upload. Staff-gated; the file is written to the public `mms-media`
@@ -9,16 +11,9 @@ import { createSupabaseAdminClient } from "@/lib/supabase/server"
  * HTTPS URL, and the object name is a random UUID so the URL isn't guessable.
  */
 const BUCKET = "mms-media"
-const MAX_BYTES = 5 * 1024 * 1024 // 5 MB; matches the bucket + Twilio's ceiling
-const EXT_BY_TYPE: Record<string, string> = {
-  "image/jpeg": "jpg",
-  "image/png": "png",
-  "image/gif": "gif",
-  "image/webp": "webp",
-}
 
 export async function POST(request: NextRequest) {
-  await requireStaff()
+  const user = await requireStaff()
 
   let form: FormData
   try {
@@ -31,11 +26,11 @@ export async function POST(request: NextRequest) {
   if (!(file instanceof File)) {
     return NextResponse.json({ error: "no_file" }, { status: 400 })
   }
-  const ext = EXT_BY_TYPE[file.type]
+  const ext = MEDIA_EXT_BY_TYPE[file.type]
   if (!ext) {
     return NextResponse.json({ error: "unsupported_type", detail: file.type }, { status: 415 })
   }
-  if (file.size > MAX_BYTES) {
+  if (file.size > MAX_MEDIA_BYTES) {
     return NextResponse.json({ error: "too_large" }, { status: 413 })
   }
 
@@ -50,5 +45,12 @@ export async function POST(request: NextRequest) {
   }
 
   const { data } = admin.storage.from(BUCKET).getPublicUrl(path)
+  await logAudit({
+    action: "media.upload",
+    actorUserId: user.id,
+    targetTable: "storage.objects",
+    targetId: path,
+    diff: { type: file.type, size: file.size },
+  })
   return NextResponse.json({ ok: true, url: data.publicUrl, path })
 }

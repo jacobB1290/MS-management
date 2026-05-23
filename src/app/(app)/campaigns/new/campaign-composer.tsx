@@ -1,6 +1,7 @@
 "use client"
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useRouter } from "next/navigation"
+import { Plus, Loader2, X } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,6 +10,12 @@ import { FormField } from "@/components/ui/form-field"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+import {
+  MEDIA_ACCEPT_ATTR,
+  ACCEPTED_MEDIA_TYPES,
+  MAX_MEDIA_BYTES,
+  uploadMedia,
+} from "@/lib/media"
 
 interface ComposerProps {
   tagOptions: { tag: string; count: number }[]
@@ -25,6 +32,30 @@ export function CampaignComposer({ tagOptions }: ComposerProps) {
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [audienceAll, setAudienceAll] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [media, setMedia] = useState<{ url: string; isVideo: boolean } | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ""
+    if (!file) return
+    if (!ACCEPTED_MEDIA_TYPES.includes(file.type)) {
+      toast.error("Unsupported file type. Use an image or short video.")
+      return
+    }
+    if (file.size > MAX_MEDIA_BYTES) {
+      toast.error("File too large — 5 MB max for MMS.")
+      return
+    }
+    setUploading(true)
+    uploadMedia(file)
+      .then(({ url }) => setMedia({ url, isVideo: file.type.startsWith("video/") }))
+      .catch((err) =>
+        toast.error(`Upload failed: ${err instanceof Error ? err.message : String(err)}`),
+      )
+      .finally(() => setUploading(false))
+  }
 
   function toggleTag(tag: string) {
     setSelectedTags((cur) =>
@@ -42,12 +73,18 @@ export function CampaignComposer({ tagOptions }: ComposerProps) {
       setSubmitting(false)
       return
     }
+    if (channel === "sms" && !body.trim() && !media) {
+      toast.error("Add a message or an attachment.")
+      setSubmitting(false)
+      return
+    }
     const payload =
       channel === "sms"
         ? {
             channel,
             name,
             body,
+            media_url: media?.url ?? null,
             audience_filter: audience,
             scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null,
           }
@@ -108,6 +145,59 @@ export function CampaignComposer({ tagOptions }: ComposerProps) {
                 {body.length} / 1600 chars
               </p>
             </FormField>
+
+            <div>
+              <p className="text-small font-medium text-ink-muted mb-2">
+                Attachment (optional)
+              </p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept={MEDIA_ACCEPT_ATTR}
+                className="hidden"
+                onChange={onPickFile}
+              />
+              {media ? (
+                <div className="relative inline-block">
+                  {media.isVideo ? (
+                    <video
+                      src={media.url}
+                      className="h-24 rounded-md border border-ink-hairline"
+                      muted
+                    />
+                  ) : (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={media.url}
+                      alt="Attachment preview"
+                      className="h-24 rounded-md border border-ink-hairline"
+                    />
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setMedia(null)}
+                    aria-label="Remove attachment"
+                    className="absolute -top-2 -right-2 inline-flex items-center justify-center h-6 w-6 rounded-pill bg-ink text-white shadow-sm"
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                >
+                  {uploading ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
+                  {uploading ? "Uploading…" : "Attach photo or video"}
+                </Button>
+              )}
+              <p className="mt-1.5 text-micro text-ink-faint">
+                Adding media sends as MMS. Max 5 MB; video must be short.
+              </p>
+            </div>
           </TabsContent>
 
           <TabsContent value="email" className="mt-5 space-y-5">
@@ -194,7 +284,7 @@ export function CampaignComposer({ tagOptions }: ComposerProps) {
         <Button type="button" variant="ghost" onClick={() => router.back()}>
           Cancel
         </Button>
-        <Button type="submit" disabled={submitting}>
+        <Button type="submit" disabled={submitting || uploading}>
           {submitting ? "Saving…" : "Save draft"}
         </Button>
       </div>

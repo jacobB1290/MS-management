@@ -20,6 +20,7 @@ export async function POST(request: NextRequest) {
           name: data.name,
           channel: data.channel,
           body: data.body,
+          media_url: data.media_url ?? null,
           audience_filter: data.audience_filter as Json,
           scheduled_at: data.scheduled_at ?? null,
           status: data.scheduled_at ? "scheduled" : "draft",
