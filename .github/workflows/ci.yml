@@ -29,14 +29,31 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
+      - name: Build
+        run: npm run build
 
+  visual:
+    # Non-blocking. Playwright pixel diffs vary across renderers (fonts,
+    # anti-aliasing) — baselines are captured locally. CI visual checks
+    # need a containerized renderer to be stable; until that lands, this
+    # job is informational only and `continue-on-error: true` keeps it
+    # off the merge gate.
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
       - name: Run visual harness
         run: npm run harness
-
-      - name: Upload Playwright report
-        if: failure()
+      - if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
