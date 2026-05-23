@@ -16,6 +16,7 @@ import {
   MAX_MEDIA_BYTES,
   uploadMedia,
 } from "@/lib/media"
+import { SendgridTemplateField } from "./sendgrid-template-field"
 
 interface ComposerProps {
   tagOptions: { tag: string; count: number }[]
@@ -204,14 +205,13 @@ export function CampaignComposer({ tagOptions }: ComposerProps) {
             <FormField
               label="SendGrid template ID"
               htmlFor="template"
-              hint="Design templates in SendGrid Dynamic Templates. Paste the d-xxx... ID here."
+              hint="Pick one of your SendGrid templates or open the builder to design a new one."
             >
-              <Input
-                id="template"
-                value={templateId}
-                onChange={(e) => setTemplateId(e.target.value)}
-                placeholder="d-abc123…"
-                className="font-mono"
+              <SendgridTemplateField
+                templateId={templateId}
+                onTemplateId={setTemplateId}
+                onSubject={setSubject}
+                campaignName={name}
               />
             </FormField>
             <FormField label="Subject" htmlFor="subject">
