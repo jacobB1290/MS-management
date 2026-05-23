@@ -31,21 +31,23 @@ export default async function CampaignsPage() {
     .limit(100)
 
   return (
-    <div className="px-4 md:px-8 py-6 md:py-8">
-      <PageHeader
-        eyebrow="Outreach"
-        title="Campaigns"
-        actions={
-          <Button asChild>
-            <Link href="/campaigns/new">
-              <Plus size={16} />
-              New campaign
-            </Link>
-          </Button>
-        }
-      />
+    <div className="flex flex-col h-full min-h-0">
+      <div className="shrink-0 px-4 md:px-8 pt-6 md:pt-8 pb-4 bg-bg">
+        <PageHeader
+          eyebrow="Outreach"
+          title="Campaigns"
+          actions={
+            <Button asChild>
+              <Link href="/campaigns/new">
+                <Plus size={16} />
+                New campaign
+              </Link>
+            </Button>
+          }
+        />
+      </div>
 
-      <div className="mt-8">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 md:px-8 pb-6 md:pb-8">
         {!campaigns || campaigns.length === 0 ? (
           <EmptyState
             title="No campaigns yet"

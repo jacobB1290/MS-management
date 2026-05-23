@@ -21,13 +21,11 @@ export default async function AppLayout({
       <div className="flex-1 flex flex-col min-w-0">
         <Topbar user={user} />
         {/*
-         * `overflow-y-auto` so pages that don't manage their own scrolling
-         * (contacts, campaigns, settings, audit) work out of the box; the
-         * inbox sets its own `overflow-hidden` wrapper, so main never has to
-         * scroll there. `overscroll-contain` keeps rubber-band scrolling out
-         * of the document.
+         * Each page owns its own scroll region (sticky header + scrolling
+         * body). Main itself never scrolls; that's what kills the "everything
+         * scrolls" iOS feel.
          */}
-        <main className="flex-1 min-h-0 overflow-y-auto overscroll-contain">{children}</main>
+        <main className="flex-1 min-h-0 overflow-hidden">{children}</main>
         <MobileNav role={user.role} />
       </div>
     </div>

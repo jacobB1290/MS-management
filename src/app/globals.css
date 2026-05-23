@@ -146,6 +146,21 @@
   --spacing-token-xl: var(--space-xl);
   --spacing-token-2xl: var(--space-2xl);
   --spacing-token-3xl: var(--space-3xl);
+
+  /* Type-scale utilities. Without these, `text-body`/`text-small`/`text-heading`
+   * fall through to Tailwind's default sizes (16/14/24) which silently drift
+   * from the token system. Mapped 1:1 to the CSS vars so the scale is
+   * authoritative. */
+  --text-hero: var(--text-hero);
+  --text-title: var(--text-title);
+  --text-heading: var(--text-heading);
+  --text-lead: var(--text-lead);
+  --text-body: var(--text-body);
+  --text-compact: var(--text-compact);
+  --text-small: var(--text-small);
+  --text-label: var(--text-label);
+  --text-micro: var(--text-micro);
+  --text-eyebrow: var(--text-eyebrow);
 }
 
 /* ============================================================================
@@ -265,11 +280,30 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
-/* Focus ring — accessible, on-brand */
+/* Focus ring — accessible, on-brand. Keyboard users get the gold outline;
+ * touch users do NOT (iOS Safari treats taps as focus events and the
+ * outline lingers after every tap, which reads as a bug). */
 :where(button, a, input, textarea, select, [tabindex]):focus-visible {
   outline: 2px solid var(--gold);
   outline-offset: 2px;
   border-radius: 4px;
+}
+@media (hover: none) and (pointer: coarse) {
+  :where(button, a, [role="button"], [tabindex]):focus-visible {
+    outline: none;
+  }
+}
+
+/* iOS Safari "tap-then-stuck-on-hover" fix. Anywhere we rely on hover for
+ * row/button feedback, the hover state persists after a tap. Disable hover
+ * on coarse pointers entirely — `:active` handles touch press feedback. */
+@media (hover: none) and (pointer: coarse) {
+  *:hover {
+    background-color: revert !important;
+    color: revert !important;
+    transform: revert !important;
+    box-shadow: revert !important;
+  }
 }
 
 /* Reduced motion */

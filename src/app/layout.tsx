@@ -27,7 +27,9 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     title: "MS Mgmt",
-    statusBarStyle: "default",
+    // black-translucent: the warm cream surface flows under the iOS
+    // status bar instead of getting a hard white bar above it.
+    statusBarStyle: "black-translucent",
   },
   formatDetection: {
     telephone: false,

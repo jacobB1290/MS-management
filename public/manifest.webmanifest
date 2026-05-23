@@ -7,6 +7,20 @@
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#f6f1ea",
-  "theme_color": "#9d7853",
+  "theme_color": "#f6f1ea",
+  "icons": [
+    {
+      "src": "/icon",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/apple-icon",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
   "categories": ["productivity", "business"]
 }

@@ -30,42 +30,44 @@ export default async function ContactDetailPage({ params }: PageProps) {
   if (!contact) notFound()
 
   return (
-    <div className="px-4 md:px-8 py-6 md:py-8 max-w-4xl">
-      <Link
-        href="/contacts"
-        className="inline-flex items-center gap-1.5 text-small text-ink-muted hover:text-ink mb-4"
-      >
-        <ArrowLeft size={14} /> All contacts
-      </Link>
-
-      <PageHeader
-        eyebrow="Contact"
-        title={contact.name ?? formatPhone(contact.phone) ?? contact.email ?? "Unknown"}
-        actions={
-          <div className="flex items-center gap-2">
-            <Button asChild variant="secondary">
-              <Link href={`/contacts/${contact.id}/edit`}>
-                <Pencil size={14} />
-                Edit
-              </Link>
-            </Button>
-            <Button asChild>
-              <Link href={`/inbox?c=${contact.id}`}>
-                <MessageSquare size={16} />
-                Open thread
-              </Link>
-            </Button>
-          </div>
-        }
-      />
-
-      <div className="mt-2 flex flex-wrap gap-2">
-        {contact.sms_opted_out_at && <Badge variant="warning">SMS opted-out</Badge>}
-        {contact.email_unsubscribed_at && <Badge variant="muted">Email unsubscribed</Badge>}
-        {contact.language === "ru" && <Badge variant="gold">Russian</Badge>}
+    <div className="flex flex-col h-full min-h-0">
+      <div className="shrink-0 px-4 md:px-8 pt-6 md:pt-8 pb-4 bg-bg max-w-4xl w-full">
+        <Link
+          href="/contacts"
+          prefetch
+          className="inline-flex items-center gap-1.5 text-small text-ink-muted active:text-ink mb-4 min-h-11"
+        >
+          <ArrowLeft size={14} /> All contacts
+        </Link>
+        <PageHeader
+          eyebrow="Contact"
+          title={contact.name ?? formatPhone(contact.phone) ?? contact.email ?? "Unknown"}
+          actions={
+            <div className="flex items-center gap-2">
+              <Button asChild variant="secondary">
+                <Link href={`/contacts/${contact.id}/edit`}>
+                  <Pencil size={14} />
+                  Edit
+                </Link>
+              </Button>
+              <Button asChild>
+                <Link href={`/inbox?c=${contact.id}`}>
+                  <MessageSquare size={16} />
+                  Open thread
+                </Link>
+              </Button>
+            </div>
+          }
+        />
+        <div className="mt-2 flex flex-wrap gap-2">
+          {contact.sms_opted_out_at && <Badge variant="warning">SMS opted-out</Badge>}
+          {contact.email_unsubscribed_at && <Badge variant="muted">Email unsubscribed</Badge>}
+          {contact.language === "ru" && <Badge variant="gold">Russian</Badge>}
+        </div>
       </div>
 
-      <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 md:px-8 pb-6 md:pb-8 max-w-4xl w-full">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <section className="md:col-span-2 rounded-lg border border-ink-hairline bg-white p-6">
           <p className="eyebrow">Identity</p>
           <dl className="mt-4 space-y-3">
@@ -149,6 +151,7 @@ export default async function ContactDetailPage({ params }: PageProps) {
             </section>
           )}
         </aside>
+      </div>
       </div>
     </div>
   )
