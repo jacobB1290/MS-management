@@ -48,7 +48,8 @@ export async function requestCode(_prev: LoginState, formData: FormData): Promis
 
 const verifySchema = z.object({
   email: z.string().trim().email(),
-  token: z.string().trim().regex(/^\d{6}$/),
+  // Supabase email OTP length is configurable (6–10 digits); don't hard-code 6.
+  token: z.string().trim().regex(/^\d{6,10}$/),
   next: z.string().optional(),
 })
 

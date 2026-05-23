@@ -123,7 +123,7 @@ export function LoginForm() {
               Enter your code
             </label>
             <p className="text-small text-ink-faint">
-              We sent a 6-digit code to{" "}
+              We sent a code to{" "}
               <span className="font-medium text-ink">{email}</span>. Enter it here
               to finish signing in.
             </p>
@@ -134,11 +134,10 @@ export function LoginForm() {
               inputMode="numeric"
               autoComplete="one-time-code"
               pattern="[0-9]*"
-              maxLength={6}
+              maxLength={10}
               required
               autoFocus
-              placeholder="123456"
-              className={`${fieldClass} text-center font-mono tracking-[0.4em] placeholder:tracking-normal`}
+              className={`${fieldClass} text-center font-mono tracking-[0.3em]`}
             />
           </div>
 
