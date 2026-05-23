@@ -1,5 +1,4 @@
 "use client"
-/* eslint-disable react/no-unescaped-entities */
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { ArrowLeft, AlertTriangle } from "lucide-react"
@@ -207,8 +206,8 @@ export function ThreadPane({ contact, initialMessages }: ThreadPaneProps) {
       </div>
 
       <footer className="shrink-0 border-t border-ink-hairline bg-bg/95 backdrop-blur px-4 md:px-6 py-3 md:py-4">
-        {optedOut && (
-          <div className="mb-3 flex items-start gap-2 rounded-md border border-[color-mix(in_oklab,var(--color-warning)_40%,white)] bg-[color-mix(in_oklab,var(--color-warning)_8%,white)] px-3 py-2.5 text-small text-ink">
+        {optedOut ? (
+          <div className="flex items-start gap-2 rounded-md border border-[color-mix(in_oklab,var(--color-warning)_40%,white)] bg-[color-mix(in_oklab,var(--color-warning)_8%,white)] px-3 py-3 text-small text-ink">
             <AlertTriangle size={16} className="text-warning shrink-0 mt-0.5" />
             <p>
               This contact has opted out of SMS. To message them again, they
@@ -216,40 +215,47 @@ export function ThreadPane({ contact, initialMessages }: ThreadPaneProps) {
               <span className="font-mono font-semibold">START</span> to your number.
             </p>
           </div>
-        )}
-        {!optedOut && noPhone && (
-          <div className="mb-3 flex items-start gap-2 rounded-md border border-ink-hairline bg-white px-3 py-2.5 text-small text-ink-muted">
+        ) : noPhone ? (
+          <div className="flex items-start gap-2 rounded-md border border-ink-hairline bg-white px-3 py-3 text-small text-ink-muted">
             <AlertTriangle size={16} className="text-ink-faint shrink-0 mt-0.5" />
-            <p>No phone number on file. Add one on the contact's page to send SMS.</p>
+            <p>
+              No phone number on file.{" "}
+              <Link
+                href={`/contacts/${contact.id}/edit`}
+                prefetch
+                className="text-gold underline underline-offset-2"
+              >
+                Add one
+              </Link>{" "}
+              to send SMS.
+            </p>
           </div>
+        ) : (
+          <>
+            <form onSubmit={handleSend} className="flex items-end gap-2">
+              <Textarea
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                placeholder="Write a reply…"
+                rows={2}
+                autoGrow
+                className="flex-1 min-h-[44px] max-h-40 resize-none"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                    e.preventDefault()
+                    void handleSend(e)
+                  }
+                }}
+              />
+              <Button type="submit" disabled={!body.trim()} size="md">
+                Send
+              </Button>
+            </form>
+            <p className="mt-2 text-micro text-ink-faint">
+              Press <span className="font-mono">⌘↵</span> to send · Replies route to the same thread
+            </p>
+          </>
         )}
-        <form onSubmit={handleSend} className="flex items-end gap-2">
-          <Textarea
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            placeholder={optedOut ? "Cannot send — opted out" : "Write a reply…"}
-            disabled={optedOut || noPhone}
-            rows={2}
-            autoGrow
-            className="flex-1 min-h-[44px] max-h-40 resize-none"
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                e.preventDefault()
-                void handleSend(e)
-              }
-            }}
-          />
-          <Button
-            type="submit"
-            disabled={optedOut || noPhone || !body.trim()}
-            size="md"
-          >
-            Send
-          </Button>
-        </form>
-        <p className="mt-2 text-micro text-ink-faint">
-          Press <span className="font-mono">⌘↵</span> to send · Replies route to the same thread
-        </p>
       </footer>
     </>
   )
