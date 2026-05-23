@@ -219,7 +219,7 @@ export const DropdownMenuItem = React.forwardRef<
       className={cn(
         "flex items-center gap-2 w-full text-left",
         "px-3 py-2 rounded-sm",
-        "text-[var(--text-small)]",
+        "text-small",
         destructive ? "text-danger" : "text-ink",
         "hover:bg-surface focus-visible:bg-surface",
         "transition-colors duration-[var(--motion-fast)] ease-[var(--ease-standard)]",
@@ -242,7 +242,7 @@ export const DropdownMenuLabel = React.forwardRef<
       ref={ref}
       className={cn(
         "px-3 pt-2 pb-1",
-        "text-[var(--text-eyebrow)] font-semibold uppercase",
+        "text-eyebrow font-semibold uppercase",
         "tracking-[var(--tracking-wide)] text-ink-faint",
         className,
       )}

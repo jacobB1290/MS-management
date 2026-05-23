@@ -33,7 +33,7 @@ export const PageHeader = React.forwardRef<HTMLElement, PageHeaderProps>(
             <div className="flex items-center gap-2 min-w-0">
               <h1
                 className={cn(
-                  "font-display text-[var(--text-title)] text-ink",
+                  "font-display text-title text-ink",
                   "leading-[var(--leading-snug)] tracking-[var(--tracking-tight)]",
                   "font-semibold truncate",
                 )}

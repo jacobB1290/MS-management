@@ -80,7 +80,7 @@ export function Tooltip({
           role="tooltip"
           className={cn(
             "absolute z-50 pointer-events-none",
-            "bg-ink text-white text-[var(--text-small)]",
+            "bg-ink text-white text-small",
             "rounded-md px-3 py-1.5 shadow-[var(--shadow-md)]",
             "whitespace-nowrap",
             positionClasses[side],

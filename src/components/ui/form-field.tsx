@@ -54,7 +54,7 @@ export const FormField = React.forwardRef<HTMLDivElement, FormFieldProps>(
         {hint && !error && (
           <p
             id={hintId}
-            className="text-[var(--text-small)] text-ink-muted leading-[var(--leading-prose)]"
+            className="text-small text-ink-muted leading-[var(--leading-prose)]"
           >
             {hint}
           </p>
@@ -63,7 +63,7 @@ export const FormField = React.forwardRef<HTMLDivElement, FormFieldProps>(
           <p
             id={errorId}
             role="alert"
-            className="text-[var(--text-small)] text-danger leading-[var(--leading-prose)]"
+            className="text-small text-danger leading-[var(--leading-prose)]"
           >
             {error}
           </p>

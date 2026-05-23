@@ -41,7 +41,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
         }}
         className={cn(
           "block w-full bg-white border border-ink-hairline rounded-md",
-          "px-3 py-2.5 text-[var(--text-body)] text-ink",
+          "px-3 py-2.5 text-body text-ink",
           "min-h-[88px] resize-y",
           "placeholder:text-ink-faint",
           "transition-colors duration-[var(--motion-fast)] ease-[var(--ease-standard)]",

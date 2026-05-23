@@ -110,7 +110,7 @@ export const TabsTrigger = React.forwardRef<HTMLButtonElement, TabsTriggerProps>
         }}
         className={cn(
           "relative inline-flex items-center gap-2 py-3 px-1",
-          "text-[var(--text-small)] font-medium tracking-[var(--tracking-wide)]",
+          "text-small font-medium tracking-[var(--tracking-wide)]",
           "uppercase",
           "transition-colors duration-[var(--motion-fast)] ease-[var(--ease-standard)]",
           "after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-px",

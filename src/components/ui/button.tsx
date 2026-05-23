@@ -16,8 +16,8 @@ const buttonVariants = cva(
           "text-gold hover:underline underline-offset-4 font-medium bg-transparent",
       },
       size: {
-        sm: "min-h-8 px-3 text-[var(--text-label)]",
-        md: "min-h-11 px-5 text-[var(--text-small)]",
+        sm: "min-h-8 px-3 text-label",
+        md: "min-h-11 px-5 text-small",
         icon: "h-11 w-11 p-0",
       },
     },

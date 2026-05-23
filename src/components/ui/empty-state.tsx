@@ -39,7 +39,7 @@ export const EmptyState = React.forwardRef<HTMLDivElement, EmptyStateProps>(
         )}
         <h3
           className={cn(
-            "font-display text-[var(--text-heading)] font-semibold",
+            "font-display text-heading font-semibold",
             "text-ink leading-[var(--leading-snug)] tracking-[var(--tracking-tight)]",
           )}
         >
@@ -48,7 +48,7 @@ export const EmptyState = React.forwardRef<HTMLDivElement, EmptyStateProps>(
         {body && (
           <p
             className={cn(
-              "text-[var(--text-body)] text-ink-muted",
+              "text-body text-ink-muted",
               "leading-[var(--leading-prose)] max-w-prose",
             )}
           >

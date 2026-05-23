@@ -43,7 +43,7 @@ export const CardTitle = React.forwardRef<
     <h3
       ref={ref}
       className={cn(
-        "font-display text-[var(--text-heading)] text-ink",
+        "font-display text-heading text-ink",
         "leading-[var(--leading-snug)] tracking-[var(--tracking-tight)]",
         "font-semibold",
         className,
@@ -61,7 +61,7 @@ export const CardDescription = React.forwardRef<
     <p
       ref={ref}
       className={cn(
-        "text-[var(--text-small)] text-ink-muted leading-[var(--leading-prose)]",
+        "text-small text-ink-muted leading-[var(--leading-prose)]",
         className,
       )}
       {...props}
