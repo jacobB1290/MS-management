@@ -5,7 +5,13 @@ import { Avatar } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 import type { StaffUser } from "@/server/auth"
 
-export async function Sidebar({ user }: { user: StaffUser }) {
+export async function Sidebar({
+  user,
+  awaitingReply = 0,
+}: {
+  user: StaffUser
+  awaitingReply?: number
+}) {
   // Use the x-invoke-path header for active route detection in RSC; fall back
   // to the URL pathname if Next exposes it differently across versions.
   const hdrs = await headers()
@@ -37,7 +43,7 @@ export async function Sidebar({ user }: { user: StaffUser }) {
                     "group flex items-center gap-3 rounded-md px-3 py-2.5 text-body transition-colors",
                     active
                       ? "bg-white text-ink shadow-[var(--shadow-xs)]"
-                      : "text-ink-muted hover:bg-white/60 hover:text-ink",
+                      : "text-ink-muted hover:bg-white/60 hover:text-ink active:bg-white/60",
                   )}
                   aria-current={active ? "page" : undefined}
                 >
@@ -49,6 +55,14 @@ export async function Sidebar({ user }: { user: StaffUser }) {
                     )}
                   />
                   <span className={active ? "font-medium" : ""}>{item.label}</span>
+                  {item.href === "/inbox" && awaitingReply > 0 && (
+                    <span
+                      className="ml-auto min-w-[20px] h-5 px-1.5 inline-flex items-center justify-center rounded-pill bg-gold text-white text-micro font-semibold leading-none"
+                      aria-label={`${awaitingReply} awaiting reply`}
+                    >
+                      {awaitingReply > 99 ? "99+" : awaitingReply}
+                    </span>
+                  )}
                 </Link>
               </li>
             )

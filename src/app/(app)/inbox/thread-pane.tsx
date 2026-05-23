@@ -1,7 +1,7 @@
 "use client"
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, AlertTriangle, Plus, Loader2, X, ChevronRight } from "lucide-react"
+import { ArrowLeft, AlertTriangle, Plus, Loader2, X, ChevronRight, RotateCcw } from "lucide-react"
 import { format, formatRelative } from "date-fns"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -123,22 +123,24 @@ export function ThreadPane({ contact, initialMessages }: ThreadPaneProps) {
       .finally(() => setUploading(false))
   }
 
-  async function handleSend(e: React.FormEvent) {
-    e.preventDefault()
-    const text = body.trim()
-    if ((!text && !media) || sending || uploading || optedOut || noPhone) return
+  // Core send path. `restoreComposerOnFail` is true for a fresh compose (so a
+  // failed send hands the draft back to the editor) and false for a retry of
+  // an already-failed bubble (where there's no draft to restore).
+  async function dispatchSend(
+    text: string,
+    mediaUrl: string | null,
+    isVideo: boolean,
+    restoreComposerOnFail: boolean,
+  ) {
     setSending(true)
-
-    // Optimistic: append a pending bubble immediately so the UI feels native.
-    const sentMedia = media
     const tempId = `tmp_${crypto.randomUUID()}`
     const optimistic: OptimisticMessage = {
       id: tempId,
       contact_id: contact.id,
       direction: "out",
       body: text,
-      media_url: sentMedia?.url ?? null,
-      channel: sentMedia ? "mms" : "sms",
+      media_url: mediaUrl,
+      channel: mediaUrl ? "mms" : "sms",
       twilio_sid: null,
       status: "sending",
       error: null,
@@ -151,42 +153,53 @@ export function ThreadPane({ contact, initialMessages }: ThreadPaneProps) {
       _optimistic: true,
     }
     setMessages((cur) => [...cur, optimistic])
-    setBody("")
-    setMedia(null)
 
     try {
       const res = await fetch("/api/messages/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contact_id: contact.id,
-          body: text,
-          media_url: sentMedia?.url ?? null,
-        }),
+        body: JSON.stringify({ contact_id: contact.id, body: text, media_url: mediaUrl }),
       })
       const json = await res.json()
       if (!res.ok) {
-        // Roll the optimistic message back, restore the draft + attachment.
         setMessages((cur) => cur.filter((m) => m.id !== tempId))
-        setBody(text)
-        setMedia(sentMedia)
-        toast.error(json.error === "opt_out" ? "Contact has opted out." : `Send failed: ${json.error}`)
+        if (restoreComposerOnFail) {
+          setBody(text)
+          setMedia(mediaUrl ? { url: mediaUrl, isVideo } : null)
+        }
+        toast.error(json.error === "opt_out" ? "Contact has opted out" : `Send failed: ${json.error}`)
       } else if (json.mock) {
-        // Mark the optimistic row as 'mocked' visibly until realtime swaps it.
         setMessages((cur) =>
           cur.map((m) => (m.id === tempId ? { ...m, status: "mocked" } : m)),
         )
-        toast.message("Recorded without sending — Twilio not configured yet.")
+        toast.message("Recorded without sending — Twilio not configured yet")
       }
       // No router.refresh() — realtime + optimistic state already covers it.
     } catch (err) {
       setMessages((cur) => cur.filter((m) => m.id !== tempId))
-      setBody(text)
-      setMedia(sentMedia)
+      if (restoreComposerOnFail) {
+        setBody(text)
+        setMedia(mediaUrl ? { url: mediaUrl, isVideo } : null)
+      }
       toast.error(`Network error: ${err instanceof Error ? err.message : String(err)}`)
     } finally {
       setSending(false)
     }
+  }
+
+  async function handleSend(e: React.FormEvent) {
+    e.preventDefault()
+    const text = body.trim()
+    if ((!text && !media) || sending || uploading || optedOut || noPhone) return
+    const sentMedia = media
+    setBody("")
+    setMedia(null)
+    await dispatchSend(text, sentMedia?.url ?? null, sentMedia?.isVideo ?? false, true)
+  }
+
+  async function handleRetry(msg: OptimisticMessage) {
+    if (sending || optedOut || noPhone) return
+    await dispatchSend(msg.body ?? "", msg.media_url, isVideoUrl(msg.media_url ?? ""), false)
   }
 
   return (
@@ -237,7 +250,7 @@ export function ThreadPane({ contact, initialMessages }: ThreadPaneProps) {
 
       <div
         ref={scrollerRef}
-        className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-4"
+        className="flex-1 overflow-y-auto overscroll-contain px-4 md:px-8 py-6 space-y-4"
       >
         {messages.length === 0 && (
           <div className="text-center py-16">
@@ -248,7 +261,7 @@ export function ThreadPane({ contact, initialMessages }: ThreadPaneProps) {
         )}
 
         {messages.map((m) => (
-          <MessageBubble key={m.id} message={m} />
+          <MessageBubble key={m.id} message={m} onRetry={handleRetry} />
         ))}
       </div>
 
@@ -350,21 +363,30 @@ export function ThreadPane({ contact, initialMessages }: ThreadPaneProps) {
   )
 }
 
-function MessageBubble({ message }: { message: OptimisticMessage }) {
+function MessageBubble({
+  message,
+  onRetry,
+}: {
+  message: OptimisticMessage
+  onRetry: (message: OptimisticMessage) => void
+}) {
   const isOut = message.direction === "out"
   const time = useMemo(() => {
     return formatRelative(new Date(message.created_at), new Date())
   }, [message.created_at])
   const pending = message.status === "sending" || message._optimistic
+  const failed =
+    isOut && (message.status === "failed" || message.status === "undelivered")
 
   return (
-    <div className={cn("flex", isOut ? "justify-end" : "justify-start")}>
+    <div className={cn("flex flex-col", isOut ? "items-end" : "items-start")}>
       <div
         className={cn(
           "max-w-[78%] md:max-w-[60%] rounded-lg px-4 py-2.5 text-body leading-normal transition-opacity",
           isOut
             ? "bg-gold text-white rounded-br-sm"
             : "bg-white border border-ink-hairline text-ink rounded-bl-sm",
+          failed && "ring-1 ring-danger/40",
           pending && "opacity-70",
         )}
       >
@@ -405,6 +427,15 @@ function MessageBubble({ message }: { message: OptimisticMessage }) {
           )}
         </p>
       </div>
+      {failed && (
+        <button
+          type="button"
+          onClick={() => onRetry(message)}
+          className="mt-1 inline-flex items-center gap-1 text-micro text-danger font-medium hover:underline active:opacity-70"
+        >
+          <RotateCcw size={11} /> Tap to retry
+        </button>
+      )}
     </div>
   )
 }

@@ -158,15 +158,18 @@ export function ConversationList({
         </div>
       </div>
 
-      <ol className="flex-1 min-h-0 overflow-y-auto no-scrollbar divide-y divide-ink-hairline">
+      <ol className="flex-1 min-h-0 overflow-y-auto overscroll-contain no-scrollbar divide-y divide-ink-hairline">
         {filtered.length === 0 && (
           <li className="px-5 py-12 text-center text-ink-faint text-small">
-            {query ? "No matches." : "No conversations yet."}
+            {query ? "No matches" : "No conversations yet"}
           </li>
         )}
 
         {filtered.map((c) => {
           const active = c.id === activeId
+          // A thread whose last message is inbound is awaiting our reply.
+          // Self-clears the moment we respond (direction flips to "out").
+          const awaitingReply = c.last_message_direction === "in"
           const lastAt = c.last_message_at
             ? formatDistanceToNow(new Date(c.last_message_at), { addSuffix: false })
             : null
@@ -180,26 +183,34 @@ export function ConversationList({
                   "w-full text-left flex items-center gap-3 px-4 py-3.5 transition-colors",
                   active
                     ? "bg-white shadow-[inset_3px_0_0_var(--gold)]"
-                    : "hover:bg-white/60",
+                    : "hover:bg-white/60 active:bg-white/60",
                 )}
                 aria-current={active ? "page" : undefined}
               >
                 <Avatar name={c.name ?? c.phone ?? c.email} size="md" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-baseline justify-between gap-2">
-                    <p className="font-medium text-ink truncate">
+                    <p className={cn("truncate", awaitingReply ? "font-semibold text-ink" : "font-medium text-ink")}>
                       {c.name ?? formatPhone(c.phone) ?? c.email ?? "Unknown"}
                     </p>
-                    {lastAt && (
-                      <span
-                        data-dynamic
-                        className="text-micro text-ink-faint shrink-0"
-                      >
-                        {lastAt}
-                      </span>
-                    )}
+                    <span className="flex items-center gap-1.5 shrink-0">
+                      {lastAt && (
+                        <span
+                          data-dynamic
+                          className={cn("text-micro", awaitingReply ? "text-gold-dark font-medium" : "text-ink-faint")}
+                        >
+                          {lastAt}
+                        </span>
+                      )}
+                      {awaitingReply && (
+                        <span
+                          className="h-2 w-2 rounded-pill bg-gold"
+                          aria-label="Awaiting reply"
+                        />
+                      )}
+                    </span>
                   </div>
-                  <p className="text-small text-ink-muted truncate mt-0.5">
+                  <p className={cn("text-small truncate mt-0.5", awaitingReply ? "text-ink" : "text-ink-muted")}>
                     {c.last_message_body ? (
                       <>
                         {c.last_message_direction === "out" && (
