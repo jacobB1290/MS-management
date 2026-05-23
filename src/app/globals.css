@@ -334,12 +334,15 @@ h1, h2, h3, h4, h5, h6 {
 /* Aggressive resets so iOS Safari never paints links or buttons in its
  * own native colors. Without these, on tap an <a> falls back to
  * -webkit-link (blue) and a <button> momentarily reads as the OS default
- * (white-on-blue), which is the "things go blue when I tap" bug. */
-a,
-a:link,
-a:visited,
-a:hover,
-a:active {
+ * (white-on-blue), which is the "things go blue when I tap" bug.
+ *
+ * Wrapped in :where() so these carry ZERO specificity. Author styles beat
+ * the user-agent stylesheet regardless of specificity, so this still kills
+ * the native link blue — but it no longer out-specifies component color
+ * classes like .btn-cta. Without :where(), `a:link` (0,0,1,1) beat
+ * `.btn-cta` (0,0,1,0), so gold link-buttons rendered their text in the
+ * inherited dark ink instead of white. */
+:where(a, a:link, a:visited, a:hover, a:active) {
   color: inherit;
   text-decoration: none;
 }
@@ -351,9 +354,7 @@ button,
   color: inherit;
   font: inherit;
 }
-button:active,
-[role="button"]:active,
-a:active {
+:where(button:active, [role="button"]:active, a:active) {
   color: inherit;
 }
 
