@@ -9,7 +9,7 @@ import { logAudit } from "@/server/audit"
  * mirrors unsubscribe + spamreport + dropped back to contacts.
  *
  * Configure in the SendGrid dashboard:
- *   https://<host>/api/webhook/sendgrid-events
+ *   https://<host>/api/webhook/sendgrid
  * Then copy the Signed Webhook public key into SENDGRID_WEBHOOK_PUBLIC_KEY.
  */
 export async function POST(request: NextRequest) {
