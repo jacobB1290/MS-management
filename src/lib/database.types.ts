@@ -198,6 +198,72 @@ export type Database = {
         }
         Relationships: []
       }
+      cases: {
+        Row: {
+          ai_meta: Json
+          assigned_to: string | null
+          body: string
+          contact_id: string | null
+          created_at: string
+          details: Json
+          id: string
+          priority: number | null
+          requester_name: string | null
+          status: string
+          summary: string | null
+          title: string | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          ai_meta?: Json
+          assigned_to?: string | null
+          body: string
+          contact_id?: string | null
+          created_at?: string
+          details?: Json
+          id?: string
+          priority?: number | null
+          requester_name?: string | null
+          status?: string
+          summary?: string | null
+          title?: string | null
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          ai_meta?: Json
+          assigned_to?: string | null
+          body?: string
+          contact_id?: string | null
+          created_at?: string
+          details?: Json
+          id?: string
+          priority?: number | null
+          requester_name?: string | null
+          status?: string
+          summary?: string | null
+          title?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cases_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contact_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cases_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contacts: {
         Row: {
           consent_at: string | null
