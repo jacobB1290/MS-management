@@ -6,6 +6,7 @@ import { MessageSquare, ArrowLeft, Pencil, HeartHandshake } from "lucide-react"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { requireStaff } from "@/server/auth"
 import { isVoiceConfigured } from "@/server/comms/voice"
+import { assertCanSendSms } from "@/server/comms/optOut"
 import { PageHeader } from "@/components/ui/page-header"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -13,6 +14,7 @@ import { CallButton } from "@/components/call-button"
 import { formatPhone, humanizeSource } from "@/lib/utils"
 import { SuggestTags } from "./suggest-tags"
 import { MemberToggle } from "./member-toggle"
+import { OptInRequest } from "./opt-in-request"
 
 export const metadata: Metadata = { title: "Contact" }
 
@@ -39,6 +41,20 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
   ])
 
   if (!contact) notFound()
+
+  // Marketing (express) consent + the opt-in invitation affordance. The send
+  // gate is the authority on whether an invite can go out; we only ask it when
+  // the contact is reachable and not already settled either way.
+  const marketingOptedIn = Boolean(contact.marketing_consent_at)
+  const marketingDeclined = Boolean(contact.marketing_opted_out_at)
+  const smsOptedOut = Boolean(contact.sms_opted_out_at)
+  let optInMode: "send" | "requested" | "blocked" | null = null
+  if (contact.phone && !smsOptedOut && !marketingOptedIn && !marketingDeclined) {
+    const gate = await assertCanSendSms(contact.id, "opt_in_request")
+    if (gate.ok) optInMode = "send"
+    else if (gate.reason === "opt_in_already_requested") optInMode = "requested"
+    else if (gate.reason === "implied_expired") optInMode = "blocked"
+  }
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -118,6 +134,26 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
               </p>
             </div>
             <MemberToggle contactId={contact.id} isMember={contact.is_member} />
+          </div>
+
+          <div className="mt-4 border-t border-ink-hairline pt-4">
+            <p className="text-label text-ink-faint">Marketing messages</p>
+            <p className="text-small text-ink-muted mt-0.5">
+              {smsOptedOut
+                ? "Globally opted out of SMS. They must text START first."
+                : marketingOptedIn
+                  ? `Opted in${contact.marketing_consent_method ? ` · ${contact.marketing_consent_method}` : ""}${contact.marketing_consent_at ? ` · ${format(new Date(contact.marketing_consent_at), "PP")}` : ""}`
+                  : marketingDeclined
+                    ? `Declined recurring updates${contact.marketing_opted_out_at ? ` · ${format(new Date(contact.marketing_opted_out_at), "PP")}` : ""}`
+                    : "Not opted in to recurring updates (campaigns)."}
+            </p>
+            {optInMode && (
+              <OptInRequest
+                contactId={contact.id}
+                mode={optInMode}
+                requestedAt={contact.marketing_opt_in_requested_at}
+              />
+            )}
           </div>
 
           {contact.notes && (

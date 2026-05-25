@@ -14,7 +14,7 @@ import type { Tables } from "@/lib/database.types"
 type Conversation = Pick<
   Tables<"contact_summary">,
   "id" | "name" | "phone" | "email" | "tags" |
-  "sms_opted_out_at" | "email_unsubscribed_at" |
+  "sms_opted_out_at" | "email_unsubscribed_at" | "is_member" |
   "last_message_at" | "last_message_body" | "last_message_direction" |
   "message_count"
 >
@@ -40,6 +40,7 @@ export function ConversationList({
   const activeId = optimisticId ?? selectedId
 
   const [query, setQuery] = useState("")
+  const [membersOnly, setMembersOnly] = useState(false)
   const [items, setItems] = useState<Conversation[]>(initial)
 
   // Reseed when the parent provides a fresh server-side snapshot.
@@ -98,6 +99,7 @@ export function ConversationList({
               tags: c.tags,
               sms_opted_out_at: c.sms_opted_out_at,
               email_unsubscribed_at: c.email_unsubscribed_at,
+              is_member: c.is_member,
             }
             return next
           })
@@ -110,18 +112,21 @@ export function ConversationList({
   }, [router])
 
   const filtered = useMemo(() => {
-    if (!query.trim()) return items
+    const base = membersOnly ? items.filter((c) => c.is_member) : items
+    if (!query.trim()) return base
     const q = query.toLowerCase()
     // Match phone numbers on digits only, so "(208) 473" finds the stored
     // E.164 form just like a bare "208473" would.
     const qDigits = query.replace(/\D/g, "")
-    return items.filter(
+    return base.filter(
       (c) =>
         c.name?.toLowerCase().includes(q) ||
         c.email?.toLowerCase().includes(q) ||
         (qDigits.length >= 2 && c.phone?.replace(/\D/g, "").includes(qDigits)),
     )
-  }, [items, query])
+  }, [items, query, membersOnly])
+
+  const memberCount = useMemo(() => items.filter((c) => c.is_member).length, [items])
 
   function selectConversation(id: string) {
     setOptimisticId(id)
@@ -152,12 +157,45 @@ export function ConversationList({
           </div>
           <NewMessageDialog />
         </div>
+        {memberCount > 0 && (
+          <div className="flex items-center gap-2 mt-2.5">
+            <button
+              type="button"
+              onClick={() => setMembersOnly(false)}
+              aria-pressed={!membersOnly}
+              className={cn(
+                "inline-flex items-center rounded-pill border px-3 py-1 text-label font-medium transition-colors",
+                !membersOnly
+                  ? "border-gold bg-gold text-white"
+                  : "border-ink-hairline bg-white text-ink-muted hover:bg-surface",
+              )}
+            >
+              All
+            </button>
+            <button
+              type="button"
+              onClick={() => setMembersOnly(true)}
+              aria-pressed={membersOnly}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-pill border px-3 py-1 text-label font-medium transition-colors",
+                membersOnly
+                  ? "border-gold bg-gold text-white"
+                  : "border-ink-hairline bg-white text-ink-muted hover:bg-surface",
+              )}
+            >
+              Members
+              <span className={cn("text-micro", membersOnly ? "text-white/80" : "text-ink-faint")}>
+                {memberCount}
+              </span>
+            </button>
+          </div>
+        )}
       </div>
 
       <ol className="flex-1 min-h-0 overflow-y-auto overscroll-contain no-scrollbar divide-y divide-ink-hairline">
         {filtered.length === 0 && (
           <li className="px-5 py-12 text-center text-ink-faint text-small">
-            {query ? "No matches" : "No conversations yet"}
+            {query ? "No matches" : membersOnly ? "No members with a conversation yet" : "No conversations yet"}
           </li>
         )}
 
@@ -219,6 +257,7 @@ export function ConversationList({
                     )}
                   </p>
                   <div className="flex items-center gap-1.5 mt-1.5 min-h-[18px]">
+                    {c.is_member && <Badge variant="gold">Member</Badge>}
                     {c.sms_opted_out_at && <Badge variant="warning">STOP</Badge>}
                     {c.email_unsubscribed_at && <Badge variant="muted">UNSUB</Badge>}
                   </div>

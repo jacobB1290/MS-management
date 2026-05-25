@@ -1,7 +1,7 @@
 "use client"
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, AlertTriangle, Plus, Loader2, X, ChevronRight, RotateCcw, Sparkles } from "lucide-react"
+import { ArrowLeft, AlertTriangle, Plus, Loader2, X, ChevronRight, RotateCcw, Sparkles, Clock } from "lucide-react"
 import { format, formatRelative } from "date-fns"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -28,6 +28,10 @@ interface ThreadPaneProps {
   initialMessages: Message[]
   currentUserId: string
   senderNames: Record<string, string>
+  /** Server-computed: the conversational (implied-consent) reply window has
+   *  lapsed and the contact has no express consent, so sending is blocked
+   *  until they message in again. */
+  impliedExpired: boolean
 }
 
 /** Optimistic message rows are real Message shape but with a temp id and
@@ -39,6 +43,7 @@ export function ThreadPane({
   initialMessages,
   currentUserId,
   senderNames,
+  impliedExpired,
 }: ThreadPaneProps) {
   // Contact is held in state so realtime row updates (e.g. a STOP reply
   // flipping sms_opted_out_at) reflect in the thread immediately, without
@@ -66,8 +71,13 @@ export function ThreadPane({
   const [lockedBy, setLockedBy] = useState<string | null>(null)
   const myName = senderNames[currentUserId] ?? "a teammate"
 
+  // A fresh inbound (incl. a JOIN reply) reopens the implied-consent window,
+  // so we clear the lapsed banner live without waiting for a re-fetch.
+  const [sawInbound, setSawInbound] = useState(false)
+
   const optedOut = Boolean(contact.sms_opted_out_at)
   const noPhone = !contact.phone
+  const conversationLapsed = impliedExpired && !optedOut && !noPhone && !sawInbound
   const locked = lockedBy !== null
 
   // Sync local state when the parent feeds a fresh thread (URL `?c=` change).
@@ -79,6 +89,7 @@ export function ThreadPane({
     setBody("")
     setMedia(null)
     setLockedBy(null)
+    setSawInbound(false)
   }
 
   // Realtime: new messages + status updates AND the contact row itself, so a
@@ -101,8 +112,11 @@ export function ThreadPane({
         { event: "*", schema: "public", table: "messages", filter: `contact_id=eq.${contactProp.id}` },
         (payload) => {
           if (payload.eventType === "INSERT") {
+            const incoming = payload.new as Message
+            // Any inbound reopens the conversational window — drop the lapsed
+            // block immediately.
+            if (incoming.direction === "in") setSawInbound(true)
             setMessages((cur) => {
-              const incoming = payload.new as Message
               if (cur.some((m) => m.id === incoming.id)) return cur
               // Swap a matching pending optimistic row with the real one
               // (matched on body since temp ids are random).
@@ -190,7 +204,7 @@ export function ThreadPane({
   // draft. The result lands in the textarea for the operator to edit — never
   // auto-sent.
   async function handleDraft() {
-    if (drafting || locked || optedOut || noPhone) return
+    if (drafting || locked || optedOut || noPhone || conversationLapsed) return
     setDrafting(true)
     try {
       const res = await fetch("/api/ai/draft-reply", {
@@ -306,7 +320,13 @@ export function ThreadPane({
           setBody(text)
           setMedia(mediaUrl ? { url: mediaUrl, isVideo } : null)
         }
-        toast.error(json.error === "opt_out" ? "Contact has opted out" : `Send failed: ${json.error}`)
+        toast.error(
+          json.error === "opt_out"
+            ? "Contact has opted out"
+            : json.error === "implied_expired"
+              ? "Reply window closed — they need to message you first"
+              : `Send failed: ${json.error}`,
+        )
       } else if (json.mock) {
         setMessages((cur) =>
           cur.map((m) => (m.id === tempId ? { ...m, status: "mocked" } : m)),
@@ -329,7 +349,7 @@ export function ThreadPane({
   async function handleSend(e: React.FormEvent) {
     e.preventDefault()
     const text = body.trim()
-    if ((!text && !media) || sending || uploading || optedOut || noPhone || locked) return
+    if ((!text && !media) || sending || uploading || optedOut || noPhone || locked || conversationLapsed) return
     stopTyping()
     const sentMedia = media
     setBody("")
@@ -338,7 +358,7 @@ export function ThreadPane({
   }
 
   async function handleRetry(msg: OptimisticMessage) {
-    if (sending || optedOut || noPhone) return
+    if (sending || optedOut || noPhone || conversationLapsed) return
     await dispatchSend(msg.body ?? "", msg.media_url, isVideoUrl(msg.media_url ?? ""), false)
   }
 
@@ -433,6 +453,23 @@ export function ThreadPane({
                 Add one
               </Link>{" "}
               to send SMS.
+            </p>
+          </div>
+        ) : conversationLapsed ? (
+          <div className="flex items-start gap-2 rounded-md border border-[color-mix(in_oklab,var(--color-warning)_40%,white)] bg-[color-mix(in_oklab,var(--color-warning)_8%,white)] px-3 py-3 text-small text-ink">
+            <Clock size={16} className="text-warning shrink-0 mt-0.5" />
+            <p>
+              The reply window has closed. It’s been a while since this contact
+              last messaged, so we can’t text them again until they reply or
+              opt in. Ask for opt-in from their{" "}
+              <Link
+                href={`/contacts/${contact.id}?from=inbox`}
+                prefetch
+                className="text-gold underline underline-offset-2"
+              >
+                contact page
+              </Link>
+              .
             </p>
           </div>
         ) : (

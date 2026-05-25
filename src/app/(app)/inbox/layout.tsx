@@ -16,7 +16,7 @@ export default async function InboxLayout({
   const { data: conversations } = await supabase
     .from("contact_summary")
     .select(
-      "id, name, phone, email, tags, sms_opted_out_at, email_unsubscribed_at, last_message_at, last_message_body, last_message_direction, message_count",
+      "id, name, phone, email, tags, sms_opted_out_at, email_unsubscribed_at, is_member, last_message_at, last_message_body, last_message_direction, message_count",
     )
     // Only contacts with at least one message belong in the inbox. A freshly
     // added contact has no thread yet; it appears here once something is sent

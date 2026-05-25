@@ -189,16 +189,20 @@ export function CampaignComposer({ tagOptions }: ComposerProps) {
                   </button>
                 </div>
               ) : (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                >
-                  {uploading ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
-                  {uploading ? "Uploading…" : "Attach photo or video"}
-                </Button>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    aria-label="Attach photo or video"
+                    className="btn-icon-action disabled:opacity-50"
+                  >
+                    {uploading ? <Loader2 size={18} className="animate-spin" /> : <Plus size={20} />}
+                  </button>
+                  <span className="text-small text-ink-muted">
+                    {uploading ? "Uploading…" : "Attach photo or video"}
+                  </span>
+                </div>
               )}
               <p className="mt-1.5 text-micro text-ink-faint">
                 Adding media sends as MMS. Max 5 MB; video must be short.

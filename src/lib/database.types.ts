@@ -600,6 +600,7 @@ export type Database = {
           email: string | null
           email_unsubscribed_at: string | null
           id: string | null
+          is_member: boolean | null
           language: string | null
           last_message_at: string | null
           last_message_body: string | null

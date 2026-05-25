@@ -3,6 +3,7 @@ import { Suspense } from "react"
 import { requireStaff } from "@/server/auth"
 import { isVoiceConfigured } from "@/server/comms/voice"
 import { createSupabaseServerClient, createSupabaseAdminClient } from "@/lib/supabase/server"
+import { assertCanSendSms } from "@/server/comms/optOut"
 import { ThreadPane } from "./thread-pane"
 import { ContactPanel } from "./contact-panel"
 import { EmptyState } from "@/components/ui/empty-state"
@@ -59,7 +60,7 @@ async function ThreadLoader({
   // was wasteful and made the thread payload heavy on chatty contacts.
   // Staff names (service-role read) let each outbound message show who sent
   // it — works for every staff member regardless of app_users RLS.
-  const [contactRes, messagesRes, usersRes] = await Promise.all([
+  const [contactRes, messagesRes, usersRes, replyGate] = await Promise.all([
     supabase.from("contacts").select("*").eq("id", contactId).maybeSingle(),
     supabase
       .from("messages")
@@ -68,9 +69,13 @@ async function ThreadLoader({
       .order("created_at", { ascending: false })
       .limit(80),
     admin.from("app_users").select("user_id, display_name"),
+    // Authoritative reply gate: drives the "implied consent expired" banner so
+    // a lapsed thread blocks the composer instead of failing on send.
+    assertCanSendSms(contactId, "conversational_reply"),
   ])
   if (!contactRes.data) return null
   const messages = (messagesRes.data ?? []).slice().reverse()
+  const impliedExpired = !replyGate.ok && replyGate.reason === "implied_expired"
   const senderNames: Record<string, string> = {}
   for (const u of usersRes.data ?? []) {
     if (u.display_name) senderNames[u.user_id] = u.display_name
@@ -82,6 +87,7 @@ async function ThreadLoader({
         initialMessages={messages}
         currentUserId={currentUserId}
         senderNames={senderNames}
+        impliedExpired={impliedExpired}
       />
     </div>
   )

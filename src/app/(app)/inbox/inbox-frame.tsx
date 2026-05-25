@@ -7,7 +7,7 @@ import type { Tables } from "@/lib/database.types"
 type Conversation = Pick<
   Tables<"contact_summary">,
   "id" | "name" | "phone" | "email" | "tags" |
-  "sms_opted_out_at" | "email_unsubscribed_at" |
+  "sms_opted_out_at" | "email_unsubscribed_at" | "is_member" |
   "last_message_at" | "last_message_body" | "last_message_direction" |
   "message_count"
 >

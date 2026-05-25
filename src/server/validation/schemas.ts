@@ -142,6 +142,10 @@ export const publicFormSubmissionSchema = z.object({
   phone: optionalPhoneField,
   email: optionalEmailField,
   consent_method: z.string().trim().min(1).max(60),
+  // Secondary, explicit opt-in to recurring/marketing messages. Distinct from
+  // the baseline consent_method (which only covers the reply to this very
+  // submission). A checked box on the form sets marketing_consent_at.
+  marketing_opt_in: z.boolean().optional().default(false),
   payload: z.record(z.string(), z.unknown()).optional().default({}),
 })
 

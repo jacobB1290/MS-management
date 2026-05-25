@@ -111,6 +111,21 @@ export async function POST(request: NextRequest) {
       .from("form_submissions")
       .update({ contact_id: contactId })
       .eq("id", submissionId)
+
+    // Secondary opt-in: a checked "send me updates" box is express consent to
+    // recurring/marketing messages, separate from the baseline reply consent
+    // the upsert already records. Only ever sets consent here — never clears
+    // it — so an unchecked box on a later form can't revoke a prior opt-in.
+    if (data.marketing_opt_in) {
+      await admin
+        .from("contacts")
+        .update({
+          marketing_consent_at: new Date().toISOString(),
+          marketing_consent_method: `public_form:${data.form_id}`,
+          marketing_opted_out_at: null,
+        })
+        .eq("id", contactId)
+    }
   }
 
   await logAudit({
@@ -124,6 +139,7 @@ export async function POST(request: NextRequest) {
       conflict_with: result?.conflict_with ?? null,
       had_phone: Boolean(data.phone),
       had_email: Boolean(data.email),
+      marketing_opt_in: data.marketing_opt_in,
     },
     ip,
     userAgent,
