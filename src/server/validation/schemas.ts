@@ -155,7 +155,6 @@ export const prayerCreateSchema = z.object({
 
 export const prayerUpdateSchema = z.object({
   status: z.enum(PRAYER_STATUSES).optional(),
-  assigned_to: z.string().uuid().optional().nullable(),
   body: z.string().trim().min(1).max(2000).optional(),
   requester_name: z.string().trim().min(1).max(120).optional().nullable(),
 })

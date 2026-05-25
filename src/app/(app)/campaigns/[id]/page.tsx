@@ -206,6 +206,7 @@ export default async function CampaignDetail({ params }: PageProps) {
           <Row label="Delivered" value={counts.delivered} />
           <Row label="Failed" value={counts.failed} highlight={counts.failed > 0 ? "danger" : undefined} />
           <Row label="Skipped (opt-out)" value={counts.skipped_opt_out} highlight={counts.skipped_opt_out > 0 ? "muted" : undefined} />
+          <Row label="Skipped (no consent)" value={counts.skipped_no_consent} highlight={counts.skipped_no_consent > 0 ? "muted" : undefined} />
           <Row label="Skipped (unsubscribed)" value={counts.skipped_unsubscribed} highlight={counts.skipped_unsubscribed > 0 ? "muted" : undefined} />
           <Row label="Skipped (no channel)" value={counts.skipped_no_channel} highlight={counts.skipped_no_channel > 0 ? "muted" : undefined} />
         </dl>

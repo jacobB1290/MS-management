@@ -120,14 +120,18 @@ function recipientStatusFromReason(
   | "failed"
   | "skipped_opt_out"
   | "skipped_unsubscribed"
-  | "skipped_no_channel" {
+  | "skipped_no_channel"
+  | "skipped_no_consent" {
   switch (reason) {
     case "opt_out":
+    case "marketing_opted_out":
       return "skipped_opt_out"
     case "unsubscribed":
       return "skipped_unsubscribed"
     case "no_channel":
       return "skipped_no_channel"
+    case "no_marketing_consent":
+      return "skipped_no_consent"
     default:
       return "failed"
   }

@@ -126,6 +126,10 @@ export async function getAiSpendSummary(): Promise<AiSpendSummary> {
 
   try {
     const [costThis, costLast, usageThis] = await Promise.all([
+      // group_by=description is what populates the per-result `model`,
+      // `token_type`, etc. (the Cost API leaves them null when not grouped by
+      // description). The cost report only accepts workspace_id/description as
+      // group_by — do NOT switch this to "model" (the API rejects it).
       adminGetCached<CostReport>(
         `/cost_report?${qs({ starting_at: thisStart, bucket_width: "1d", limit: "31", group_by: ["description"] })}`,
         key,

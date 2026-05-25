@@ -18,7 +18,6 @@ export async function PATCH(
 
   const update: TablesUpdate<"prayer_requests"> = {}
   if (parsed.data.status !== undefined) update.status = parsed.data.status
-  if (parsed.data.assigned_to !== undefined) update.assigned_to = parsed.data.assigned_to
   if (parsed.data.body !== undefined) update.body = parsed.data.body
   if (parsed.data.requester_name !== undefined) update.requester_name = parsed.data.requester_name
   if (Object.keys(update).length === 0) return NextResponse.json({ ok: true })

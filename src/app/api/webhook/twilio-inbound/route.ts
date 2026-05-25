@@ -124,6 +124,9 @@ export async function POST(request: NextRequest) {
   } else if (detectMarketingJoin(body)) {
     // Reply JOIN/SUBSCRIBE = express opt-in to recurring/marketing messages.
     // Distinct from START (which only lifts a STOP). Clears any prior decline.
+    // Intentionally does NOT clear sms_opted_out_at: a contact under a global
+    // STOP stays blocked at the send gate even after JOIN. Keep STOP handling
+    // first in this chain so reordering can never let JOIN override a STOP.
     await admin
       .from("contacts")
       .update({
