@@ -56,8 +56,10 @@ function base64url(input: Buffer | string): string {
  * Shape per Twilio's spec:
  *   header:  { cty: "twilio-fpa;v=1", typ: "JWT", alg: "HS256" }
  *   payload: { jti, iss: <API key SID>, sub: <account SID>, nbf, exp,
- *              grants: { identity, voice: { outgoing: { application_sid },
- *              incoming: { allow: true } } } }
+ *              grants: { identity, voice: { outgoing: { application_sid } } } }
+ *
+ * Outgoing-only by design (no `incoming` grant) and short-lived — the token
+ * only needs to survive registering the Device and placing one call.
  *
  * https://www.twilio.com/docs/iam/access-tokens
  */
@@ -67,7 +69,7 @@ export function mintVoiceAccessToken(args: {
   ttlSeconds?: number
 }): { token: string; identity: string; expiresAt: string } {
   const { config, identity } = args
-  const ttl = args.ttlSeconds ?? 3600
+  const ttl = args.ttlSeconds ?? 120
   const nowSeconds = Math.floor(Date.now() / 1000)
   const exp = nowSeconds + ttl
 
@@ -78,7 +80,7 @@ export function mintVoiceAccessToken(args: {
   }
 
   const payload = {
-    jti: `${config.apiKey}-${nowSeconds}`,
+    jti: `${config.apiKey}-${crypto.randomUUID()}`,
     iss: config.apiKey,
     sub: config.accountSid,
     nbf: nowSeconds,
@@ -87,7 +89,6 @@ export function mintVoiceAccessToken(args: {
       identity,
       voice: {
         outgoing: { application_sid: config.twimlAppSid },
-        incoming: { allow: true },
       },
     },
   }

@@ -60,6 +60,9 @@ export function CallButton({
   const deviceRef = useRef<Device | null>(null)
   const callRef = useRef<Call | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  // Guards a call that never connects (network/edge hang, no SDK event): if we
+  // don't reach an answered call within the window, tear down with a message.
+  const connectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const active = state !== "idle"
 
@@ -73,6 +76,10 @@ export function CallButton({
   /** Tear down the call + device and reset all local state. */
   const teardown = useCallback(() => {
     stopTimer()
+    if (connectTimerRef.current) {
+      clearTimeout(connectTimerRef.current)
+      connectTimerRef.current = null
+    }
     const call = callRef.current
     const device = deviceRef.current
     callRef.current = null
@@ -103,12 +110,18 @@ export function CallButton({
         /* noop */
       }
       if (timerRef.current) clearInterval(timerRef.current)
+      if (connectTimerRef.current) clearTimeout(connectTimerRef.current)
     }
   }, [])
 
   async function startCall() {
     if (!phone || active) return
     setState("connecting")
+    if (connectTimerRef.current) clearTimeout(connectTimerRef.current)
+    connectTimerRef.current = setTimeout(() => {
+      toast.error("Call timed out. Please try again.")
+      teardown()
+    }, 30000)
     try {
       const res = await fetch("/api/voice/token", {
         method: "POST",
@@ -153,6 +166,10 @@ export function CallButton({
       setState("ringing")
 
       call.on("accept", () => {
+        if (connectTimerRef.current) {
+          clearTimeout(connectTimerRef.current)
+          connectTimerRef.current = null
+        }
         setState("in-call")
         setSeconds(0)
         stopTimer()
