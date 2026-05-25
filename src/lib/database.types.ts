@@ -185,7 +185,12 @@ export type Database = {
           email: string | null
           email_unsubscribed_at: string | null
           id: string
+          is_member: boolean
           language: string
+          marketing_consent_at: string | null
+          marketing_consent_method: string | null
+          marketing_opt_in_requested_at: string | null
+          marketing_opted_out_at: string | null
           name: string | null
           notes: string | null
           phone: string | null
@@ -201,7 +206,12 @@ export type Database = {
           email?: string | null
           email_unsubscribed_at?: string | null
           id?: string
+          is_member?: boolean
           language?: string
+          marketing_consent_at?: string | null
+          marketing_consent_method?: string | null
+          marketing_opt_in_requested_at?: string | null
+          marketing_opted_out_at?: string | null
           name?: string | null
           notes?: string | null
           phone?: string | null
@@ -217,7 +227,12 @@ export type Database = {
           email?: string | null
           email_unsubscribed_at?: string | null
           id?: string
+          is_member?: boolean
           language?: string
+          marketing_consent_at?: string | null
+          marketing_consent_method?: string | null
+          marketing_opt_in_requested_at?: string | null
+          marketing_opted_out_at?: string | null
           name?: string | null
           notes?: string | null
           phone?: string | null
@@ -354,6 +369,7 @@ export type Database = {
           campaign_id: string | null
           channel: string
           contact_id: string
+          context: string | null
           created_at: string
           direction: string
           error: string | null
@@ -371,6 +387,7 @@ export type Database = {
           campaign_id?: string | null
           channel: string
           contact_id: string
+          context?: string | null
           created_at?: string
           direction: string
           error?: string | null
@@ -388,6 +405,7 @@ export type Database = {
           campaign_id?: string | null
           channel?: string
           contact_id?: string
+          context?: string | null
           created_at?: string
           direction?: string
           error?: string | null
@@ -485,6 +503,7 @@ export type Database = {
           contact_id: string
         }[]
       }
+      database_size: { Args: never; Returns: number }
       upsert_contact_by_phone_or_email: {
         Args: {
           p_consent_at: string

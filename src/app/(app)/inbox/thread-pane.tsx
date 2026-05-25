@@ -282,6 +282,7 @@ export function ThreadPane({
       twilio_sid: null,
       status: "sending",
       error: null,
+      context: "conversational_reply",
       campaign_id: null,
       sent_by: currentUserId,
       num_segments: null,

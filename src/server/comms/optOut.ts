@@ -7,23 +7,111 @@ import { createSupabaseAdminClient } from "@/lib/supabase/server"
  * Twilio. If a contact is opted out, we refuse, and the caller never even
  * sees the Twilio client.
  */
-export type SmsSkipReason = "not_found" | "no_channel" | "opt_out"
+export type SendContext =
+  | "conversational_reply"
+  | "marketing_newsletter"
+  | "marketing_promotional"
+  | "opt_in_request"
+  | "transactional_event"
+  | "transactional_prayer"
+  | "transactional_inquiry"
+
+export type SmsSkipReason =
+  | "not_found"
+  | "no_channel"
+  | "opt_out"
+  | "implied_expired"
+  | "no_marketing_consent"
+  | "marketing_opted_out"
+  | "already_opted_in"
+  | "opt_in_already_requested"
+  | "context_unsupported"
 export type EmailSkipReason = "not_found" | "no_channel" | "unsubscribed"
 
+/**
+ * Conversational (implied) consent window: staff may reply for this many days
+ * after the contact's last inbound, refreshing on every inbound. Once it
+ * lapses, only express marketing consent keeps the contact reachable. One
+ * constant so it is easy to change; confirm the duration with counsel.
+ */
+export const CONVERSATIONAL_WINDOW_DAYS = 90
+
+type Admin = ReturnType<typeof createSupabaseAdminClient>
+
+function withinDays(ts: string, days: number): boolean {
+  return Date.now() - new Date(ts).getTime() < days * 24 * 60 * 60 * 1000
+}
+
+/** True when the contact sent an inbound message inside the conversational window. */
+async function conversationActive(admin: Admin, contactId: string): Promise<boolean> {
+  const cutoff = new Date(
+    Date.now() - CONVERSATIONAL_WINDOW_DAYS * 24 * 60 * 60 * 1000,
+  ).toISOString()
+  const { data } = await admin
+    .from("messages")
+    .select("id")
+    .eq("contact_id", contactId)
+    .eq("direction", "in")
+    .gte("created_at", cutoff)
+    .limit(1)
+  return Boolean(data && data.length > 0)
+}
+
+/**
+ * The single send gate. Every outbound SMS — 1:1 or campaign — passes through
+ * here tagged with the message CONTEXT, and the matching consent rule is
+ * applied automatically. Staff never pick a rule, only an action (which fixes
+ * the context). STOP is the universal hard stop, checked first.
+ */
 export async function assertCanSendSms(
   contactId: string,
+  context: SendContext = "conversational_reply",
 ): Promise<{ ok: true; phone: string } | { ok: false; reason: SmsSkipReason }> {
   const admin = createSupabaseAdminClient()
   const { data, error } = await admin
     .from("contacts")
-    .select("phone, sms_opted_out_at")
+    .select(
+      "phone, sms_opted_out_at, marketing_consent_at, marketing_opted_out_at, marketing_opt_in_requested_at",
+    )
     .eq("id", contactId)
     .maybeSingle()
 
   if (error || !data) return { ok: false, reason: "not_found" }
   if (!data.phone) return { ok: false, reason: "no_channel" }
-  if (data.sms_opted_out_at) return { ok: false, reason: "opt_out" }
-  return { ok: true, phone: data.phone }
+  if (data.sms_opted_out_at) return { ok: false, reason: "opt_out" } // universal hard stop
+
+  switch (context) {
+    case "marketing_newsletter":
+    case "marketing_promotional":
+      if (data.marketing_opted_out_at) return { ok: false, reason: "marketing_opted_out" }
+      if (!data.marketing_consent_at) return { ok: false, reason: "no_marketing_consent" }
+      return { ok: true, phone: data.phone }
+
+    case "opt_in_request": {
+      if (data.marketing_consent_at) return { ok: false, reason: "already_opted_in" }
+      if (data.marketing_opted_out_at) return { ok: false, reason: "marketing_opted_out" }
+      if (!(await conversationActive(admin, contactId))) return { ok: false, reason: "implied_expired" }
+      if (
+        data.marketing_opt_in_requested_at &&
+        withinDays(data.marketing_opt_in_requested_at, CONVERSATIONAL_WINDOW_DAYS)
+      ) {
+        return { ok: false, reason: "opt_in_already_requested" }
+      }
+      return { ok: true, phone: data.phone }
+    }
+
+    case "transactional_event":
+    case "transactional_prayer":
+    case "transactional_inquiry":
+      // Gate-ready: live once the Events/Prayer/Inquiry modules ship.
+      return { ok: false, reason: "context_unsupported" }
+
+    case "conversational_reply":
+    default:
+      if (data.marketing_consent_at) return { ok: true, phone: data.phone }
+      if (await conversationActive(admin, contactId)) return { ok: true, phone: data.phone }
+      return { ok: false, reason: "implied_expired" }
+  }
 }
 
 export async function assertCanSendEmail(
@@ -87,4 +175,21 @@ export function detectOptOutKeyword(
     }
   }
   return null
+}
+
+/**
+ * Marketing opt-in keyword. Replying JOIN/SUBSCRIBE is an explicit express
+ * consent to recurring messages (newsletters, campaigns). Kept separate from
+ * START (which only lifts a STOP), so a casual "yes" never silently enrolls
+ * someone in marketing.
+ */
+const MARKETING_JOIN_KEYWORDS = new Set(["JOIN", "SUBSCRIBE"])
+
+export function detectMarketingJoin(body: string | null | undefined): boolean {
+  if (!body) return false
+  const trimmed = body.trim().toUpperCase()
+  if (!trimmed) return false
+  if (MARKETING_JOIN_KEYWORDS.has(trimmed)) return true
+  const tokens = trimmed.split(/[\s.,!?;:]+/).filter(Boolean)
+  return tokens.length > 0 && tokens.length <= 4 && MARKETING_JOIN_KEYWORDS.has(tokens[0])
 }

@@ -1,6 +1,6 @@
 import "server-only"
 import { createSupabaseAdminClient } from "@/lib/supabase/server"
-import { assertCanSendSms } from "./optOut"
+import { assertCanSendSms, type SmsSkipReason, type SendContext } from "./optOut"
 import { logAudit } from "@/server/audit"
 
 /**
@@ -17,8 +17,13 @@ export async function sendSms(args: {
   mediaUrl?: string | null
   sentByUserId?: string | null
   campaignId?: string | null
+  /** Consent context for the send gate. Defaults: campaign → marketing,
+   *  otherwise a 1:1 conversational reply. */
+  context?: SendContext
 }): Promise<SendSmsResult> {
-  const check = await assertCanSendSms(args.contactId)
+  const context: SendContext =
+    args.context ?? (args.campaignId ? "marketing_promotional" : "conversational_reply")
+  const check = await assertCanSendSms(args.contactId, context)
   if (!check.ok) {
     return { ok: false, reason: check.reason }
   }
@@ -33,6 +38,7 @@ export async function sendSms(args: {
       media_url: args.mediaUrl ?? null,
       channel: args.mediaUrl ? "mms" : "sms",
       status: "queued",
+      context,
       campaign_id: args.campaignId ?? null,
       sent_by: args.sentByUserId ?? null,
     })
@@ -81,7 +87,7 @@ export async function sendSms(args: {
 
 export type SendSmsResult =
   | { ok: true; messageId: string; providerSid: string | null; mock: boolean }
-  | { ok: false; reason: "not_found" | "no_channel" | "opt_out" | "db_insert_failed" | "provider_failed"; detail?: string }
+  | { ok: false; reason: SmsSkipReason | "db_insert_failed" | "provider_failed"; detail?: string }
 
 interface ProviderResult {
   sid: string | null

@@ -97,9 +97,11 @@ export async function draftReply(args: {
     const response = await client.messages.create({
       model: AI_MODELS.drafting,
       max_tokens: 400,
-      // A short, snappy reply — keep latency low.
+      // A short pastoral reply needs no extended reasoning (thinking off, low
+      // latency), but "low" effort underuses Sonnet; "medium" gives noticeably
+      // better tone/wording for the small extra latency on a one-shot draft.
       thinking: { type: "disabled" },
-      output_config: { effort: "low" },
+      output_config: { effort: "medium" },
       system: [
         { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
       ],

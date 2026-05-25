@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server"
 import { verifyTwilioRequest } from "@/server/webhooks/verify"
 import { createSupabaseAdminClient } from "@/lib/supabase/server"
 import { logAudit } from "@/server/audit"
-import { detectOptOutKeyword } from "@/server/comms/optOut"
+import { detectOptOutKeyword, detectMarketingJoin } from "@/server/comms/optOut"
 import { toE164 } from "@/server/validation/phone"
 import { sendPushToStaff } from "@/server/push/send"
 import { formatPhone } from "@/lib/utils"
@@ -120,6 +120,23 @@ export async function POST(request: NextRequest) {
       targetTable: "contacts",
       targetId: contactId,
       diff: { source: "inbound_start", message_sid: messageSid, consent_at: nowIso },
+    })
+  } else if (detectMarketingJoin(body)) {
+    // Reply JOIN/SUBSCRIBE = express opt-in to recurring/marketing messages.
+    // Distinct from START (which only lifts a STOP). Clears any prior decline.
+    await admin
+      .from("contacts")
+      .update({
+        marketing_consent_at: nowIso,
+        marketing_consent_method: "reply_join",
+        marketing_opted_out_at: null,
+      })
+      .eq("id", contactId)
+    await logAudit({
+      action: "contact.opt_in_sms",
+      targetTable: "contacts",
+      targetId: contactId,
+      diff: { source: "inbound_join", basis: "marketing", message_sid: messageSid, consent_at: nowIso },
     })
   }
 

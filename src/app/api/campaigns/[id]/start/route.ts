@@ -50,6 +50,14 @@ export async function POST(
   if (audience_mode.mode === "tags") {
     audienceQuery = audienceQuery.overlaps("tags", audience_mode.tags)
   }
+  // SMS campaigns are proactive marketing: only contacts with express
+  // marketing consent (and not marketing-opted-out) are eligible. Replies use
+  // the conversational basis and never come through the campaign path.
+  if (campaign.channel === "sms") {
+    audienceQuery = audienceQuery
+      .not("marketing_consent_at", "is", null)
+      .is("marketing_opted_out_at", null)
+  }
 
   const { data: audience, error: audienceErr } = await audienceQuery
   if (audienceErr) {
