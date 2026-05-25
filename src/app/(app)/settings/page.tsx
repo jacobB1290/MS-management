@@ -19,16 +19,18 @@ export default async function SettingsPage() {
   const user = await requireStaff()
   const supabase = await createSupabaseServerClient()
 
-  const [teamRes, heartbeatRes, spend, media] = await Promise.all([
+  const [teamRes, heartbeatRes, spend, media, dbRpc] = await Promise.all([
     user.role === "admin"
       ? supabase.from("app_users").select("user_id, role, display_name, created_at").order("created_at")
       : Promise.resolve({ data: null }),
     supabase.from("heartbeat").select("last_run_at").eq("id", 1).maybeSingle(),
     getSpendSummary(),
     listMmsMedia(),
+    supabase.rpc("database_size" as never),
   ])
   const team = teamRes.data
   const heartbeat = heartbeatRes.data
+  const dbBytes = Number((dbRpc.data as number | null) ?? 0)
 
   const status = {
     twilio: Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN),
@@ -65,11 +67,11 @@ export default async function SettingsPage() {
       <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
         <SectionTitle
           label="About storage"
-          info="MMS attachments you send are stored here. Supabase’s free tier gives 1 GB of file storage, separate from your contacts and messages. Delete old media to free space. Note that removing a file breaks its preview in any past message that used it."
+          info="Two separate Supabase free-tier limits: about 500 MB for your data (contacts, messages, campaigns) and 1 GB for media files. Deleting a media file frees file space but breaks its preview in any past message that used it."
         >
           Storage
         </SectionTitle>
-        <StoragePanel files={media.files} totalBytes={media.totalBytes} />
+        <StoragePanel files={media.files} totalBytes={media.totalBytes} dbBytes={dbBytes} />
       </section>
 
       {user.role === "admin" && (

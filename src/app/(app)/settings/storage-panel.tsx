@@ -5,18 +5,20 @@ import { Trash2, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import type { StoredMedia } from "@/server/media/storage"
 
-const QUOTA_BYTES = 1024 * 1024 * 1024 // 1 GB Supabase free-tier storage
+const FILE_QUOTA_BYTES = 1024 * 1024 * 1024 // 1 GB Supabase free-tier file storage
+const DB_QUOTA_BYTES = 500 * 1024 * 1024 // ~500 MB Supabase free-tier database
 
 export function StoragePanel({
   files,
   totalBytes,
+  dbBytes,
 }: {
   files: StoredMedia[]
   totalBytes: number
+  dbBytes: number
 }) {
   const router = useRouter()
   const [deleting, setDeleting] = useState<string | null>(null)
-  const pct = Math.min(100, (totalBytes / QUOTA_BYTES) * 100)
 
   async function remove(name: string) {
     if (
@@ -46,18 +48,20 @@ export function StoragePanel({
 
   return (
     <div>
-      <div className="mb-4">
-        <div className="flex items-center justify-between text-small mb-1.5">
-          <span className="text-ink-muted" data-dynamic>
-            {formatBytes(totalBytes)} of 1 GB used
-          </span>
-          <span className="text-ink-faint" data-dynamic>
-            {files.length} file{files.length === 1 ? "" : "s"}
-          </span>
-        </div>
-        <div className="h-2 rounded-pill bg-surface overflow-hidden">
-          <div className="h-full bg-gold transition-all" style={{ width: `${pct}%` }} />
-        </div>
+      <div className="space-y-3 mb-4">
+        <UsageBar
+          label="Database (contacts, messages, campaigns)"
+          used={dbBytes}
+          quota={DB_QUOTA_BYTES}
+          quotaLabel="500 MB"
+        />
+        <UsageBar
+          label="Media files"
+          used={totalBytes}
+          quota={FILE_QUOTA_BYTES}
+          quotaLabel="1 GB"
+          aside={`${files.length} file${files.length === 1 ? "" : "s"}`}
+        />
       </div>
 
       {files.length === 0 ? (
@@ -102,6 +106,40 @@ export function StoragePanel({
           ))}
         </ul>
       )}
+    </div>
+  )
+}
+
+function UsageBar({
+  label,
+  used,
+  quota,
+  quotaLabel,
+  aside,
+}: {
+  label: string
+  used: number
+  quota: number
+  quotaLabel: string
+  aside?: string
+}) {
+  const pct = Math.min(100, (used / quota) * 100)
+  const over = used > quota
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-3 text-small mb-1.5">
+        <span className="text-ink-muted truncate">{label}</span>
+        <span className="text-ink-faint shrink-0" data-dynamic>
+          {aside ? `${aside} · ` : ""}
+          {formatBytes(used)} / {quotaLabel}
+        </span>
+      </div>
+      <div className="h-2 rounded-pill bg-surface overflow-hidden">
+        <div
+          className={`h-full transition-all ${over ? "bg-danger" : "bg-gold"}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
     </div>
   )
 }

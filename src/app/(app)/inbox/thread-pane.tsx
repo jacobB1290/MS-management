@@ -26,13 +26,19 @@ interface ThreadPaneProps {
   contact: Contact
   initialMessages: Message[]
   currentUserId: string
+  senderNames: Record<string, string>
 }
 
 /** Optimistic message rows are real Message shape but with a temp id and
  *  status='pending'; once the server returns the real row id, we swap. */
 type OptimisticMessage = Message & { _optimistic?: boolean }
 
-export function ThreadPane({ contact: contactProp, initialMessages }: ThreadPaneProps) {
+export function ThreadPane({
+  contact: contactProp,
+  initialMessages,
+  currentUserId,
+  senderNames,
+}: ThreadPaneProps) {
   // Contact is held in state so realtime row updates (e.g. a STOP reply
   // flipping sms_opted_out_at) reflect in the thread immediately, without
   // re-navigating. Seeded from the server prop, resynced on thread switch.
@@ -158,7 +164,7 @@ export function ThreadPane({ contact: contactProp, initialMessages }: ThreadPane
       status: "sending",
       error: null,
       campaign_id: null,
-      sent_by: null,
+      sent_by: currentUserId,
       num_segments: null,
       price: null,
       price_unit: null,
@@ -274,7 +280,12 @@ export function ThreadPane({ contact: contactProp, initialMessages }: ThreadPane
         )}
 
         {messages.map((m) => (
-          <MessageBubble key={m.id} message={m} onRetry={handleRetry} />
+          <MessageBubble
+            key={m.id}
+            message={m}
+            onRetry={handleRetry}
+            senderName={m.direction === "out" && m.sent_by ? senderNames[m.sent_by] ?? null : null}
+          />
         ))}
       </div>
 
@@ -344,7 +355,7 @@ export function ThreadPane({ contact: contactProp, initialMessages }: ThreadPane
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading}
                 aria-label="Attach photo or video"
-                className="inline-flex items-center justify-center h-11 w-11 shrink-0 rounded-pill border border-ink-hairline text-ink-muted hover:bg-white active:bg-white transition-colors disabled:opacity-50"
+                className="btn-icon-action disabled:opacity-50"
               >
                 {uploading ? <Loader2 size={18} className="animate-spin" /> : <Plus size={20} />}
               </button>
@@ -379,9 +390,11 @@ export function ThreadPane({ contact: contactProp, initialMessages }: ThreadPane
 function MessageBubble({
   message,
   onRetry,
+  senderName,
 }: {
   message: OptimisticMessage
   onRetry: (message: OptimisticMessage) => void
+  senderName: string | null
 }) {
   const isOut = message.direction === "out"
   const time = useMemo(() => {
@@ -434,6 +447,7 @@ function MessageBubble({
           )}
           title={format(new Date(message.created_at), "PPpp")}
         >
+          {isOut && senderName ? `${senderName} · ` : ""}
           {pending ? "Sending…" : time}
           {!pending && message.status && message.status !== "received" && (
             <span className="ml-2 capitalize">· {message.status}</span>
