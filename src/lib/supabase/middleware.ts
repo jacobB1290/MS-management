@@ -36,9 +36,14 @@ export async function updateSession(request: NextRequest) {
     },
   )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // Verify the session by reading the JWT claims. With asymmetric signing keys
+  // this validates the token locally (no round-trip to the Auth server on every
+  // request — that round-trip is what made navigation lag after the app sat
+  // idle). It still refreshes an expired access token via getSession under the
+  // hood, so sessions keep rotating and persist. On legacy HS256 projects it
+  // transparently falls back to a server call, so there is no behavior change.
+  const { data: claimsData } = await supabase.auth.getClaims()
+  const authed = Boolean(claimsData?.claims)
 
   const path = request.nextUrl.pathname
   const isAuthRoute = path.startsWith("/login") || path.startsWith("/auth")
@@ -52,14 +57,14 @@ export async function updateSession(request: NextRequest) {
     path.startsWith("/api/heartbeat") ||
     path.startsWith("/api/dev/")
 
-  if (!user && !isAuthRoute && !isPublicWebhook && !isMachineRoute) {
+  if (!authed && !isAuthRoute && !isPublicWebhook && !isMachineRoute) {
     const url = request.nextUrl.clone()
     url.pathname = "/login"
     url.searchParams.set("next", path)
     return NextResponse.redirect(url)
   }
 
-  if (user && isAuthRoute) {
+  if (authed && isAuthRoute) {
     const url = request.nextUrl.clone()
     url.pathname = "/inbox"
     url.search = ""
