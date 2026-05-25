@@ -198,72 +198,6 @@ export type Database = {
         }
         Relationships: []
       }
-      cases: {
-        Row: {
-          ai_meta: Json
-          assigned_to: string | null
-          body: string
-          contact_id: string | null
-          created_at: string
-          details: Json
-          id: string
-          priority: number | null
-          requester_name: string | null
-          status: string
-          summary: string | null
-          title: string | null
-          type: string
-          updated_at: string
-        }
-        Insert: {
-          ai_meta?: Json
-          assigned_to?: string | null
-          body: string
-          contact_id?: string | null
-          created_at?: string
-          details?: Json
-          id?: string
-          priority?: number | null
-          requester_name?: string | null
-          status?: string
-          summary?: string | null
-          title?: string | null
-          type: string
-          updated_at?: string
-        }
-        Update: {
-          ai_meta?: Json
-          assigned_to?: string | null
-          body?: string
-          contact_id?: string | null
-          created_at?: string
-          details?: Json
-          id?: string
-          priority?: number | null
-          requester_name?: string | null
-          status?: string
-          summary?: string | null
-          title?: string | null
-          type?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "cases_contact_id_fkey"
-            columns: ["contact_id"]
-            isOneToOne: false
-            referencedRelation: "contact_summary"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "cases_contact_id_fkey"
-            columns: ["contact_id"]
-            isOneToOne: false
-            referencedRelation: "contacts"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       contacts: {
         Row: {
           consent_at: string | null
@@ -272,6 +206,10 @@ export type Database = {
           email: string | null
           email_unsubscribed_at: string | null
           id: string
+          inbox_category: string
+          inbox_category_at: string | null
+          inbox_status: string | null
+          inbox_status_at: string | null
           is_member: boolean
           language: string
           marketing_consent_at: string | null
@@ -293,6 +231,10 @@ export type Database = {
           email?: string | null
           email_unsubscribed_at?: string | null
           id?: string
+          inbox_category?: string
+          inbox_category_at?: string | null
+          inbox_status?: string | null
+          inbox_status_at?: string | null
           is_member?: boolean
           language?: string
           marketing_consent_at?: string | null
@@ -314,6 +256,10 @@ export type Database = {
           email?: string | null
           email_unsubscribed_at?: string | null
           id?: string
+          inbox_category?: string
+          inbox_category_at?: string | null
+          inbox_status?: string | null
+          inbox_status_at?: string | null
           is_member?: boolean
           language?: string
           marketing_consent_at?: string | null
@@ -450,54 +396,6 @@ export type Database = {
         }
         Relationships: []
       }
-      inquiries: {
-        Row: {
-          body: string
-          contact_id: string | null
-          created_at: string
-          id: string
-          requester_name: string | null
-          status: string
-          topic: string | null
-          updated_at: string
-        }
-        Insert: {
-          body: string
-          contact_id?: string | null
-          created_at?: string
-          id?: string
-          requester_name?: string | null
-          status?: string
-          topic?: string | null
-          updated_at?: string
-        }
-        Update: {
-          body?: string
-          contact_id?: string | null
-          created_at?: string
-          id?: string
-          requester_name?: string | null
-          status?: string
-          topic?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "inquiries_contact_id_fkey"
-            columns: ["contact_id"]
-            isOneToOne: false
-            referencedRelation: "contact_summary"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "inquiries_contact_id_fkey"
-            columns: ["contact_id"]
-            isOneToOne: false
-            referencedRelation: "contacts"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       messages: {
         Row: {
           body: string | null
@@ -577,54 +475,6 @@ export type Database = {
           },
         ]
       }
-      prayer_requests: {
-        Row: {
-          assigned_to: string | null
-          body: string
-          contact_id: string | null
-          created_at: string
-          id: string
-          requester_name: string | null
-          status: string
-          updated_at: string
-        }
-        Insert: {
-          assigned_to?: string | null
-          body: string
-          contact_id?: string | null
-          created_at?: string
-          id?: string
-          requester_name?: string | null
-          status?: string
-          updated_at?: string
-        }
-        Update: {
-          assigned_to?: string | null
-          body?: string
-          contact_id?: string | null
-          created_at?: string
-          id?: string
-          requester_name?: string | null
-          status?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "prayer_requests_contact_id_fkey"
-            columns: ["contact_id"]
-            isOneToOne: false
-            referencedRelation: "contact_summary"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "prayer_requests_contact_id_fkey"
-            columns: ["contact_id"]
-            isOneToOne: false
-            referencedRelation: "contacts"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       push_subscriptions: {
         Row: {
           auth: string
@@ -666,6 +516,8 @@ export type Database = {
           email: string | null
           email_unsubscribed_at: string | null
           id: string | null
+          inbox_category: string | null
+          inbox_status: string | null
           is_member: boolean | null
           language: string | null
           last_message_at: string | null

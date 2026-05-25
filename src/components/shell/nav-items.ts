@@ -1,12 +1,4 @@
-import {
-  Inbox,
-  Users,
-  Megaphone,
-  Settings,
-  FileText,
-  HeartHandshake,
-  MessageCircleQuestion,
-} from "lucide-react"
+import { Inbox, Users, Megaphone, Settings, FileText } from "lucide-react"
 
 export interface NavItem {
   href: string
@@ -19,8 +11,6 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/inbox", label: "Inbox", icon: Inbox },
   { href: "/contacts", label: "Contacts", icon: Users },
   { href: "/campaigns", label: "Campaigns", icon: Megaphone },
-  { href: "/prayer", label: "Prayer", icon: HeartHandshake },
-  { href: "/inquiries", label: "Inquiries", icon: MessageCircleQuestion },
   { href: "/audit", label: "Audit", icon: FileText, adminOnly: true },
   { href: "/settings", label: "Settings", icon: Settings },
 ]

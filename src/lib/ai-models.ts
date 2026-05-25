@@ -7,7 +7,7 @@
  * server-only `@/server/ai/config`, which re-exports everything here.
  */
 
-export type AiFeature = "drafting" | "tagging"
+export type AiFeature = "drafting" | "tagging" | "triage"
 export type AiEffort = "low" | "medium" | "high"
 export type AiFeatureConfig = { model: string; effort: AiEffort }
 export type AiModelChoice = { id: string; label: string; blurb: string }
@@ -36,6 +36,7 @@ const EFFORT_IDS = new Set<AiEffort>(["low", "medium", "high"])
 export const AI_DEFAULTS: Record<AiFeature, AiFeatureConfig> = {
   drafting: { model: "claude-sonnet-4-6", effort: "medium" },
   tagging: { model: "claude-haiku-4-5-20251001", effort: "low" },
+  triage: { model: "claude-haiku-4-5-20251001", effort: "low" },
 }
 
 export const AI_FEATURE_META: Record<AiFeature, { label: string; description: string }> = {
@@ -47,10 +48,14 @@ export const AI_FEATURE_META: Record<AiFeature, { label: string; description: st
     label: "Tag suggestions",
     description: "Suggests contact tags from a conversation.",
   },
+  triage: {
+    label: "Inbox triage",
+    description: "Sorts incoming messages into inbox segments (Prayer, Questions, Outreach).",
+  },
 }
 
 /** Ordered feature list for rendering the pickers. */
-export const AI_FEATURES: readonly AiFeature[] = ["drafting", "tagging"]
+export const AI_FEATURES: readonly AiFeature[] = ["drafting", "tagging", "triage"]
 
 /**
  * Extended thinking / reasoning effort is an Opus + Sonnet capability. Haiku
@@ -81,7 +86,11 @@ function coerce(feature: AiFeature, raw: unknown): AiFeatureConfig {
 /** Normalize an arbitrary stored/posted value into the full typed config. */
 export function normalizeConfig(input: unknown): Record<AiFeature, AiFeatureConfig> {
   const r = (input && typeof input === "object" ? input : {}) as Record<string, unknown>
-  return { drafting: coerce("drafting", r.drafting), tagging: coerce("tagging", r.tagging) }
+  return {
+    drafting: coerce("drafting", r.drafting),
+    tagging: coerce("tagging", r.tagging),
+    triage: coerce("triage", r.triage),
+  }
 }
 
 /** The `app_settings` key under which the config persists. */

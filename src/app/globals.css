@@ -326,6 +326,23 @@ h1, h2, h3, h4, h5, h6 {
   background: var(--gold-deeper);
 }
 
+/* Inbox segment filter chip + segment control trigger. Background and text
+ * live in a component class (not Tailwind utilities) because the global button
+ * reset zeroes utility backgrounds/colors on <button>, exactly as the notes on
+ * .btn-cta / .btn-icon-action describe. Border-color stays on utilities (the
+ * reset doesn't touch it). The pressed state is the active segment. */
+.seg-chip {
+  background-color: var(--surface-elevated);
+  color: var(--text-muted);
+}
+.seg-chip:hover {
+  background-color: var(--surface);
+}
+.seg-chip[aria-pressed="true"] {
+  background-color: var(--gold);
+  color: var(--white);
+}
+
 /* Standard content area — every section inherits its width here */
 .page {
   width: min(1280px, 94%);

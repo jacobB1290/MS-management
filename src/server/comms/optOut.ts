@@ -13,8 +13,6 @@ export type SendContext =
   | "marketing_promotional"
   | "opt_in_request"
   | "transactional_event"
-  | "transactional_prayer"
-  | "transactional_inquiry"
 
 export type SmsSkipReason =
   | "not_found"
@@ -101,13 +99,11 @@ export async function assertCanSendSms(
     }
 
     case "transactional_event":
-    case "transactional_prayer":
-    case "transactional_inquiry":
       // Transactional: a direct, one-off response to something this contact
-      // initiated (an RSVP, a prayer request, an inquiry). Informational rather
-      // than marketing, so it needs no marketing consent; the only hard block
-      // is a global STOP, already handled above. The originating module record
-      // is the consent basis, and the UI only sends these from that workflow.
+      // initiated (e.g. an RSVP). Informational rather than marketing, so it
+      // needs no marketing consent; the only hard block is a global STOP,
+      // already handled above. The originating record is the consent basis,
+      // and the UI only sends these from that workflow.
       return { ok: true, phone: data.phone }
 
     case "conversational_reply":

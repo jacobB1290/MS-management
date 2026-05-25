@@ -149,39 +149,14 @@ export const publicFormSubmissionSchema = z.object({
   payload: z.record(z.string(), z.unknown()).optional().default({}),
 })
 
-export const PRAYER_STATUSES = ["new", "praying", "answered", "archived"] as const
-
-export const prayerCreateSchema = z.object({
-  body: z.string().trim().min(1).max(2000),
-  requester_name: z.string().trim().min(1).max(120).optional().nullable(),
-  contact_id: z.string().uuid().optional().nullable(),
-})
-
-export const prayerUpdateSchema = z.object({
-  status: z.enum(PRAYER_STATUSES).optional(),
-  body: z.string().trim().min(1).max(2000).optional(),
-  requester_name: z.string().trim().min(1).max(120).optional().nullable(),
-})
-
-export const prayerEncourageSchema = z.object({
-  body: z.string().trim().min(1).max(1600),
-})
-
-export const INQUIRY_STATUSES = ["new", "in_progress", "closed"] as const
-
-export const inquiryCreateSchema = z.object({
-  body: z.string().trim().min(1).max(2000),
-  topic: z.string().trim().min(1).max(120).optional().nullable(),
-  requester_name: z.string().trim().min(1).max(120).optional().nullable(),
-  contact_id: z.string().uuid().optional().nullable(),
-})
-
-export const inquiryUpdateSchema = z.object({
-  status: z.enum(INQUIRY_STATUSES).optional(),
-  topic: z.string().trim().min(1).max(120).optional().nullable(),
-  body: z.string().trim().min(1).max(2000).optional(),
-})
-
-export const inquiryReplySchema = z.object({
-  body: z.string().trim().min(1).max(1600),
-})
+// Inbox segment + per-conversation status. The category vocabulary and which
+// status values are valid per category live in @/lib/inbox-segments; this
+// schema only enforces shape (the route validates status against the category).
+export const inboxSegmentSchema = z
+  .object({
+    category: z.enum(["general", "prayer", "question", "outreach"]).optional(),
+    status: z.string().trim().min(1).max(40).nullable().optional(),
+  })
+  .refine((v) => v.category !== undefined || v.status !== undefined, {
+    message: "Provide a category and/or status to update.",
+  })

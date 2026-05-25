@@ -18,6 +18,8 @@ import {
   isVideoUrl,
   uploadMedia,
 } from "@/lib/media"
+import { isInboxCategory } from "@/lib/inbox-segments"
+import { InboxSegmentControl } from "./inbox-segment-control"
 import type { Tables } from "@/lib/database.types"
 
 type Contact = Tables<"contacts">
@@ -364,7 +366,7 @@ export function ThreadPane({
 
   return (
     <>
-      <header className="shrink-0 flex items-center gap-3 px-4 md:px-6 py-3 border-b border-ink-hairline bg-bg/95 backdrop-blur">
+      <header className="shrink-0 flex flex-wrap items-center gap-x-3 gap-y-2 px-4 md:px-6 py-3 border-b border-ink-hairline bg-bg/95 backdrop-blur">
         <Link
           href="/inbox"
           prefetch
@@ -401,11 +403,16 @@ export function ThreadPane({
             </Link>
           ) : null}
         </div>
-        {optedOut && (
-          <Badge variant="warning" className="shrink-0">
-            Opted out
-          </Badge>
-        )}
+        {optedOut && <Badge variant="warning" className="shrink-0">Opted out</Badge>}
+        {/* Segment + status: inline on the right on desktop, own row on mobile
+            (w-full) so it never squeezes the contact's name. */}
+        <div className="w-full md:w-auto md:shrink-0">
+          <InboxSegmentControl
+            contactId={contact.id}
+            category={isInboxCategory(contact.inbox_category) ? contact.inbox_category : "general"}
+            status={contact.inbox_status}
+          />
+        </div>
       </header>
 
       <div

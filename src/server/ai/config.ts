@@ -35,7 +35,11 @@ export async function getAiConfig(): Promise<Record<AiFeature, AiFeatureConfig>>
       .maybeSingle()
     return normalizeConfig(data?.value)
   } catch {
-    return { drafting: AI_DEFAULTS.drafting, tagging: AI_DEFAULTS.tagging }
+    return {
+      drafting: AI_DEFAULTS.drafting,
+      tagging: AI_DEFAULTS.tagging,
+      triage: AI_DEFAULTS.triage,
+    }
   }
 }
 

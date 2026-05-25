@@ -9,15 +9,33 @@ import { Input } from "@/components/ui/input"
 import { NewMessageDialog } from "./new-message-dialog"
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser"
 import { cn, formatPhone } from "@/lib/utils"
+import { INBOX_SEGMENTS, SEGMENT_META, isInboxCategory, type Segment } from "@/lib/inbox-segments"
 import type { Tables } from "@/lib/database.types"
 
 type Conversation = Pick<
   Tables<"contact_summary">,
   "id" | "name" | "phone" | "email" | "tags" |
   "sms_opted_out_at" | "email_unsubscribed_at" | "is_member" |
+  "inbox_category" | "inbox_status" |
   "last_message_at" | "last_message_body" | "last_message_direction" |
   "message_count"
 >
+
+/** A conversation needs a reply when their message is the last one AND we can
+ *  still text them (an opted-out contact can't be messaged). Single definition,
+ *  shared by the per-segment counts and the row dot. */
+function isAwaitingReply(c: Conversation): boolean {
+  return c.last_message_direction === "in" && !c.sms_opted_out_at
+}
+
+/** Whether a conversation belongs to a segment. "all" is unfiltered (General is
+ *  authoritative — nothing is ever hidden from it); "members" is the orthogonal
+ *  is_member overlay; the rest match the conversation's category. */
+function inSegment(c: Conversation, segment: Segment): boolean {
+  if (segment === "all") return true
+  if (segment === "members") return Boolean(c.is_member)
+  return (c.inbox_category ?? "general") === segment
+}
 
 interface ConversationListProps {
   conversations: Conversation[]
@@ -40,7 +58,7 @@ export function ConversationList({
   const activeId = optimisticId ?? selectedId
 
   const [query, setQuery] = useState("")
-  const [membersOnly, setMembersOnly] = useState(false)
+  const [segment, setSegment] = useState<Segment>("all")
   const [items, setItems] = useState<Conversation[]>(initial)
 
   // Reseed when the parent provides a fresh server-side snapshot.
@@ -100,6 +118,8 @@ export function ConversationList({
               sms_opted_out_at: c.sms_opted_out_at,
               email_unsubscribed_at: c.email_unsubscribed_at,
               is_member: c.is_member,
+              inbox_category: c.inbox_category,
+              inbox_status: c.inbox_status,
             }
             return next
           })
@@ -112,7 +132,7 @@ export function ConversationList({
   }, [router])
 
   const filtered = useMemo(() => {
-    const base = membersOnly ? items.filter((c) => c.is_member) : items
+    const base = items.filter((c) => inSegment(c, segment))
     if (!query.trim()) return base
     const q = query.toLowerCase()
     // Match phone numbers on digits only, so "(208) 473" finds the stored
@@ -124,9 +144,29 @@ export function ConversationList({
         c.email?.toLowerCase().includes(q) ||
         (qDigits.length >= 2 && c.phone?.replace(/\D/g, "").includes(qDigits)),
     )
-  }, [items, query, membersOnly])
+  }, [items, query, segment])
 
-  const memberCount = useMemo(() => items.filter((c) => c.is_member).length, [items])
+  // Per-segment "needs a reply" counts. These prove nothing is hidden: the
+  // category segments (Prayer/Questions/Outreach + whatever stays in General)
+  // partition the inbox, so their counts sum to the General count. Members is
+  // an overlay shown alongside. Only segments with a waiting reply show a count.
+  const segmentCounts = useMemo(() => {
+    const counts: Record<Segment, number> = {
+      all: 0,
+      members: 0,
+      prayer: 0,
+      question: 0,
+      outreach: 0,
+    }
+    for (const c of items) {
+      if (!isAwaitingReply(c)) continue
+      counts.all += 1
+      if (c.is_member) counts.members += 1
+      const cat = c.inbox_category ?? "general"
+      if (isInboxCategory(cat) && cat !== "general") counts[cat] += 1
+    }
+    return counts
+  }, [items])
 
   function selectConversation(id: string) {
     setOptimisticId(id)
@@ -157,54 +197,54 @@ export function ConversationList({
           </div>
           <NewMessageDialog />
         </div>
-        {memberCount > 0 && (
-          <div className="flex items-center gap-2 mt-2.5">
-            <button
-              type="button"
-              onClick={() => setMembersOnly(false)}
-              aria-pressed={!membersOnly}
-              className={cn(
-                "inline-flex items-center rounded-pill border px-3 py-1 text-label font-medium transition-colors",
-                !membersOnly
-                  ? "border-gold bg-gold text-white"
-                  : "border-ink-hairline bg-white text-ink-muted hover:bg-surface",
-              )}
-            >
-              All
-            </button>
-            <button
-              type="button"
-              onClick={() => setMembersOnly(true)}
-              aria-pressed={membersOnly}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-pill border px-3 py-1 text-label font-medium transition-colors",
-                membersOnly
-                  ? "border-gold bg-gold text-white"
-                  : "border-ink-hairline bg-white text-ink-muted hover:bg-surface",
-              )}
-            >
-              Members
-              <span className={cn("text-micro", membersOnly ? "text-white/80" : "text-ink-faint")}>
-                {memberCount}
-              </span>
-            </button>
-          </div>
-        )}
+        {/* Segment chips. General is unfiltered + authoritative; the rest are
+            filters layered on the one list, never separate inboxes. They wrap
+            rather than scroll so no segment is ever hidden off-screen — the
+            whole point is that nothing is out of sight. */}
+        <div
+          aria-label="Filter conversations by segment"
+          className="flex flex-wrap items-center gap-2 mt-2.5"
+        >
+          {INBOX_SEGMENTS.map((seg) => {
+            const active = segment === seg
+            const count = segmentCounts[seg]
+            return (
+              <button
+                key={seg}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setSegment(seg)}
+                className={cn(
+                  "seg-chip inline-flex shrink-0 items-center gap-1.5 rounded-pill border px-3 py-1 text-label font-medium transition-colors",
+                  active ? "border-gold" : "border-ink-hairline",
+                )}
+              >
+                {SEGMENT_META[seg].label}
+                {count > 0 && (
+                  <span className={cn("text-micro", active ? "text-white/80" : "text-gold-dark font-semibold")}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       <ol className="flex-1 min-h-0 overflow-y-auto overscroll-contain no-scrollbar divide-y divide-ink-hairline">
         {filtered.length === 0 && (
           <li className="px-5 py-12 text-center text-ink-faint text-small">
-            {query ? "No matches" : membersOnly ? "No members with a conversation yet" : "No conversations yet"}
+            {query
+              ? "No matches"
+              : segment === "all"
+                ? "No conversations yet"
+                : `Nothing in ${SEGMENT_META[segment].label} yet`}
           </li>
         )}
 
         {filtered.map((c) => {
           const active = c.id === activeId
-          // Needs a reply: their message is the last one in the thread AND we
-          // can still reply. An opted-out (STOP) contact can't be messaged, so
-          // no dot — it would just be a task you can't action.
-          const awaitingReply = c.last_message_direction === "in" && !c.sms_opted_out_at
+          const awaitingReply = isAwaitingReply(c)
           const lastAt = c.last_message_at
             ? formatDistanceToNow(new Date(c.last_message_at), { addSuffix: false })
             : null

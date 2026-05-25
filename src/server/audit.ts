@@ -25,10 +25,8 @@ export type AuditAction =
   | "user.invite"
   | "user.role_change"
   | "settings.ai_update"
-  | "prayer.create"
-  | "prayer.update"
-  | "inquiry.create"
-  | "inquiry.update"
+  | "contact.inbox_triage"
+  | "contact.inbox_update"
 
 /**
  * Append an audit log entry. Reads aren't audited; the threat is unauthorized

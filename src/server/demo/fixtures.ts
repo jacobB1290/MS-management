@@ -30,6 +30,8 @@ type Row = Record<string, unknown>
 const contacts: Row[] = [
   {
     id: "c1",
+    inbox_category: "general",
+    inbox_status: null,
     name: "Marcus Bell",
     phone: "+12085550148",
     email: "marcus.b@example.com",
@@ -45,6 +47,8 @@ const contacts: Row[] = [
   },
   {
     id: "c2",
+    inbox_category: "general",
+    inbox_status: null,
     name: "Priya Nair",
     phone: "+12085550162",
     email: "priya.nair@example.com",
@@ -61,6 +65,8 @@ const contacts: Row[] = [
   },
   {
     id: "c3",
+    inbox_category: "outreach",
+    inbox_status: "in_progress",
     name: "Elena Volkov",
     phone: "+12085550175",
     email: "elena.v@example.com",
@@ -77,6 +83,8 @@ const contacts: Row[] = [
   },
   {
     id: "c4",
+    inbox_category: "general",
+    inbox_status: null,
     name: "James Okafor",
     phone: "+12085550199",
     email: null,
@@ -92,6 +100,8 @@ const contacts: Row[] = [
   },
   {
     id: "c5",
+    inbox_category: "question",
+    inbox_status: null,
     name: null,
     phone: "+12085550113",
     email: null,
@@ -129,11 +139,11 @@ const messages: Row[] = [
 
 // contact_summary view — one row per contact with last-message rollup.
 const contactSummary: Row[] = [
-  { id: "c5", name: null, phone: "+12085550113", email: null, tags: [], sms_opted_out_at: null, email_unsubscribed_at: null, is_member: false, last_message_at: minsAgo(40), last_message_body: "Hi, is there a service this Sunday at 10?", last_message_direction: "in", message_count: 1, created_at: hoursAgo(5) },
-  { id: "c2", name: "Priya Nair", phone: "+12085550162", email: "priya.nair@example.com", tags: ["volunteer", "worship"], sms_opted_out_at: null, email_unsubscribed_at: null, is_member: true, last_message_at: hoursAgo(2), last_message_body: "Thank you for the warm welcome on Sunday 🙏", last_message_direction: "in", message_count: 4, created_at: daysAgo(40) },
-  { id: "c3", name: "Elena Volkov", phone: "+12085550175", email: "elena.v@example.com", tags: ["small group"], sms_opted_out_at: null, email_unsubscribed_at: null, is_member: true, last_message_at: hoursAgo(4), last_message_body: "Yes please! And can I bring a friend?", last_message_direction: "in", message_count: 2, created_at: daysAgo(6) },
-  { id: "c1", name: "Marcus Bell", phone: "+12085550148", email: "marcus.b@example.com", tags: ["newcomer", "men's group"], sms_opted_out_at: null, email_unsubscribed_at: null, is_member: false, last_message_at: hoursAgo(27), last_message_body: "7pm in the fellowship hall. Coffee from 6:45 — come early and meet a few folks.", last_message_direction: "out", message_count: 2, created_at: daysAgo(12) },
-  { id: "c4", name: "James Okafor", phone: "+12085550199", email: null, tags: ["newcomer"], sms_opted_out_at: hoursAgo(20), email_unsubscribed_at: null, is_member: false, last_message_at: hoursAgo(20), last_message_body: "Welcome! Here is the link to this week's bulletin.", last_message_direction: "out", message_count: 1, created_at: daysAgo(3) },
+  { id: "c5", name: null, phone: "+12085550113", email: null, tags: [], sms_opted_out_at: null, email_unsubscribed_at: null, is_member: false, inbox_category: "question", inbox_status: null, last_message_at: minsAgo(40), last_message_body: "Hi, is there a service this Sunday at 10?", last_message_direction: "in", message_count: 1, created_at: hoursAgo(5) },
+  { id: "c2", name: "Priya Nair", phone: "+12085550162", email: "priya.nair@example.com", tags: ["volunteer", "worship"], sms_opted_out_at: null, email_unsubscribed_at: null, is_member: true, inbox_category: "general", inbox_status: null, last_message_at: hoursAgo(2), last_message_body: "Thank you for the warm welcome on Sunday 🙏", last_message_direction: "in", message_count: 4, created_at: daysAgo(40) },
+  { id: "c3", name: "Elena Volkov", phone: "+12085550175", email: "elena.v@example.com", tags: ["small group"], sms_opted_out_at: null, email_unsubscribed_at: null, is_member: true, inbox_category: "outreach", inbox_status: "in_progress", last_message_at: hoursAgo(4), last_message_body: "Yes please! And can I bring a friend?", last_message_direction: "in", message_count: 2, created_at: daysAgo(6) },
+  { id: "c1", name: "Marcus Bell", phone: "+12085550148", email: "marcus.b@example.com", tags: ["newcomer", "men's group"], sms_opted_out_at: null, email_unsubscribed_at: null, is_member: false, inbox_category: "general", inbox_status: null, last_message_at: hoursAgo(27), last_message_body: "7pm in the fellowship hall. Coffee from 6:45 — come early and meet a few folks.", last_message_direction: "out", message_count: 2, created_at: daysAgo(12) },
+  { id: "c4", name: "James Okafor", phone: "+12085550199", email: null, tags: ["newcomer"], sms_opted_out_at: hoursAgo(20), email_unsubscribed_at: null, is_member: false, inbox_category: "general", inbox_status: null, last_message_at: hoursAgo(20), last_message_body: "Welcome! Here is the link to this week's bulletin.", last_message_direction: "out", message_count: 1, created_at: daysAgo(3) },
 ]
 
 const campaigns: Row[] = [

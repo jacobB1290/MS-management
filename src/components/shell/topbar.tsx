@@ -1,14 +1,7 @@
 "use client"
 import { useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
-import {
-  ChevronDown,
-  LogOut,
-  Settings,
-  FileText,
-  HeartHandshake,
-  MessageCircleQuestion,
-} from "lucide-react"
+import { ChevronDown, LogOut, Settings, FileText } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -28,8 +21,6 @@ const SECTION_TITLES: Record<string, string> = {
   inbox: "Inbox",
   contacts: "Contacts",
   campaigns: "Campaigns",
-  prayer: "Prayer",
-  inquiries: "Inquiries",
   settings: "Settings",
   audit: "Audit log",
 }
@@ -76,14 +67,6 @@ export function Topbar({ user, title }: TopbarProps) {
             <p className="text-micro text-ink-faint capitalize">{user.role}</p>
           </div>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => router.push("/prayer")} closeOnSelect>
-            <HeartHandshake size={14} />
-            <span>Prayer</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => router.push("/inquiries")} closeOnSelect>
-            <MessageCircleQuestion size={14} />
-            <span>Inquiries</span>
-          </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => router.push("/settings")}
             closeOnSelect

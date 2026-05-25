@@ -8,6 +8,7 @@ type Conversation = Pick<
   Tables<"contact_summary">,
   "id" | "name" | "phone" | "email" | "tags" |
   "sms_opted_out_at" | "email_unsubscribed_at" | "is_member" |
+  "inbox_category" | "inbox_status" |
   "last_message_at" | "last_message_body" | "last_message_direction" |
   "message_count"
 >
