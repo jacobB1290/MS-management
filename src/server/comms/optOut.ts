@@ -103,8 +103,12 @@ export async function assertCanSendSms(
     case "transactional_event":
     case "transactional_prayer":
     case "transactional_inquiry":
-      // Gate-ready: live once the Events/Prayer/Inquiry modules ship.
-      return { ok: false, reason: "context_unsupported" }
+      // Transactional: a direct, one-off response to something this contact
+      // initiated (an RSVP, a prayer request, an inquiry). Informational rather
+      // than marketing, so it needs no marketing consent; the only hard block
+      // is a global STOP, already handled above. The originating module record
+      // is the consent basis, and the UI only sends these from that workflow.
+      return { ok: true, phone: data.phone }
 
     case "conversational_reply":
     default:

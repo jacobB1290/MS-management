@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import { format } from "date-fns"
-import { MessageSquare, ArrowLeft, Pencil } from "lucide-react"
+import { MessageSquare, ArrowLeft, Pencil, HeartHandshake } from "lucide-react"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { requireStaff } from "@/server/auth"
 import { isVoiceConfigured } from "@/server/comms/voice"
@@ -147,6 +147,16 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
         </section>
 
         <aside className="space-y-6">
+          <section className="rounded-lg border border-ink-hairline bg-white p-6">
+            <p className="eyebrow mb-3">Care</p>
+            <Button asChild variant="secondary" size="sm" className="w-full">
+              <Link href={`/prayer/new?contact=${contact.id}`}>
+                <HeartHandshake size={15} />
+                Log prayer request
+              </Link>
+            </Button>
+          </section>
+
           <section className="rounded-lg border border-ink-hairline bg-white p-6">
             <p className="eyebrow mb-3">Recent messages</p>
             {!messages || messages.length === 0 ? (

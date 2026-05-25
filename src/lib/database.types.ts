@@ -463,6 +463,54 @@ export type Database = {
           },
         ]
       }
+      prayer_requests: {
+        Row: {
+          assigned_to: string | null
+          body: string
+          contact_id: string | null
+          created_at: string
+          id: string
+          requester_name: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          body: string
+          contact_id?: string | null
+          created_at?: string
+          id?: string
+          requester_name?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          body?: string
+          contact_id?: string | null
+          created_at?: string
+          id?: string
+          requester_name?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prayer_requests_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contact_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prayer_requests_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       push_subscriptions: {
         Row: {
           auth: string

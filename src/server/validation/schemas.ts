@@ -144,3 +144,22 @@ export const publicFormSubmissionSchema = z.object({
   consent_method: z.string().trim().min(1).max(60),
   payload: z.record(z.string(), z.unknown()).optional().default({}),
 })
+
+export const PRAYER_STATUSES = ["new", "praying", "answered", "archived"] as const
+
+export const prayerCreateSchema = z.object({
+  body: z.string().trim().min(1).max(2000),
+  requester_name: z.string().trim().min(1).max(120).optional().nullable(),
+  contact_id: z.string().uuid().optional().nullable(),
+})
+
+export const prayerUpdateSchema = z.object({
+  status: z.enum(PRAYER_STATUSES).optional(),
+  assigned_to: z.string().uuid().optional().nullable(),
+  body: z.string().trim().min(1).max(2000).optional(),
+  requester_name: z.string().trim().min(1).max(120).optional().nullable(),
+})
+
+export const prayerEncourageSchema = z.object({
+  body: z.string().trim().min(1).max(1600),
+})
