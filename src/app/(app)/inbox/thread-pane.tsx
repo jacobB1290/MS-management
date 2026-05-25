@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Avatar } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser"
+import type { RealtimeChannel } from "@supabase/supabase-js"
 import { formatPhone, cn } from "@/lib/utils"
 import {
   MEDIA_ACCEPT_ATTR,
@@ -51,8 +52,19 @@ export function ThreadPane({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const scrollerRef = useRef<HTMLDivElement>(null)
 
+  // Typing lock: while one staff member is composing, others are blocked from
+  // sending into the same thread (prevents two people double-texting a
+  // contact). Coordinated over realtime presence; the earliest typer holds
+  // the floor, which avoids a mutual-lock deadlock if two start at once.
+  const channelRef = useRef<RealtimeChannel | null>(null)
+  const typingAtRef = useRef<number | null>(null)
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [lockedBy, setLockedBy] = useState<string | null>(null)
+  const myName = senderNames[currentUserId] ?? "a teammate"
+
   const optedOut = Boolean(contact.sms_opted_out_at)
   const noPhone = !contact.phone
+  const locked = lockedBy !== null
 
   // Sync local state when the parent feeds a fresh thread (URL `?c=` change).
   const [lastContactId, setLastContactId] = useState(contactProp.id)
@@ -62,6 +74,7 @@ export function ThreadPane({
     setMessages(initialMessages)
     setBody("")
     setMedia(null)
+    setLockedBy(null)
   }
 
   // Realtime: new messages + status updates AND the contact row itself, so a
@@ -69,7 +82,9 @@ export function ThreadPane({
   useEffect(() => {
     const supabase = createSupabaseBrowserClient()
     const channel = supabase
-      .channel(`thread:${contactProp.id}`)
+      .channel(`thread:${contactProp.id}`, {
+        config: { presence: { key: currentUserId } },
+      })
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "contacts", filter: `id=eq.${contactProp.id}` },
@@ -108,11 +123,41 @@ export function ThreadPane({
           }
         },
       )
-      .subscribe()
+      .on("presence", { event: "sync" }, () => {
+        const state = channel.presenceState<{
+          user_id: string
+          name: string
+          typing_at: number | null
+        }>()
+        // The earliest active typer holds the floor; ties broken by user_id.
+        let floor: { user_id: string; name: string; at: number } | null = null
+        for (const key of Object.keys(state)) {
+          for (const p of state[key]) {
+            if (p.typing_at == null) continue
+            if (
+              !floor ||
+              p.typing_at < floor.at ||
+              (p.typing_at === floor.at && p.user_id < floor.user_id)
+            ) {
+              floor = { user_id: p.user_id, name: p.name, at: p.typing_at }
+            }
+          }
+        }
+        setLockedBy(floor && floor.user_id !== currentUserId ? floor.name : null)
+      })
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          void channel.track({ user_id: currentUserId, name: myName, typing_at: null })
+        }
+      })
+    channelRef.current = channel
     return () => {
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
+      typingAtRef.current = null
+      channelRef.current = null
       void supabase.removeChannel(channel)
     }
-  }, [contactProp.id])
+  }, [contactProp.id, currentUserId, myName])
 
   // Auto-scroll to bottom on new message
   useEffect(() => {
@@ -120,6 +165,29 @@ export function ThreadPane({
     if (!el) return
     el.scrollTop = el.scrollHeight
   }, [messages.length])
+
+  function trackTyping(at: number | null) {
+    typingAtRef.current = at
+    void channelRef.current?.track({
+      user_id: currentUserId,
+      name: myName,
+      typing_at: at,
+    })
+  }
+
+  function onComposeInput() {
+    if (typingAtRef.current == null) trackTyping(Date.now())
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
+    typingTimerRef.current = setTimeout(() => trackTyping(null), 4000)
+  }
+
+  function stopTyping() {
+    if (typingTimerRef.current) {
+      clearTimeout(typingTimerRef.current)
+      typingTimerRef.current = null
+    }
+    if (typingAtRef.current != null) trackTyping(null)
+  }
 
   function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -209,7 +277,8 @@ export function ThreadPane({
   async function handleSend(e: React.FormEvent) {
     e.preventDefault()
     const text = body.trim()
-    if ((!text && !media) || sending || uploading || optedOut || noPhone) return
+    if ((!text && !media) || sending || uploading || optedOut || noPhone || locked) return
+    stopTyping()
     const sentMedia = media
     setBody("")
     setMedia(null)
@@ -316,6 +385,12 @@ export function ThreadPane({
           </div>
         ) : (
           <>
+            {locked && (
+              <div className="mb-2 flex items-center gap-2 text-small text-gold-dark" data-dynamic>
+                <span className="h-2 w-2 rounded-pill bg-gold animate-pulse shrink-0" />
+                {lockedBy} is typing. Sending is paused to avoid a double message.
+              </div>
+            )}
             {media && (
               <div className="mb-2 relative inline-block">
                 {media.isVideo ? (
@@ -353,7 +428,7 @@ export function ThreadPane({
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
+                disabled={uploading || locked}
                 aria-label="Attach photo or video"
                 className="btn-icon-action disabled:opacity-50"
               >
@@ -361,11 +436,16 @@ export function ThreadPane({
               </button>
               <Textarea
                 value={body}
-                onChange={(e) => setBody(e.target.value)}
+                onChange={(e) => {
+                  setBody(e.target.value)
+                  onComposeInput()
+                }}
+                onBlur={stopTyping}
+                disabled={locked}
                 placeholder="Write a reply…"
                 rows={2}
                 autoGrow
-                className="flex-1 min-h-[44px] max-h-40 resize-none"
+                className="flex-1 min-h-[44px] max-h-40 resize-none disabled:opacity-60"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
                     e.preventDefault()
@@ -373,7 +453,7 @@ export function ThreadPane({
                   }
                 }}
               />
-              <Button type="submit" disabled={(!body.trim() && !media) || uploading} size="md">
+              <Button type="submit" disabled={(!body.trim() && !media) || uploading || locked} size="md">
                 Send
               </Button>
             </form>
