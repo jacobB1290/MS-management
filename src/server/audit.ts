@@ -27,6 +27,8 @@ export type AuditAction =
   | "settings.ai_update"
   | "prayer.create"
   | "prayer.update"
+  | "inquiry.create"
+  | "inquiry.update"
 
 /**
  * Append an audit log entry. Reads aren't audited; the threat is unauthorized

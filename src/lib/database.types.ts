@@ -384,6 +384,54 @@ export type Database = {
         }
         Relationships: []
       }
+      inquiries: {
+        Row: {
+          body: string
+          contact_id: string | null
+          created_at: string
+          id: string
+          requester_name: string | null
+          status: string
+          topic: string | null
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          contact_id?: string | null
+          created_at?: string
+          id?: string
+          requester_name?: string | null
+          status?: string
+          topic?: string | null
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          contact_id?: string | null
+          created_at?: string
+          id?: string
+          requester_name?: string | null
+          status?: string
+          topic?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inquiries_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contact_summary"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inquiries_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           body: string | null

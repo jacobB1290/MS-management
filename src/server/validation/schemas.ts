@@ -162,3 +162,22 @@ export const prayerUpdateSchema = z.object({
 export const prayerEncourageSchema = z.object({
   body: z.string().trim().min(1).max(1600),
 })
+
+export const INQUIRY_STATUSES = ["new", "in_progress", "closed"] as const
+
+export const inquiryCreateSchema = z.object({
+  body: z.string().trim().min(1).max(2000),
+  topic: z.string().trim().min(1).max(120).optional().nullable(),
+  requester_name: z.string().trim().min(1).max(120).optional().nullable(),
+  contact_id: z.string().uuid().optional().nullable(),
+})
+
+export const inquiryUpdateSchema = z.object({
+  status: z.enum(INQUIRY_STATUSES).optional(),
+  topic: z.string().trim().min(1).max(120).optional().nullable(),
+  body: z.string().trim().min(1).max(2000).optional(),
+})
+
+export const inquiryReplySchema = z.object({
+  body: z.string().trim().min(1).max(1600),
+})
