@@ -171,6 +171,12 @@ export function createDemoClient(): SupabaseClient<Database> {
     from(table: string) {
       return new DemoQuery((DEMO_TABLES[table] ?? []).map((r) => ({ ...r })))
     },
+    // RPCs used by rendered pages return believable demo values; everything
+    // else resolves empty so demo mode never throws.
+    async rpc(name: string) {
+      if (name === "database_size") return { data: 12_582_912, error: null }
+      return { data: null, error: null }
+    },
     auth: {
       getUser: async () => ({ data: { user: DEMO_AUTH_USER }, error: null }),
       getSession: async () => ({ data: { session: null }, error: null }),
