@@ -8,11 +8,18 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+import { CallButton } from "@/components/call-button"
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser"
 import { formatPhone, humanizeSource } from "@/lib/utils"
 import type { Tables } from "@/lib/database.types"
 
-export function ContactPanel({ contact }: { contact: Tables<"contacts"> }) {
+export function ContactPanel({
+  contact,
+  voiceConfigured,
+}: {
+  contact: Tables<"contacts">
+  voiceConfigured: boolean
+}) {
   // Optimistic local state, kept live by a realtime subscription on this
   // contact row so external changes (e.g. a STOP reply) reflect immediately.
   const [snapshot, setSnapshot] = useState(contact)
@@ -86,16 +93,25 @@ export function ContactPanel({ contact }: { contact: Tables<"contacts"> }) {
   return (
     <div className="flex-1 overflow-y-auto p-6">
       <p className="eyebrow">Contact</p>
-      <Link
-        href={`/contacts/${snapshot.id}?from=inbox`}
-        prefetch
-        className="flex items-center gap-1.5 font-display text-heading text-ink leading-tight mt-1 hover:underline w-fit max-w-full"
-      >
-        <span className="truncate">
-          {snapshot.name ?? formatPhone(snapshot.phone) ?? snapshot.email ?? "Unknown"}
-        </span>
-        <ChevronRight size={18} className="shrink-0 text-ink-faint" />
-      </Link>
+      <div className="mt-1 flex items-start justify-between gap-3">
+        <Link
+          href={`/contacts/${snapshot.id}?from=inbox`}
+          prefetch
+          className="flex items-center gap-1.5 font-display text-heading text-ink leading-tight hover:underline min-w-0 max-w-full"
+        >
+          <span className="truncate">
+            {snapshot.name ?? formatPhone(snapshot.phone) ?? snapshot.email ?? "Unknown"}
+          </span>
+          <ChevronRight size={18} className="shrink-0 text-ink-faint" />
+        </Link>
+        <CallButton
+          contactId={snapshot.id}
+          phone={snapshot.phone}
+          contactName={snapshot.name}
+          voiceConfigured={voiceConfigured}
+          className="shrink-0"
+        />
+      </div>
 
       <dl className="mt-6 space-y-4">
         <Row label="Phone" value={snapshot.phone ? formatPhone(snapshot.phone) : "—"} />

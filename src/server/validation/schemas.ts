@@ -93,6 +93,10 @@ export const sendSmsSchema = z
     path: ["body"],
   })
 
+export const voiceTokenSchema = z.object({
+  contact_id: z.string().uuid(),
+})
+
 export const campaignCreateSchema = z
   .discriminatedUnion("channel", [
     z.object({

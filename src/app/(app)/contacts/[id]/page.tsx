@@ -5,9 +5,11 @@ import { format } from "date-fns"
 import { MessageSquare, ArrowLeft, Pencil } from "lucide-react"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { requireStaff } from "@/server/auth"
+import { isVoiceConfigured } from "@/server/comms/voice"
 import { PageHeader } from "@/components/ui/page-header"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { CallButton } from "@/components/call-button"
 import { formatPhone, humanizeSource } from "@/lib/utils"
 import { SuggestTags } from "./suggest-tags"
 
@@ -20,6 +22,7 @@ interface PageProps {
 
 export default async function ContactDetailPage({ params, searchParams }: PageProps) {
   await requireStaff()
+  const voiceConfigured = isVoiceConfigured()
   const { id } = await params
   const { from } = await searchParams
   const cameFromThread = from === "inbox"
@@ -51,6 +54,12 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
           title={contact.name ?? formatPhone(contact.phone) ?? contact.email ?? "Unknown"}
           actions={
             <div className="flex items-center gap-2">
+              <CallButton
+                contactId={contact.id}
+                phone={contact.phone}
+                contactName={contact.name}
+                voiceConfigured={voiceConfigured}
+              />
               <Button asChild variant="secondary">
                 <Link href={editHref}>
                   <Pencil size={14} />

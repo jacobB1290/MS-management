@@ -12,6 +12,7 @@ export type AuditAction =
   | "contact.unsubscribe_email"
   | "message.send"
   | "message.send_failed"
+  | "call.start"
   | "campaign.create"
   | "campaign.update"
   | "campaign.start"

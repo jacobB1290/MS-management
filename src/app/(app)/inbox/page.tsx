@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { Suspense } from "react"
 import { requireStaff } from "@/server/auth"
+import { isVoiceConfigured } from "@/server/comms/voice"
 import { createSupabaseServerClient, createSupabaseAdminClient } from "@/lib/supabase/server"
 import { ThreadPane } from "./thread-pane"
 import { ContactPanel } from "./contact-panel"
@@ -94,7 +95,7 @@ async function ContactPanelLoader({ contactId }: { contactId: string }) {
     .eq("id", contactId)
     .maybeSingle()
   if (!data) return null
-  return <ContactPanel contact={data} />
+  return <ContactPanel contact={data} voiceConfigured={isVoiceConfigured()} />
 }
 
 function ThreadSkeleton() {
