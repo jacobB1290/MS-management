@@ -18,6 +18,10 @@ export default async function InboxLayout({
     .select(
       "id, name, phone, email, tags, sms_opted_out_at, email_unsubscribed_at, last_message_at, last_message_body, last_message_direction, message_count",
     )
+    // Only contacts with at least one message belong in the inbox. A freshly
+    // added contact has no thread yet; it appears here once something is sent
+    // or received (last_message_at becomes non-null).
+    .not("last_message_at", "is", null)
     .order("last_message_at", { ascending: false, nullsFirst: false })
     .limit(200)
 

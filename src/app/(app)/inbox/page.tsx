@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { Suspense } from "react"
 import { requireStaff } from "@/server/auth"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { createSupabaseServerClient, createSupabaseAdminClient } from "@/lib/supabase/server"
 import { ThreadPane } from "./thread-pane"
 import { ContactPanel } from "./contact-panel"
 import { EmptyState } from "@/components/ui/empty-state"
@@ -52,10 +52,13 @@ async function ThreadLoader({
   currentUserId: string
 }) {
   const supabase = await createSupabaseServerClient()
+  const admin = createSupabaseAdminClient()
   // Load the last 80 messages — that's what fits in 2-3 screens. Older
   // messages can be paged in later via a "load older" affordance. 500
   // was wasteful and made the thread payload heavy on chatty contacts.
-  const [contactRes, messagesRes] = await Promise.all([
+  // Staff names (service-role read) let each outbound message show who sent
+  // it — works for every staff member regardless of app_users RLS.
+  const [contactRes, messagesRes, usersRes] = await Promise.all([
     supabase.from("contacts").select("*").eq("id", contactId).maybeSingle(),
     supabase
       .from("messages")
@@ -63,15 +66,21 @@ async function ThreadLoader({
       .eq("contact_id", contactId)
       .order("created_at", { ascending: false })
       .limit(80),
+    admin.from("app_users").select("user_id, display_name"),
   ])
   if (!contactRes.data) return null
   const messages = (messagesRes.data ?? []).slice().reverse()
+  const senderNames: Record<string, string> = {}
+  for (const u of usersRes.data ?? []) {
+    if (u.display_name) senderNames[u.user_id] = u.display_name
+  }
   return (
     <div className="flex-1 min-w-0 flex flex-col min-h-0">
       <ThreadPane
         contact={contactRes.data}
         initialMessages={messages}
         currentUserId={currentUserId}
+        senderNames={senderNames}
       />
     </div>
   )
