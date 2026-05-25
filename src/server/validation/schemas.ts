@@ -146,6 +146,11 @@ export const publicFormSubmissionSchema = z.object({
   // the baseline consent_method (which only covers the reply to this very
   // submission). A checked box on the form sets marketing_consent_at.
   marketing_opt_in: z.boolean().optional().default(false),
+  // The free-text the person typed ("your question, prayer request, or
+  // message"). When present it seeds the contact's inbox thread as the first
+  // inbound message, so the submission shows up as a conversation staff can
+  // reply to. 1600 chars = 10 SMS segments, matching the send-side cap.
+  message: z.string().trim().min(1).max(1600).optional().nullable(),
   payload: z.record(z.string(), z.unknown()).optional().default({}),
 })
 

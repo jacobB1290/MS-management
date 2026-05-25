@@ -3,6 +3,9 @@ import { verifyHmacRequest } from "@/server/webhooks/verify"
 import { createSupabaseAdminClient } from "@/lib/supabase/server"
 import { publicFormSubmissionSchema } from "@/server/validation/schemas"
 import { logAudit } from "@/server/audit"
+import { sendPushToStaff } from "@/server/push/send"
+import { classifyInbound } from "@/server/ai/triageInbound"
+import { formatPhone } from "@/lib/utils"
 
 const REPLAY_WINDOW_MS = 5 * 60 * 1000 // 5 minutes
 
@@ -12,9 +15,14 @@ const REPLAY_WINDOW_MS = 5 * 60 * 1000 // 5 minutes
  * `_nonce` so we can refuse replays. Behavior:
  *   1. Verify HMAC.
  *   2. Reject if `_ts` is more than 5 minutes off (clock skew window).
- *   3. Reject if `_nonce` has been seen in the last 24h (idempotency).
+ *   3. Reject if `_nonce` has been seen (idempotency / replay ledger).
  *   4. Insert form_submissions (immutable audit row).
  *   5. Atomic contact upsert via the SQL RPC.
+ *   6. Record express marketing consent when the opt-in box was checked.
+ *   7. Seed the contact's inbox thread with the message they typed, so the
+ *      submission lands as a real conversation staff can reply to (and so the
+ *      inbound opens the conversational-consent reply window). Then triage it
+ *      into a segment and push-notify staff, mirroring the SMS inbound webhook.
  */
 export async function POST(request: NextRequest) {
   const rawBody = await request.text()
@@ -106,6 +114,8 @@ export async function POST(request: NextRequest) {
   } | null
 
   const contactId = result?.contact_id ?? null
+  let messageId: string | null = null
+
   if (contactId) {
     await admin
       .from("form_submissions")
@@ -126,6 +136,85 @@ export async function POST(request: NextRequest) {
         })
         .eq("id", contactId)
     }
+
+    // Seed the inbox thread. The message the person typed becomes the first
+    // inbound in their conversation, so the submission surfaces in the inbox
+    // (which only lists contacts that have a message) and — being an inbound —
+    // opens the conversational-consent window so staff can reply right away.
+    // channel 'form' keeps the provenance honest (it did NOT arrive over SMS).
+    if (data.message) {
+      const { data: inserted } = await admin
+        .from("messages")
+        .insert({
+          contact_id: contactId,
+          direction: "in",
+          body: data.message,
+          channel: "form",
+          status: "received",
+          context: "transactional_event",
+        })
+        .select("id")
+        .maybeSingle()
+      messageId = inserted?.id ?? null
+
+      // Best-effort follow-ups, exactly as the SMS inbound webhook does. A
+      // failure here must never fail the submission — the contact, consent,
+      // and message are already persisted.
+      if (messageId) {
+        const { data: c } = await admin
+          .from("contacts")
+          .select("name, phone, inbox_category, inbox_status")
+          .eq("id", contactId)
+          .maybeSingle()
+
+        try {
+          const title = c?.name || formatPhone(c?.phone ?? null) || "New form submission"
+          await sendPushToStaff({
+            title,
+            body: data.message.slice(0, 140),
+            url: `/inbox?c=${contactId}`,
+            tag: `contact-${contactId}`,
+          })
+        } catch {
+          /* swallow — delivery is best-effort */
+        }
+
+        // Sort into a segment. Non-destructive: only ever moves the
+        // conversation between segments, never hides it from General. Skipped
+        // when staff have already actioned the thread (inbox_status set). AI
+        // off → no-op, stays in General.
+        if (c && c.inbox_status == null) {
+          try {
+            const triage = await classifyInbound(contactId)
+            if (triage.ok && triage.category !== (c.inbox_category ?? "general")) {
+              await admin
+                .from("contacts")
+                .update({
+                  inbox_category: triage.category,
+                  inbox_category_at: new Date().toISOString(),
+                })
+                .eq("id", contactId)
+                .is("inbox_status", null)
+              await logAudit({
+                action: "contact.inbox_triage",
+                targetTable: "contacts",
+                targetId: contactId,
+                diff: {
+                  category: triage.category,
+                  confidence: triage.confidence,
+                  crisis: triage.crisis,
+                  by_rule: triage.byRule,
+                  source: "public_form",
+                  form_id: data.form_id,
+                },
+              })
+            }
+          } catch {
+            /* swallow — triage is best-effort */
+          }
+        }
+      }
+    }
   }
 
   await logAudit({
@@ -140,6 +229,7 @@ export async function POST(request: NextRequest) {
       had_phone: Boolean(data.phone),
       had_email: Boolean(data.email),
       marketing_opt_in: data.marketing_opt_in,
+      seeded_message: Boolean(messageId),
     },
     ip,
     userAgent,
@@ -150,6 +240,7 @@ export async function POST(request: NextRequest) {
       ok: true,
       contact_id: contactId,
       needs_review: result?.needs_review ?? false,
+      message_id: messageId,
     },
     { status: 200 },
   )

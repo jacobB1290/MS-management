@@ -641,6 +641,7 @@ function MessageBubble({
           title={format(new Date(message.created_at), "PPpp")}
         >
           {isOut && senderName ? `${senderName} · ` : ""}
+          {!isOut && message.channel === "form" ? "Web form · " : ""}
           {pending ? "Sending…" : time}
           {!pending && message.status && message.status !== "received" && (
             <span className="ml-2 capitalize">· {message.status}</span>
