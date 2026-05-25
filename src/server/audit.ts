@@ -24,6 +24,7 @@ export type AuditAction =
   | "webhook.sendgrid.event"
   | "user.invite"
   | "user.role_change"
+  | "settings.ai_update"
 
 /**
  * Append an audit log entry. Reads aren't audited; the threat is unauthorized

@@ -7,16 +7,9 @@ import { isDemoEnabled } from "@/server/demo"
  * reaches the browser — these helpers are only importable from route handlers
  * and other `server-only` modules.
  *
- * Two model tiers, picked per the cost/quality tradeoff of each task:
- *   - Haiku  → high-volume, cheap classification (auto-tagging).
- *   - Sonnet → quality-sensitive generation (reply drafting).
+ * Which model each feature uses is configured at runtime in Settings; see
+ * `config.ts` for the choices, defaults, and the per-feature lookup.
  */
-export const AI_MODELS = {
-  /** Cheap, fast — used for tag classification. */
-  tagging: "claude-haiku-4-5-20251001",
-  /** Higher quality — used for drafting/improving operator replies. */
-  drafting: "claude-sonnet-4-6",
-} as const
 
 /**
  * Whether the Claude-backed features are usable in this deployment.

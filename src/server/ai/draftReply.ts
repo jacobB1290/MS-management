@@ -1,6 +1,7 @@
 import "server-only"
 import { createSupabaseAdminClient } from "@/lib/supabase/server"
-import { createAnthropicClient, AI_MODELS, isAiEnabled } from "./client"
+import { createAnthropicClient, isAiEnabled } from "./client"
+import { getFeatureConfig, modelSupportsEffort } from "./config"
 
 /** Recent thread depth handed to the model for context. */
 const THREAD_LIMIT = 20
@@ -51,7 +52,8 @@ export async function draftReply(args: {
   const mode: "fresh" | "improve" = draft.length > 0 ? "improve" : "fresh"
 
   const admin = createSupabaseAdminClient()
-  const [{ data: contact }, { data: thread }] = await Promise.all([
+  const [config, { data: contact }, { data: thread }] = await Promise.all([
+    getFeatureConfig("drafting"),
     admin.from("contacts").select("id, name").eq("id", args.contactId).maybeSingle(),
     admin
       .from("messages")
@@ -94,14 +96,16 @@ export async function draftReply(args: {
 
   try {
     const client = createAnthropicClient()
+    // Effort/extended-thinking applies only to Opus + Sonnet; Haiku rejects the
+    // parameters, so omit them when a Haiku model is configured. Thinking stays
+    // disabled either way — a one-shot pastoral reply needs no reasoning trace.
+    const supportsEffort = modelSupportsEffort(config.model)
     const response = await client.messages.create({
-      model: AI_MODELS.drafting,
+      model: config.model,
       max_tokens: 400,
-      // A short pastoral reply needs no extended reasoning (thinking off, low
-      // latency), but "low" effort underuses Sonnet; "medium" gives noticeably
-      // better tone/wording for the small extra latency on a one-shot draft.
-      thinking: { type: "disabled" },
-      output_config: { effort: "medium" },
+      ...(supportsEffort
+        ? { thinking: { type: "disabled" as const }, output_config: { effort: config.effort } }
+        : {}),
       system: [
         { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
       ],

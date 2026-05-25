@@ -5,6 +5,12 @@ import { Check, X } from "lucide-react"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { requireStaff } from "@/server/auth"
 import { getSpendSummary, formatMoney, type SpendSummary } from "@/server/billing/twilio"
+import {
+  getAiSpendSummary,
+  formatTokens,
+  type AiSpendSummary,
+} from "@/server/billing/anthropic"
+import { getAiConfig } from "@/server/ai/config"
 import { listMmsMedia } from "@/server/media/storage"
 import { PageHeader } from "@/components/ui/page-header"
 import { PageInfo } from "@/components/ui/page-info"
@@ -13,6 +19,7 @@ import { Avatar } from "@/components/ui/avatar"
 import { TeamPanel } from "./team-panel"
 import { StoragePanel } from "./storage-panel"
 import { NotificationsPanel } from "./notifications-panel"
+import { AiModelsPanel } from "./ai-models-panel"
 
 export const metadata: Metadata = { title: "Settings" }
 
@@ -20,12 +27,14 @@ export default async function SettingsPage() {
   const user = await requireStaff()
   const supabase = await createSupabaseServerClient()
 
-  const [teamRes, heartbeatRes, spend, media, dbRpc] = await Promise.all([
+  const [teamRes, heartbeatRes, spend, aiSpend, aiConfig, media, dbRpc] = await Promise.all([
     user.role === "admin"
       ? supabase.from("app_users").select("user_id, role, display_name, created_at").order("created_at")
       : Promise.resolve({ data: null }),
     supabase.from("heartbeat").select("last_run_at").eq("id", 1).maybeSingle(),
     getSpendSummary(),
+    getAiSpendSummary(),
+    getAiConfig(),
     listMmsMedia(),
     supabase.rpc("database_size" as never),
   ])
@@ -69,6 +78,20 @@ export default async function SettingsPage() {
       </section>
 
       <SpendSection spend={spend} />
+
+      <AiUsageSection spend={aiSpend} />
+
+      {user.role === "admin" && (
+        <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
+          <SectionTitle
+            label="About AI models"
+            info="Pick which Claude model each feature uses, and how much reasoning effort to spend. Changes take effect immediately, no redeploy. Effort applies to Opus and Sonnet; Haiku ignores it. Prompts are cached to keep cost down regardless of model."
+          >
+            AI models
+          </SectionTitle>
+          <AiModelsPanel config={aiConfig} />
+        </section>
+      )}
 
       <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
         <SectionTitle
@@ -210,6 +233,57 @@ function SpendSection({ spend }: { spend: SpendSummary }) {
               </div>
             ))}
           </dl>
+        </>
+      )}
+    </section>
+  )
+}
+
+function AiUsageSection({ spend }: { spend: AiSpendSummary }) {
+  return (
+    <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
+      <SectionTitle
+        label="About AI usage"
+        info="Pulled live from Anthropic’s Cost and Usage APIs (cached 5 min). These are real billed amounts, never estimated, and cover all usage on the Anthropic organization. Anthropic exposes no prepaid balance via API, so none is shown."
+      >
+        AI usage
+      </SectionTitle>
+
+      {!spend.configured ? (
+        <p className="text-small text-ink-faint">
+          Set ANTHROPIC_ADMIN_KEY (an sk-ant-admin… Admin API key) to see live AI
+          cost and usage.
+        </p>
+      ) : !spend.ok ? (
+        <p className="text-small text-danger">
+          Couldn&rsquo;t load Anthropic usage: {spend.error}
+        </p>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <SpendStat label="This month" value={formatMoney(spend.thisMonth, spend.currency)} />
+            <SpendStat label="Last month" value={formatMoney(spend.lastMonth, spend.currency)} />
+          </div>
+
+          {spend.models.length > 0 && (
+            <dl className="mt-5 space-y-2 border-t border-ink-hairline pt-4 text-small">
+              <p className="text-label text-ink-faint mb-1">This month by model</p>
+              {spend.models.map((m) => (
+                <div key={m.model} className="flex items-center justify-between gap-3">
+                  <dt className="text-ink-muted min-w-0 truncate">
+                    {m.label}
+                    <span className="text-ink-faint">
+                      {" "}
+                      · {formatTokens(m.inputTokens)} in / {formatTokens(m.outputTokens)} out
+                    </span>
+                  </dt>
+                  <dd className="font-medium text-ink shrink-0">
+                    {formatMoney(m.cost, spend.currency)}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          )}
         </>
       )}
     </section>

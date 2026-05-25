@@ -1,7 +1,8 @@
 import "server-only"
 import { z } from "zod"
 import { createSupabaseAdminClient } from "@/lib/supabase/server"
-import { createAnthropicClient, AI_MODELS, isAiEnabled } from "./client"
+import { createAnthropicClient, isAiEnabled } from "./client"
+import { getFeatureConfig, modelSupportsEffort } from "./config"
 
 /** How many recent messages to feed the model. Enough to characterize the
  *  relationship without ballooning token cost on chatty threads. */
@@ -87,8 +88,9 @@ export async function suggestTags(contactId: string): Promise<SuggestTagsResult>
 
   const admin = createSupabaseAdminClient()
 
-  const [{ data: contact }, { data: thread }, { data: allTagRows }] =
+  const [config, { data: contact }, { data: thread }, { data: allTagRows }] =
     await Promise.all([
+      getFeatureConfig("tagging"),
       admin.from("contacts").select("id, tags").eq("id", contactId).maybeSingle(),
       admin
         .from("messages")
@@ -133,17 +135,21 @@ export async function suggestTags(contactId: string): Promise<SuggestTagsResult>
 
   try {
     const client = createAnthropicClient()
-    // Haiku: no thinking / effort (unsupported on Haiku). A JSON-schema output
-    // format constrains the shape; cache_control caches the stable system block.
+    // A JSON-schema output format constrains the shape; cache_control caches the
+    // stable system block. Thinking/effort apply only to Opus + Sonnet (Haiku,
+    // the default here, rejects them), so they are added only when supported.
+    const supportsEffort = modelSupportsEffort(config.model)
     const response = await client.messages.create({
-      model: AI_MODELS.tagging,
+      model: config.model,
       max_tokens: 512,
+      ...(supportsEffort ? { thinking: { type: "disabled" as const } } : {}),
       system: [
         { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
       ],
       messages: [{ role: "user", content: userContent }],
       output_config: {
         format: { type: "json_schema", schema: SUGGESTION_JSON_SCHEMA },
+        ...(supportsEffort ? { effort: config.effort } : {}),
       },
     })
 
