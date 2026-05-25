@@ -1,7 +1,7 @@
 "use client"
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, AlertTriangle, Plus, Loader2, X, ChevronRight, RotateCcw } from "lucide-react"
+import { ArrowLeft, AlertTriangle, Plus, Loader2, X, ChevronRight, RotateCcw, Sparkles } from "lucide-react"
 import { format, formatRelative } from "date-fns"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -49,6 +49,10 @@ export function ThreadPane({
   const [sending, setSending] = useState(false)
   const [media, setMedia] = useState<{ url: string; isVideo: boolean } | null>(null)
   const [uploading, setUploading] = useState(false)
+  // Claude reply-assist: availability is probed once; the affordance is hidden
+  // when the integration is not configured. `drafting` drives its loading state.
+  const [aiEnabled, setAiEnabled] = useState(false)
+  const [drafting, setDrafting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const scrollerRef = useRef<HTMLDivElement>(null)
 
@@ -165,6 +169,53 @@ export function ThreadPane({
     if (!el) return
     el.scrollTop = el.scrollHeight
   }, [messages.length])
+
+  // Probe whether the Claude reply-assist is configured for this deployment.
+  useEffect(() => {
+    let active = true
+    fetch("/api/ai/status")
+      .then((r) => (r.ok ? r.json() : { enabled: false }))
+      .then((j) => {
+        if (active) setAiEnabled(Boolean(j.enabled))
+      })
+      .catch(() => {
+        if (active) setAiEnabled(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  // Ask Claude to draft a fresh reply (empty composer) or improve the current
+  // draft. The result lands in the textarea for the operator to edit — never
+  // auto-sent.
+  async function handleDraft() {
+    if (drafting || locked || optedOut || noPhone) return
+    setDrafting(true)
+    try {
+      const res = await fetch("/api/ai/draft-reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contact_id: contact.id, draft: body }),
+      })
+      const json = await res.json().catch(() => null)
+      if (!res.ok) {
+        toast.error(
+          json?.error === "no_context"
+            ? "Nothing to reply to yet"
+            : json?.error === "disabled"
+              ? "Reply assist isn’t configured"
+              : "Couldn’t draft a reply",
+        )
+        return
+      }
+      setBody(json.draft as string)
+    } catch (err) {
+      toast.error(`Network error: ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setDrafting(false)
+    }
+  }
 
   function trackTyping(at: number | null) {
     typingAtRef.current = at
@@ -434,6 +485,23 @@ export function ThreadPane({
               >
                 {uploading ? <Loader2 size={18} className="animate-spin" /> : <Plus size={20} />}
               </button>
+              {aiEnabled && (
+                <button
+                  type="button"
+                  onClick={handleDraft}
+                  disabled={drafting || locked}
+                  aria-label={body.trim() ? "Improve this draft with AI" : "Draft a reply with AI"}
+                  title={body.trim() ? "Improve this draft" : "Draft a reply"}
+                  className="inline-flex shrink-0 items-center justify-center gap-1.5 h-11 px-3 rounded-pill border border-gold/40 bg-white text-gold-dark text-label font-medium transition-colors hover:bg-[color-mix(in_oklab,var(--gold)_8%,white)] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {drafting ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Sparkles size={16} />
+                  )}
+                  <span className="hidden sm:inline">{body.trim() ? "Improve" : "Draft"}</span>
+                </button>
+              )}
               <Textarea
                 value={body}
                 onChange={(e) => {

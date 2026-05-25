@@ -12,6 +12,7 @@
     "harness:update": "playwright test --config=scripts/harness/playwright.config.ts --update-snapshots"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.98.0",
     "@hookform/resolvers": "^3.9.1",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.106.1",

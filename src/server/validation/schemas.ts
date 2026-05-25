@@ -122,6 +122,15 @@ export const campaignCreateSchema = z
     }
   })
 
+export const aiSuggestTagsSchema = z.object({
+  contact_id: z.string().uuid(),
+})
+
+export const aiDraftReplySchema = z.object({
+  contact_id: z.string().uuid(),
+  draft: z.string().max(1600).optional().default(""),
+})
+
 export const publicFormSubmissionSchema = z.object({
   form_id: z.string().trim().min(1).max(60),
   name: z.string().trim().min(1).max(120).optional().nullable(),

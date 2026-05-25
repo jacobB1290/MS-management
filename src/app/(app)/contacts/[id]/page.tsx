@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/ui/page-header"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { formatPhone, humanizeSource } from "@/lib/utils"
+import { SuggestTags } from "./suggest-tags"
 
 export const metadata: Metadata = { title: "Contact" }
 
@@ -105,9 +106,9 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
             </div>
           )}
 
-          {contact.tags && contact.tags.length > 0 && (
-            <div className="mt-6 pt-4 border-t border-ink-hairline">
-              <p className="eyebrow mb-2">Tags</p>
+          <div className="mt-6 pt-4 border-t border-ink-hairline">
+            <p className="eyebrow mb-2">Tags</p>
+            {contact.tags && contact.tags.length > 0 ? (
               <div className="flex flex-wrap gap-1.5">
                 {contact.tags.map((t) => (
                   <Badge key={t} variant="muted">
@@ -115,8 +116,11 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
                   </Badge>
                 ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <p className="text-small text-ink-faint italic">No tags yet.</p>
+            )}
+            <SuggestTags contactId={contact.id} currentTags={contact.tags ?? []} />
+          </div>
         </section>
 
         <aside className="space-y-6">
