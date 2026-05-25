@@ -80,6 +80,7 @@ export const contactUpdateSchema = z.object({
   tags: z.array(z.string().trim().min(1).max(40)).max(50).optional(),
   language: z.enum(["en", "ru"]).optional(),
   notes: z.string().trim().max(2000).optional().nullable(),
+  is_member: z.boolean().optional(),
 })
 
 export const sendSmsSchema = z

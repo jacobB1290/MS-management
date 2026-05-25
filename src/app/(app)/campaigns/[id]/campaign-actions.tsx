@@ -5,13 +5,14 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import type { Tables } from "@/lib/database.types"
+import type { AudienceBreakdown } from "@/server/comms/campaignAudience"
 
 export function CampaignActions({
   campaign,
-  audienceCount,
+  audienceBreakdown,
 }: {
   campaign: Tables<"campaigns">
-  audienceCount?: number | null
+  audienceBreakdown?: AudienceBreakdown | null
 }) {
   const router = useRouter()
   const [working, setWorking] = useState(false)
@@ -26,9 +27,12 @@ export function CampaignActions({
       if (!res.ok) {
         toast.error(`Start failed: ${json.error ?? res.status}`)
       } else {
-        toast.success(
-          `Started: ${json.queued} queued, ${json.skipped_opt_out + json.skipped_unsubscribed + json.skipped_no_channel} skipped`,
-        )
+        const skipped =
+          (json.skipped_opt_out ?? 0) +
+          (json.skipped_unsubscribed ?? 0) +
+          (json.skipped_no_channel ?? 0) +
+          (json.skipped_no_consent ?? 0)
+        toast.success(`Started: ${json.queued} queued, ${skipped} skipped`)
         router.refresh()
       }
     } finally {
@@ -54,10 +58,20 @@ export function CampaignActions({
     }
   }
 
-  const audienceLine =
-    typeof audienceCount === "number"
-      ? `This matches ${audienceCount} contact${audienceCount === 1 ? "" : "s"}. `
-      : ""
+  const b = audienceBreakdown
+  const noChannelLabel = campaign.channel === "sms" ? "no phone" : "no email"
+  const skips: string[] = []
+  if (b) {
+    if (b.skipped_no_consent > 0) skips.push(`${b.skipped_no_consent} no consent`)
+    if (b.skipped_opt_out > 0) skips.push(`${b.skipped_opt_out} opted out`)
+    if (b.skipped_unsubscribed > 0) skips.push(`${b.skipped_unsubscribed} unsubscribed`)
+    if (b.skipped_no_channel > 0) skips.push(`${b.skipped_no_channel} ${noChannelLabel}`)
+  }
+  const startDescription = b
+    ? `${b.queued} of ${b.total} matched ${b.total === 1 ? "contact" : "contacts"} will be messaged${
+        skips.length ? `. Skipped: ${skips.join(", ")}` : ""
+      }. Only the eligible group is sent to.`
+    : "Opted-out, unsubscribed, and non-consented contacts are skipped automatically and recorded in the breakdown."
 
   return (
     <>
@@ -82,7 +96,7 @@ export function CampaignActions({
         open={confirmStart}
         onOpenChange={setConfirmStart}
         title={`Send “${campaign.name}” now?`}
-        description={`${audienceLine}Opted-out and unsubscribed contacts are skipped automatically and recorded in the breakdown.`}
+        description={startDescription}
         confirmLabel="Start sending"
         loading={working}
         onConfirm={start}

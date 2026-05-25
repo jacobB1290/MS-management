@@ -5,7 +5,11 @@ import { format } from "date-fns"
 import { ArrowLeft, MessageSquare, Mail } from "lucide-react"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { requireStaff } from "@/server/auth"
-import { resolveAudienceMode } from "@/server/comms/campaignAudience"
+import {
+  resolveAudienceMode,
+  summarizeAudience,
+  type AudienceBreakdown,
+} from "@/server/comms/campaignAudience"
 import { formatMoney } from "@/server/billing/twilio"
 import { isVideoUrl } from "@/lib/media"
 import { PageHeader } from "@/components/ui/page-header"
@@ -82,25 +86,35 @@ export default async function CampaignDetail({ params }: PageProps) {
     skipped_opt_out: 0,
     skipped_unsubscribed: 0,
     skipped_no_channel: 0,
+    skipped_no_consent: 0,
   }
   for (const r of recipients ?? []) {
     counts[r.status as keyof typeof counts] =
       (counts[r.status as keyof typeof counts] ?? 0) + 1
   }
 
-  // Before sending, preview how many contacts the audience filter matches so
-  // the start confirmation isn't a blind blast. Opted-out contacts are still
-  // counted here (they get skipped at send time, shown in the breakdown).
-  let audienceCount: number | null = null
+  // Before sending, preview how the audience filter breaks down — who will be
+  // messaged vs. skipped for no consent, opt-out, or no channel — so the start
+  // confirmation isn't a blind blast. Uses the same classifier as the send
+  // path, so the preview matches the result exactly.
+  let audienceBreakdown: AudienceBreakdown | null = null
   if (campaign.status === "draft" || campaign.status === "scheduled") {
     const mode = resolveAudienceMode(
       campaign.audience_filter as Record<string, unknown> | null,
     )
     if (mode.mode !== "invalid") {
-      let q = supabase.from("contacts").select("id", { count: "exact", head: true })
+      let q = supabase
+        .from("contacts")
+        .select(
+          "phone, email, sms_opted_out_at, email_unsubscribed_at, marketing_consent_at, marketing_opted_out_at",
+        )
       if (mode.mode === "tags") q = q.overlaps("tags", mode.tags)
-      const { count } = await q
-      audienceCount = count ?? 0
+      else if (mode.mode === "members") q = q.eq("is_member", true)
+      const { data: audienceRows } = await q
+      audienceBreakdown = summarizeAudience(
+        campaign.channel as "sms" | "email",
+        audienceRows ?? [],
+      )
     }
   }
 
@@ -117,7 +131,7 @@ export default async function CampaignDetail({ params }: PageProps) {
         <PageHeader
           eyebrow="Campaign"
           title={campaign.name}
-          actions={<CampaignActions campaign={campaign} audienceCount={audienceCount} />}
+          actions={<CampaignActions campaign={campaign} audienceBreakdown={audienceBreakdown} />}
         />
         <div className="mt-2 flex items-center gap-2 flex-wrap">
           <Badge variant={STATUS_VARIANT[campaign.status] ?? "muted"}>
@@ -135,7 +149,7 @@ export default async function CampaignDetail({ params }: PageProps) {
         <Stat label="Total" value={counts.total} />
         <Stat label="Sent / delivered" value={counts.sent + counts.delivered} />
         <Stat label="Queued" value={counts.queued + counts.sending} />
-        <Stat label="Skipped / failed" value={counts.skipped_opt_out + counts.skipped_unsubscribed + counts.skipped_no_channel + counts.failed} />
+        <Stat label="Skipped / failed" value={counts.skipped_opt_out + counts.skipped_unsubscribed + counts.skipped_no_channel + counts.skipped_no_consent + counts.failed} />
       </div>
 
       {campaign.channel === "sms" && (

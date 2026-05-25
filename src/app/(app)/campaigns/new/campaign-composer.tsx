@@ -31,7 +31,7 @@ export function CampaignComposer({ tagOptions }: ComposerProps) {
   const [subject, setSubject] = useState("")
   const [scheduledAt, setScheduledAt] = useState("")
   const [selectedTags, setSelectedTags] = useState<string[]>([])
-  const [audienceAll, setAudienceAll] = useState(true)
+  const [audienceKind, setAudienceKind] = useState<"all" | "members" | "tags">("all")
   const [submitting, setSubmitting] = useState(false)
   const [media, setMedia] = useState<{ url: string; isVideo: boolean } | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -62,15 +62,20 @@ export function CampaignComposer({ tagOptions }: ComposerProps) {
     setSelectedTags((cur) =>
       cur.includes(tag) ? cur.filter((t) => t !== tag) : [...cur, tag],
     )
-    if (audienceAll) setAudienceAll(false)
+    setAudienceKind("tags")
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setSubmitting(true)
-    const audience = audienceAll ? { all: true } : { tags: selectedTags }
-    if (!audienceAll && selectedTags.length === 0) {
-      toast.error("Pick at least one tag, or choose 'All contacts'.")
+    const audience =
+      audienceKind === "all"
+        ? { all: true }
+        : audienceKind === "members"
+          ? { members: true }
+          : { tags: selectedTags }
+    if (audienceKind === "tags" && selectedTags.length === 0) {
+      toast.error("Pick at least one tag, or choose ‘All contacts’.")
       setSubmitting(false)
       return
     }
@@ -232,17 +237,32 @@ export function CampaignComposer({ tagOptions }: ComposerProps) {
           <button
             type="button"
             onClick={() => {
-              setAudienceAll(true)
+              setAudienceKind("all")
               setSelectedTags([])
             }}
             className={cn(
               "inline-flex items-center gap-1.5 rounded-pill border px-3 py-1.5 text-small transition-colors",
-              audienceAll
+              audienceKind === "all"
                 ? "border-gold bg-gold text-white"
                 : "border-ink-hairline bg-white text-ink-muted hover:bg-surface",
             )}
           >
             All contacts
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setAudienceKind("members")
+              setSelectedTags([])
+            }}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-pill border px-3 py-1.5 text-small transition-colors",
+              audienceKind === "members"
+                ? "border-gold bg-gold text-white"
+                : "border-ink-hairline bg-white text-ink-muted hover:bg-surface",
+            )}
+          >
+            Members
           </button>
           {tagOptions.map((opt) => (
             <button

@@ -28,6 +28,7 @@ export async function PATCH(
   if (parsed.data.tags !== undefined) update.tags = parsed.data.tags
   if (parsed.data.language !== undefined) update.language = parsed.data.language
   if (parsed.data.notes !== undefined) update.notes = parsed.data.notes
+  if (parsed.data.is_member !== undefined) update.is_member = parsed.data.is_member
 
   const { error } = await admin.from("contacts").update(update).eq("id", id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

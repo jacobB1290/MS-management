@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { CallButton } from "@/components/call-button"
 import { formatPhone, humanizeSource } from "@/lib/utils"
 import { SuggestTags } from "./suggest-tags"
+import { MemberToggle } from "./member-toggle"
 
 export const metadata: Metadata = { title: "Contact" }
 
@@ -76,6 +77,7 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
           }
         />
         <div className="mt-2 flex flex-wrap gap-2">
+          {contact.is_member && <Badge variant="gold">Member</Badge>}
           {contact.sms_opted_out_at && <Badge variant="warning">SMS opted-out</Badge>}
           {contact.email_unsubscribed_at && <Badge variant="muted">Email unsubscribed</Badge>}
           {contact.language === "ru" && <Badge variant="gold">Russian</Badge>}
@@ -105,6 +107,18 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
               value={format(new Date(contact.created_at), "PP")}
             />
           </dl>
+
+          <div className="mt-4 flex items-center justify-between gap-3 border-t border-ink-hairline pt-4">
+            <div className="min-w-0">
+              <p className="text-label text-ink-faint">Membership</p>
+              <p className="text-small text-ink-muted mt-0.5">
+                {contact.is_member
+                  ? "Marked as a church member."
+                  : "Not marked as a member."}
+              </p>
+            </div>
+            <MemberToggle contactId={contact.id} isMember={contact.is_member} />
+          </div>
 
           {contact.notes && (
             <div className="mt-6 pt-4 border-t border-ink-hairline">
