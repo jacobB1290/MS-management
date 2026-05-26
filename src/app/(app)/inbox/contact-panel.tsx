@@ -10,6 +10,8 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { CallButton } from "@/components/call-button"
 import { OptInRequest } from "@/components/opt-in-request"
 import { SuggestTags } from "@/components/suggest-tags"
+import { InboxSegmentControl } from "./inbox-segment-control"
+import { isInboxCategory } from "@/lib/inbox-segments"
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser"
 import { formatPhone } from "@/lib/utils"
 import type { Tables } from "@/lib/database.types"
@@ -159,6 +161,15 @@ export function ContactPanel({
         <Row label="Email" value={snapshot.email ?? "—"} />
         <Row label="Language" value={snapshot.language === "ru" ? "Russian" : "English"} />
       </dl>
+
+      <div className="mt-6">
+        <p className="text-label text-ink-muted mb-2">Conversation</p>
+        <InboxSegmentControl
+          contactId={snapshot.id}
+          category={isInboxCategory(snapshot.inbox_category) ? snapshot.inbox_category : "general"}
+          status={snapshot.inbox_status}
+        />
+      </div>
 
       <div className="mt-6">
         <p className="text-label text-ink-muted mb-2">Tags</p>

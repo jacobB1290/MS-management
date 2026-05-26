@@ -10,7 +10,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu"
-import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import {
   INBOX_CATEGORIES,
@@ -121,18 +120,27 @@ export function InboxSegmentControl({ contactId, category: catProp, status: stat
         <DropdownMenu>
           <DropdownMenuTrigger
             disabled={saving}
-            className={cn(
-              "inline-flex items-center gap-1 rounded-pill border px-2 py-1 text-label font-medium transition-colors disabled:opacity-50",
-              current
-                ? "border-transparent"
-                : "seg-chip border-dashed border-ink-hairline",
-            )}
+            className="seg-chip inline-flex items-center gap-1.5 rounded-pill border border-ink-hairline px-2.5 py-1 text-label font-medium transition-colors disabled:opacity-50"
             aria-label="Set status"
           >
             {current ? (
-              <Badge variant={current.variant}>{current.label}</Badge>
+              <>
+                <span
+                  className={cn(
+                    "h-2 w-2 shrink-0 rounded-pill",
+                    current.variant === "success"
+                      ? "bg-success"
+                      : current.variant === "gold"
+                        ? "bg-gold"
+                        : current.variant === "muted"
+                          ? "bg-ink-faint"
+                          : "bg-ink-muted",
+                  )}
+                />
+                {current.label}
+              </>
             ) : (
-              <span>Set status</span>
+              <span className="text-ink-muted">Set status</span>
             )}
             <ChevronDown size={13} className="text-ink-faint" />
           </DropdownMenuTrigger>

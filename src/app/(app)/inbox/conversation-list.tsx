@@ -214,7 +214,7 @@ export function ConversationList({
             whole point is that nothing is out of sight. */}
         <div
           aria-label="Filter conversations by segment"
-          className="flex flex-wrap items-center gap-2 mt-2.5"
+          className="flex items-center gap-2 mt-2.5 overflow-x-auto no-scrollbar"
         >
           {INBOX_SEGMENTS.map((seg) => {
             const active = segment === seg

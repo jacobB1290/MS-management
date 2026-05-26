@@ -23,8 +23,6 @@ import {
   isVideoUrl,
   uploadMedia,
 } from "@/lib/media"
-import { isInboxCategory } from "@/lib/inbox-segments"
-import { InboxSegmentControl } from "./inbox-segment-control"
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import { ContactPanel } from "./contact-panel"
 import type { Tables } from "@/lib/database.types"
@@ -428,15 +426,6 @@ export function ThreadPane({
         >
           <Info size={18} />
         </button>
-        {/* Segment + status: inline on the right on desktop, own row on mobile
-            (w-full) so it never squeezes the contact's name. */}
-        <div className="w-full md:w-auto md:shrink-0">
-          <InboxSegmentControl
-            contactId={contact.id}
-            category={isInboxCategory(contact.inbox_category) ? contact.inbox_category : "general"}
-            status={contact.inbox_status}
-          />
-        </div>
       </header>
 
       <div
