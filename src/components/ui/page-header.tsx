@@ -21,7 +21,7 @@ export const PageHeader = React.forwardRef<HTMLElement, PageHeaderProps>(
         ref={ref}
         className={cn(
           "flex flex-col gap-[var(--space-md)]",
-          "py-[var(--space-lg)]",
+          "py-[var(--space-md)]",
           "border-b border-ink-hairline",
           className,
         )}
@@ -33,7 +33,7 @@ export const PageHeader = React.forwardRef<HTMLElement, PageHeaderProps>(
             <div className="flex items-center gap-2 min-w-0">
               <h1
                 className={cn(
-                  "font-display text-title text-ink",
+                  "font-display text-heading text-ink",
                   "leading-[var(--leading-snug)] tracking-[var(--tracking-tight)]",
                   "font-semibold truncate",
                 )}
