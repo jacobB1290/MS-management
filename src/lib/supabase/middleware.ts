@@ -47,7 +47,14 @@ export async function updateSession(request: NextRequest) {
 
   const path = request.nextUrl.pathname
   const isAuthRoute = path.startsWith("/login") || path.startsWith("/auth")
-  const isPublicWebhook = path.startsWith("/api/webhook") || path.startsWith("/api/public-form")
+  const isPublicWebhook =
+    path.startsWith("/api/webhook") ||
+    path.startsWith("/api/public-form") ||
+    // Twilio's TwiML callback for browser voice calls — signature-verified in
+    // the handler, and cookie-less, so it must bypass the /login redirect or
+    // Twilio gets the login page HTML back and fails with 12100. Note this is
+    // ONLY /api/voice/outbound; /api/voice/token stays staff-gated.
+    path.startsWith("/api/voice/outbound")
   // Server-to-server endpoints — they authenticate via bearer header
   // (CRON_SECRET) or their own production fence. The proxy must NOT redirect
   // them to /login; the route handler must be allowed to run so it can
@@ -83,7 +90,14 @@ function updateDemoSession(request: NextRequest) {
   const hasDemo = request.cookies.get("ms_demo")?.value === "1"
   const path = request.nextUrl.pathname
   const isAuthRoute = path.startsWith("/login") || path.startsWith("/auth")
-  const isPublicWebhook = path.startsWith("/api/webhook") || path.startsWith("/api/public-form")
+  const isPublicWebhook =
+    path.startsWith("/api/webhook") ||
+    path.startsWith("/api/public-form") ||
+    // Twilio's TwiML callback for browser voice calls — signature-verified in
+    // the handler, and cookie-less, so it must bypass the /login redirect or
+    // Twilio gets the login page HTML back and fails with 12100. Note this is
+    // ONLY /api/voice/outbound; /api/voice/token stays staff-gated.
+    path.startsWith("/api/voice/outbound")
   const isMachineRoute =
     path.startsWith("/api/cron/") ||
     path.startsWith("/api/heartbeat") ||
