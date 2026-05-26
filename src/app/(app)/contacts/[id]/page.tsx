@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { CallButton } from "@/components/call-button"
 import { formatPhone, humanizeSource } from "@/lib/utils"
+import { DeleteContactButton } from "@/components/delete-contact-button"
 import { SuggestTags } from "./suggest-tags"
 import { MemberToggle } from "./member-toggle"
 import { OptInRequest } from "./opt-in-request"
@@ -24,7 +25,8 @@ interface PageProps {
 }
 
 export default async function ContactDetailPage({ params, searchParams }: PageProps) {
-  await requireStaff()
+  const user = await requireStaff()
+  const isAdmin = user.role === "admin"
   const voiceConfigured = isVoiceConfigured()
   const { id } = await params
   const { from } = await searchParams
@@ -34,11 +36,13 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
   const editHref = cameFromThread ? `/contacts/${id}/edit?from=inbox` : `/contacts/${id}/edit`
 
   const supabase = await createSupabaseServerClient()
-  const [{ data: contact }, { data: messages }, { data: submissions }] = await Promise.all([
-    supabase.from("contacts").select("*").eq("id", id).maybeSingle(),
-    supabase.from("messages").select("*").eq("contact_id", id).order("created_at", { ascending: false }).limit(20),
-    supabase.from("form_submissions").select("*").eq("contact_id", id).order("created_at", { ascending: false }).limit(10),
-  ])
+  const [{ data: contact }, { data: messages }, { data: submissions }, { count: messageCount }] =
+    await Promise.all([
+      supabase.from("contacts").select("*").eq("id", id).maybeSingle(),
+      supabase.from("messages").select("*").eq("contact_id", id).order("created_at", { ascending: false }).limit(20),
+      supabase.from("form_submissions").select("*").eq("contact_id", id).order("created_at", { ascending: false }).limit(10),
+      supabase.from("messages").select("id", { count: "exact", head: true }).eq("contact_id", id),
+    ])
 
   if (!contact) notFound()
 
@@ -221,6 +225,24 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
           )}
         </aside>
       </div>
+
+      {isAdmin && (
+        <section className="mt-6 rounded-lg border border-danger/30 bg-white p-6">
+          <p className="eyebrow text-danger mb-1">Danger zone</p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-small text-ink-muted max-w-prose">
+              Permanently delete this contact and their entire message thread.
+              This can’t be undone.
+            </p>
+            <DeleteContactButton
+              contactId={contact.id}
+              contactName={contact.name ?? formatPhone(contact.phone) ?? contact.email ?? "this contact"}
+              messageCount={messageCount ?? undefined}
+              redirectTo="/contacts"
+            />
+          </div>
+        </section>
+      )}
       </div>
     </div>
   )

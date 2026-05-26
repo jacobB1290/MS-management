@@ -102,7 +102,7 @@ export function ConversationList({
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "contacts" },
+        { event: "UPDATE", schema: "public", table: "contacts" },
         (payload) => {
           const c = payload.new as Tables<"contacts">
           setItems((cur) => {
@@ -123,6 +123,17 @@ export function ConversationList({
             }
             return next
           })
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "contacts" },
+        (payload) => {
+          // A deleted contact must drop out of the list in every open tab, not
+          // just the one that triggered it. DELETE payloads carry only `old`.
+          const deletedId = (payload.old as { id?: string }).id
+          if (!deletedId) return
+          setItems((cur) => cur.filter((x) => x.id !== deletedId))
         },
       )
       .subscribe()

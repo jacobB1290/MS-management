@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { CallButton } from "@/components/call-button"
+import { DeleteContactButton } from "@/components/delete-contact-button"
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser"
 import { formatPhone, humanizeSource } from "@/lib/utils"
 import type { Tables } from "@/lib/database.types"
@@ -16,9 +17,13 @@ import type { Tables } from "@/lib/database.types"
 export function ContactPanel({
   contact,
   voiceConfigured,
+  isAdmin,
+  messageCount,
 }: {
   contact: Tables<"contacts">
   voiceConfigured: boolean
+  isAdmin: boolean
+  messageCount?: number
 }) {
   // Optimistic local state, kept live by a realtime subscription on this
   // contact row so external changes (e.g. a STOP reply) reflect immediately.
@@ -195,6 +200,19 @@ export function ContactPanel({
           )}
         </div>
       </div>
+
+      {isAdmin && (
+        <div className="mt-8 border-t border-ink-hairline pt-6">
+          <p className="text-label text-danger mb-1.5">Danger zone</p>
+          <DeleteContactButton
+            contactId={snapshot.id}
+            contactName={snapshot.name ?? formatPhone(snapshot.phone) ?? snapshot.email ?? "this contact"}
+            messageCount={messageCount}
+            redirectTo="/inbox"
+            fullWidth
+          />
+        </div>
+      )}
 
       <ConfirmDialog
         open={pending !== null}

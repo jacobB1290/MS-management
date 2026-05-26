@@ -39,7 +39,7 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
       </Suspense>
       <div className="hidden lg:flex w-72 xl:w-80 shrink-0 border-l border-ink-hairline bg-surface flex-col min-h-0">
         <Suspense fallback={<ContactPanelSkeleton />} key={selectedId}>
-          <ContactPanelLoader contactId={selectedId} />
+          <ContactPanelLoader contactId={selectedId} isAdmin={user.role === "admin"} />
         </Suspense>
       </div>
     </div>
@@ -93,15 +93,27 @@ async function ThreadLoader({
   )
 }
 
-async function ContactPanelLoader({ contactId }: { contactId: string }) {
+async function ContactPanelLoader({
+  contactId,
+  isAdmin,
+}: {
+  contactId: string
+  isAdmin: boolean
+}) {
   const supabase = await createSupabaseServerClient()
-  const { data } = await supabase
-    .from("contacts")
-    .select("*")
-    .eq("id", contactId)
-    .maybeSingle()
+  const [{ data }, { count: messageCount }] = await Promise.all([
+    supabase.from("contacts").select("*").eq("id", contactId).maybeSingle(),
+    supabase.from("messages").select("id", { count: "exact", head: true }).eq("contact_id", contactId),
+  ])
   if (!data) return null
-  return <ContactPanel contact={data} voiceConfigured={isVoiceConfigured()} />
+  return (
+    <ContactPanel
+      contact={data}
+      voiceConfigured={isVoiceConfigured()}
+      isAdmin={isAdmin}
+      messageCount={messageCount ?? undefined}
+    />
+  )
 }
 
 function ThreadSkeleton() {
