@@ -688,7 +688,7 @@ function MessageBubble({
           data-dynamic
           className={cn(
             "mt-1 text-micro",
-            isOut ? "text-white/70" : "text-ink-faint",
+            isOut ? "text-white/85" : "text-ink-muted",
           )}
           title={format(new Date(message.created_at), "PPpp")}
         >

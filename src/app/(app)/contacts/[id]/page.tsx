@@ -149,7 +149,7 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
 
           <div className="mt-4 flex items-center justify-between gap-3 border-t border-ink-hairline pt-4">
             <div className="min-w-0">
-              <p className="text-label text-ink-muted">Membership</p>
+              <p className="eyebrow">Membership</p>
               <p className="text-small text-ink-muted mt-0.5">
                 {contact.is_member ? "Marked as a church member" : "Not marked as a member"}
               </p>
@@ -158,7 +158,7 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
           </div>
 
           <div className="mt-4 border-t border-ink-hairline pt-4">
-            <p className="text-label text-ink-muted">Marketing messages</p>
+            <p className="eyebrow">Marketing messages</p>
             <p className="text-small text-ink-muted mt-0.5">
               {smsOptedOut
                 ? "Globally opted out of SMS. They must text START first"
