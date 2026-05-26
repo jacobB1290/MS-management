@@ -1,6 +1,6 @@
 "use client"
 import Link from "next/link"
-import { useEffect, useState } from "react"
+import { useEffect, useId, useState } from "react"
 import { toast } from "sonner"
 import { Pencil, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -42,22 +42,32 @@ export function ContactPanel({
     setSnapshot(contact)
   }
 
+  // Unique topic per panel instance. The desktop docked panel and the mobile
+  // contact sheet can both be mounted, and @supabase/ssr's browser client is a
+  // singleton — two channels sharing one topic on it collide once the socket
+  // connects (only happens in real deployments, not the demo). The postgres
+  // filter still scopes the events to this contact.
+  const channelKey = useId()
   useEffect(() => {
     const supabase = createSupabaseBrowserClient()
-    const channel = supabase
-      .channel(`contact-panel:${contact.id}`)
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "contacts", filter: `id=eq.${contact.id}` },
-        (payload) => {
-          setSnapshot((cur) => ({ ...cur, ...(payload.new as Tables<"contacts">) }))
-        },
-      )
-      .subscribe()
+    const channel = supabase.channel(`contact-panel:${contact.id}:${channelKey}`)
+    try {
+      channel
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "contacts", filter: `id=eq.${contact.id}` },
+          (payload) => {
+            setSnapshot((cur) => ({ ...cur, ...(payload.new as Tables<"contacts">) }))
+          },
+        )
+        .subscribe()
+    } catch {
+      /* realtime is best-effort; a subscribe failure must never break the panel */
+    }
     return () => {
       void supabase.removeChannel(channel)
     }
-  }, [contact.id])
+  }, [contact.id, channelKey])
 
   const [toggling, setToggling] = useState(false)
   const [pending, setPending] = useState<{

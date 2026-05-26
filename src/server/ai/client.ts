@@ -20,7 +20,9 @@ import { isDemoEnabled } from "@/server/demo"
  * `/api/ai/status`; the endpoints re-check it as the wall.
  */
 export function isAiEnabled(): boolean {
-  return !isDemoEnabled() && Boolean(process.env.ANTHROPIC_API_KEY)
+  // Demo advertises the affordance so the UI shows it; the endpoints still 503
+  // without a key, which the client components surface as a toast.
+  return isDemoEnabled() || Boolean(process.env.ANTHROPIC_API_KEY)
 }
 
 /**

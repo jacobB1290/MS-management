@@ -1,5 +1,6 @@
 import "server-only"
 import crypto from "node:crypto"
+import { isDemoEnabled } from "@/server/demo"
 
 /**
  * Browser-based outbound voice calling, server side. The operator UI never
@@ -37,9 +38,11 @@ export function getVoiceConfig(): VoiceConfig | null {
   return { accountSid, apiKey, apiSecret, twimlAppSid }
 }
 
-/** True when browser voice calling can be offered. Never leaks the secrets. */
+/** True when browser voice calling can be offered. Never leaks the secrets.
+ *  Demo advertises the capability (so the affordance renders); the token
+ *  endpoint still no-ops without real credentials. */
 export function isVoiceConfigured(): boolean {
-  return getVoiceConfig() !== null
+  return isDemoEnabled() || getVoiceConfig() !== null
 }
 
 function base64url(input: Buffer | string): string {
