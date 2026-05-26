@@ -102,15 +102,6 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
                   Edit
                 </Link>
               </Button>
-              {voiceConfigured && (
-                <CallButton
-                  contactId={contact.id}
-                  phone={contact.phone}
-                  contactName={contact.name}
-                  voiceConfigured={voiceConfigured}
-                  variant="secondary"
-                />
-              )}
             </div>
           }
         />
@@ -141,7 +132,23 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
           <p className="eyebrow">Identity</p>
           <dl className="mt-4 space-y-3">
             <Row label="Name" value={contact.name ?? "—"} />
-            <Row label="Phone" value={contact.phone ? formatPhone(contact.phone) : "—"} mono={Boolean(contact.phone)} />
+            <div className="grid grid-cols-3 gap-3">
+              <dt className="text-label text-ink-muted">Phone</dt>
+              <dd className="col-span-2 flex items-center justify-between gap-2">
+                <span className={`text-body text-ink break-words ${contact.phone ? "font-mono" : ""}`}>
+                  {contact.phone ? formatPhone(contact.phone) : "—"}
+                </span>
+                {voiceConfigured && contact.phone && (
+                  <CallButton
+                    contactId={contact.id}
+                    phone={contact.phone}
+                    contactName={contact.name}
+                    voiceConfigured={voiceConfigured}
+                    className="shrink-0"
+                  />
+                )}
+              </dd>
+            </div>
             <Row label="Email" value={contact.email ?? "—"} />
             <Row label="Language" value={contact.language === "ru" ? "Russian" : "English"} />
             <Row label="Source" value={provenance} />

@@ -12,7 +12,7 @@ const badgeVariants = cva(
         warning: "bg-[color-mix(in_oklab,var(--color-warning)_18%,transparent)] text-warning",
         danger: "bg-[color-mix(in_oklab,var(--color-danger)_14%,transparent)] text-danger",
         gold: "bg-[color-mix(in_oklab,var(--gold)_16%,transparent)] text-gold-dark",
-        muted: "bg-transparent text-ink-faint",
+        muted: "bg-[color-mix(in_oklab,var(--ink)_6%,transparent)] text-ink-muted",
       },
     },
     defaultVariants: {
