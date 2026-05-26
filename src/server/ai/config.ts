@@ -39,6 +39,8 @@ export async function getAiConfig(): Promise<Record<AiFeature, AiFeatureConfig>>
       drafting: AI_DEFAULTS.drafting,
       tagging: AI_DEFAULTS.tagging,
       triage: AI_DEFAULTS.triage,
+      notes: AI_DEFAULTS.notes,
+      optout: AI_DEFAULTS.optout,
     }
   }
 }

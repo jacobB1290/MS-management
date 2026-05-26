@@ -7,7 +7,7 @@
  * server-only `@/server/ai/config`, which re-exports everything here.
  */
 
-export type AiFeature = "drafting" | "tagging" | "triage"
+export type AiFeature = "drafting" | "tagging" | "triage" | "notes" | "optout"
 export type AiEffort = "low" | "medium" | "high"
 export type AiFeatureConfig = { model: string; effort: AiEffort }
 export type AiModelChoice = { id: string; label: string; blurb: string }
@@ -37,6 +37,15 @@ export const AI_DEFAULTS: Record<AiFeature, AiFeatureConfig> = {
   drafting: { model: "claude-sonnet-4-6", effort: "medium" },
   tagging: { model: "claude-haiku-4-5-20251001", effort: "low" },
   triage: { model: "claude-haiku-4-5-20251001", effort: "low" },
+  // Background curation. The prompt eval sweep (scripts/ai-eval) ran Haiku vs
+  // Sonnet across easy AND hard scenarios. Haiku held up on triage and opt-out
+  // (matched Sonnet once the opt-out prompt was hardened), so those stay cheap.
+  // Notes goes to Sonnet: on hard cases Haiku dropped an existing fact during a
+  // merge and leaked sensitive detail, while Sonnet preserved + minimized
+  // cleanly — and notes is the one task where a slip loses data. Any feature is
+  // switchable in Settings with no redeploy.
+  notes: { model: "claude-sonnet-4-6", effort: "low" },
+  optout: { model: "claude-haiku-4-5-20251001", effort: "low" },
 }
 
 export const AI_FEATURE_META: Record<AiFeature, { label: string; description: string }> = {
@@ -50,12 +59,27 @@ export const AI_FEATURE_META: Record<AiFeature, { label: string; description: st
   },
   triage: {
     label: "Inbox triage",
-    description: "Sorts incoming messages into inbox segments (Prayer, Questions, Outreach).",
+    description:
+      "Sorts incoming messages into segments (Prayer, Questions, Outreach) and advances their status automatically.",
+  },
+  notes: {
+    label: "Contact notes",
+    description: "Keeps each contact's notes updated with durable facts from the conversation.",
+  },
+  optout: {
+    label: "Opt-out detection",
+    description: "Catches a plain-language “stop texting me” that the keyword filter misses.",
   },
 }
 
 /** Ordered feature list for rendering the pickers. */
-export const AI_FEATURES: readonly AiFeature[] = ["drafting", "tagging", "triage"]
+export const AI_FEATURES: readonly AiFeature[] = [
+  "drafting",
+  "tagging",
+  "triage",
+  "notes",
+  "optout",
+]
 
 /**
  * Extended thinking / reasoning effort is an Opus + Sonnet capability. Haiku
@@ -90,6 +114,8 @@ export function normalizeConfig(input: unknown): Record<AiFeature, AiFeatureConf
     drafting: coerce("drafting", r.drafting),
     tagging: coerce("tagging", r.tagging),
     triage: coerce("triage", r.triage),
+    notes: coerce("notes", r.notes),
+    optout: coerce("optout", r.optout),
   }
 }
 

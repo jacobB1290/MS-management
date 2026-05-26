@@ -5,7 +5,7 @@ import { logAudit } from "@/server/audit"
 import { detectOptOutKeyword, detectMarketingJoin } from "@/server/comms/optOut"
 import { toE164 } from "@/server/validation/phone"
 import { sendPushToStaff } from "@/server/push/send"
-import { classifyInbound } from "@/server/ai/triageInbound"
+import { organizeConversation } from "@/server/ai/organizeInbound"
 import { formatPhone } from "@/lib/utils"
 
 /**
@@ -178,7 +178,7 @@ export async function POST(request: NextRequest) {
   if (inserted?.id) {
     const { data: c } = await admin
       .from("contacts")
-      .select("name, inbox_category, inbox_status")
+      .select("name")
       .eq("id", contactId)
       .maybeSingle()
 
@@ -197,42 +197,14 @@ export async function POST(request: NextRequest) {
       /* swallow — delivery is best-effort */
     }
 
-    // Sort the conversation into an inbox segment. Non-destructive: this only
-    // moves it between segments; it never removes it from the always-visible
-    // General view. Skipped for control replies (STOP/START/JOIN) and for
-    // conversations staff have already actioned (inbox_status set) so a fresh
-    // inbound can't clobber a status someone is working. classifyInbound floors
-    // crisis + low-confidence to General internally; on any miss we leave the
-    // category as-is (default 'general'). AI off → no-op.
+    // Background-organize the conversation: sort it into a segment + advance its
+    // status, add ministry-interest tags, update the running notes, and catch a
+    // plain-language opt-out. Non-destructive on the inbox (never hides from
+    // General) and entirely best-effort. Skipped for control replies
+    // (STOP/START/JOIN) which carry no content and are already handled above.
     const isControl = keyword === "stop" || keyword === "start" || detectMarketingJoin(body)
-    if (!isControl && c && c.inbox_status == null) {
-      try {
-        const triage = await classifyInbound(contactId)
-        if (triage.ok && triage.category !== (c.inbox_category ?? "general")) {
-          await admin
-            .from("contacts")
-            .update({
-              inbox_category: triage.category,
-              inbox_category_at: nowIso,
-            })
-            .eq("id", contactId)
-            .is("inbox_status", null)
-          await logAudit({
-            action: "contact.inbox_triage",
-            targetTable: "contacts",
-            targetId: contactId,
-            diff: {
-              category: triage.category,
-              confidence: triage.confidence,
-              crisis: triage.crisis,
-              by_rule: triage.byRule,
-              message_sid: messageSid,
-            },
-          })
-        }
-      } catch {
-        /* swallow — triage is best-effort */
-      }
+    if (!isControl) {
+      await organizeConversation(contactId, { source: "sms_inbound", messageSid })
     }
   }
 

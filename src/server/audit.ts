@@ -27,6 +27,8 @@ export type AuditAction =
   | "settings.ai_update"
   | "contact.inbox_triage"
   | "contact.inbox_update"
+  | "contact.auto_tag"
+  | "contact.auto_note"
 
 /**
  * Append an audit log entry. Reads aren't audited; the threat is unauthorized

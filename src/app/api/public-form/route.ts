@@ -4,7 +4,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/server"
 import { publicFormSubmissionSchema } from "@/server/validation/schemas"
 import { logAudit } from "@/server/audit"
 import { sendPushToStaff } from "@/server/push/send"
-import { classifyInbound } from "@/server/ai/triageInbound"
+import { organizeConversation } from "@/server/ai/organizeInbound"
 import { formatPhone } from "@/lib/utils"
 
 const REPLAY_WINDOW_MS = 5 * 60 * 1000 // 5 minutes
@@ -178,7 +178,7 @@ export async function POST(request: NextRequest) {
       if (messageId) {
         const { data: c } = await admin
           .from("contacts")
-          .select("name, phone, inbox_category, inbox_status")
+          .select("name, phone")
           .eq("id", contactId)
           .maybeSingle()
 
@@ -194,40 +194,9 @@ export async function POST(request: NextRequest) {
           /* swallow — delivery is best-effort */
         }
 
-        // Sort into a segment. Non-destructive: only ever moves the
-        // conversation between segments, never hides it from General. Skipped
-        // when staff have already actioned the thread (inbox_status set). AI
-        // off → no-op, stays in General.
-        if (c && c.inbox_status == null) {
-          try {
-            const triage = await classifyInbound(contactId)
-            if (triage.ok && triage.category !== (c.inbox_category ?? "general")) {
-              await admin
-                .from("contacts")
-                .update({
-                  inbox_category: triage.category,
-                  inbox_category_at: new Date().toISOString(),
-                })
-                .eq("id", contactId)
-                .is("inbox_status", null)
-              await logAudit({
-                action: "contact.inbox_triage",
-                targetTable: "contacts",
-                targetId: contactId,
-                diff: {
-                  category: triage.category,
-                  confidence: triage.confidence,
-                  crisis: triage.crisis,
-                  by_rule: triage.byRule,
-                  source: "public_form",
-                  form_id: data.form_id,
-                },
-              })
-            }
-          } catch {
-            /* swallow — triage is best-effort */
-          }
-        }
+        // Background-organize the conversation (segment + status, tags, notes,
+        // opt-out). Non-destructive on the inbox and entirely best-effort.
+        await organizeConversation(contactId, { source: "public_form", messageSid: messageId })
       }
     }
   }

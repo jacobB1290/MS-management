@@ -9,7 +9,6 @@ import { Textarea } from "@/components/ui/textarea"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { CallButton } from "@/components/call-button"
 import { OptInRequest } from "@/components/opt-in-request"
-import { SuggestTags } from "@/components/suggest-tags"
 import { InboxSegmentControl } from "./inbox-segment-control"
 import { isInboxCategory } from "@/lib/inbox-segments"
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser"
@@ -182,7 +181,7 @@ export function ContactPanel({
         ) : (
           <p className="text-small text-ink-muted italic">No tags yet</p>
         )}
-        <SuggestTags contactId={snapshot.id} currentTags={snapshot.tags ?? []} />
+        <p className="text-micro text-ink-faint mt-2">Added automatically from the conversation</p>
       </div>
 
       <NotesBlock
@@ -373,9 +372,10 @@ function NotesBlock({
         </p>
       ) : (
         <p className="text-small text-ink-muted italic">
-          No notes yet. Drop a quick reminder of what you talked about last.
+          Nothing noted yet. Key facts get saved automatically as you chat.
         </p>
       )}
+      <p className="text-micro text-ink-faint mt-2">Maintained automatically; edit anytime</p>
     </div>
   )
 }
