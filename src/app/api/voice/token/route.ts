@@ -52,9 +52,12 @@ export async function POST(request: NextRequest) {
   }
 
   // Identity is the staff user — namespaced so it's obvious in Twilio logs.
+  // Twilio Voice client identities allow only [A-Za-z0-9._-] (the UUID's own
+  // hyphens are fine); a colon separator produces a malformed `client:` address
+  // that fails Device registration, so use an underscore.
   const minted = mintVoiceAccessToken({
     config,
-    identity: `staff:${user.id}`,
+    identity: `staff_${user.id}`,
   })
 
   await logAudit({
