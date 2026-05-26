@@ -188,9 +188,9 @@ export const SheetContent = React.forwardRef<HTMLDivElement, SheetContentProps>(
               aria-label="Close"
               onClick={() => setOpen(false)}
               className={cn(
-                "absolute top-3 right-3",
+                "absolute top-2 right-2",
                 "inline-flex items-center justify-center",
-                "h-8 w-8 rounded-pill",
+                "h-11 w-11 rounded-pill",
                 "text-ink-muted hover:text-ink hover:bg-bg",
                 "transition-colors duration-[var(--motion-fast)] ease-[var(--ease-standard)]",
               )}

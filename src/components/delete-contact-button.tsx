@@ -95,7 +95,7 @@ export function DeleteContactButton({
         variant="danger"
         size="sm"
         onClick={() => setOpen(true)}
-        className={cn(fullWidth && "w-full", className)}
+        className={cn("whitespace-nowrap", fullWidth && "w-full", className)}
       >
         <Trash2 size={14} />
         Delete contact

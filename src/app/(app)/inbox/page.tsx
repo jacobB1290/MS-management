@@ -4,6 +4,7 @@ import { requireStaff } from "@/server/auth"
 import { isVoiceConfigured } from "@/server/comms/voice"
 import { createSupabaseServerClient, createSupabaseAdminClient } from "@/lib/supabase/server"
 import { assertCanSendSms } from "@/server/comms/optOut"
+import { resolveOptInMode } from "@/server/comms/optInMode"
 import { ThreadPane } from "./thread-pane"
 import { ContactPanel } from "./contact-panel"
 import { EmptyState } from "@/components/ui/empty-state"
@@ -39,7 +40,7 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
       </Suspense>
       <div className="hidden lg:flex w-72 xl:w-80 shrink-0 border-l border-ink-hairline bg-surface flex-col min-h-0">
         <Suspense fallback={<ContactPanelSkeleton />} key={selectedId}>
-          <ContactPanelLoader contactId={selectedId} isAdmin={user.role === "admin"} />
+          <ContactPanelLoader contactId={selectedId} />
         </Suspense>
       </div>
     </div>
@@ -80,6 +81,9 @@ async function ThreadLoader({
   for (const u of usersRes.data ?? []) {
     if (u.display_name) senderNames[u.user_id] = u.display_name
   }
+  // The mobile contact sheet reuses ContactPanel, so the thread needs the same
+  // panel inputs (voice + opt-in eligibility) to hand it.
+  const optInMode = await resolveOptInMode(contactRes.data)
   return (
     <div className="flex-1 min-w-0 flex flex-col min-h-0">
       <ThreadPane
@@ -88,30 +92,25 @@ async function ThreadLoader({
         currentUserId={currentUserId}
         senderNames={senderNames}
         impliedExpired={impliedExpired}
+        voiceConfigured={isVoiceConfigured()}
+        optInMode={optInMode}
+        optInRequestedAt={contactRes.data.marketing_opt_in_requested_at}
       />
     </div>
   )
 }
 
-async function ContactPanelLoader({
-  contactId,
-  isAdmin,
-}: {
-  contactId: string
-  isAdmin: boolean
-}) {
+async function ContactPanelLoader({ contactId }: { contactId: string }) {
   const supabase = await createSupabaseServerClient()
-  const [{ data }, { count: messageCount }] = await Promise.all([
-    supabase.from("contacts").select("*").eq("id", contactId).maybeSingle(),
-    supabase.from("messages").select("id", { count: "exact", head: true }).eq("contact_id", contactId),
-  ])
+  const { data } = await supabase.from("contacts").select("*").eq("id", contactId).maybeSingle()
   if (!data) return null
+  const optInMode = await resolveOptInMode(data)
   return (
     <ContactPanel
       contact={data}
       voiceConfigured={isVoiceConfigured()}
-      isAdmin={isAdmin}
-      messageCount={messageCount ?? undefined}
+      optInMode={optInMode}
+      optInRequestedAt={data.marketing_opt_in_requested_at}
     />
   )
 }

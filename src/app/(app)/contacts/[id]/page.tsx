@@ -6,16 +6,16 @@ import { MessageSquare, ArrowLeft, Pencil } from "lucide-react"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { requireStaff } from "@/server/auth"
 import { isVoiceConfigured } from "@/server/comms/voice"
-import { assertCanSendSms } from "@/server/comms/optOut"
+import { resolveOptInMode } from "@/server/comms/optInMode"
 import { PageHeader } from "@/components/ui/page-header"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { CallButton } from "@/components/call-button"
 import { formatPhone, humanizeSource } from "@/lib/utils"
 import { DeleteContactButton } from "@/components/delete-contact-button"
-import { SuggestTags } from "./suggest-tags"
+import { SuggestTags } from "@/components/suggest-tags"
+import { OptInRequest } from "@/components/opt-in-request"
 import { MemberToggle } from "./member-toggle"
-import { OptInRequest } from "./opt-in-request"
 
 export const metadata: Metadata = { title: "Contact" }
 
@@ -46,23 +46,38 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
 
   if (!contact) notFound()
 
-  // Marketing (express) consent + the opt-in invitation affordance. The send
-  // gate is the authority on whether an invite can go out; we only ask it when
-  // the contact is reachable and not already settled either way.
+  // Express (marketing) consent is legally distinct from the implied consent
+  // that gates 1:1 replies — keep them separate. The opt-in invite only surfaces
+  // when the contact is reachable and not already settled either way.
   const marketingOptedIn = Boolean(contact.marketing_consent_at)
   const marketingDeclined = Boolean(contact.marketing_opted_out_at)
   const smsOptedOut = Boolean(contact.sms_opted_out_at)
-  let optInMode: "send" | "requested" | "blocked" | null = null
-  if (contact.phone && !smsOptedOut && !marketingOptedIn && !marketingDeclined) {
-    const gate = await assertCanSendSms(contact.id, "opt_in_request")
-    if (gate.ok) optInMode = "send"
-    else if (gate.reason === "opt_in_already_requested") optInMode = "requested"
-    else if (gate.reason === "implied_expired") optInMode = "blocked"
-  }
+  const optInMode = await resolveOptInMode(contact)
+
+  const displayName = contact.name ?? formatPhone(contact.phone) ?? contact.email ?? "Unknown"
+
+  // Message-first: lead with the person's own words (their latest inbound),
+  // falling back to the most recent message in the thread.
+  const lastInbound = messages?.find((m) => m.direction === "in") ?? null
+  const latest = messages?.[0] ?? null
+  const highlight = lastInbound ?? latest
+  const repliedSince = Boolean(lastInbound && latest && latest.id !== lastInbound.id)
+
+  // Provenance collapses to one line: for most contacts the consent date is the
+  // same event as creation, so we show source + how they consented + one date.
+  const provenanceDate = contact.consent_at ?? contact.created_at
+  const provenance =
+    [
+      humanizeSource(contact.source),
+      consentLabel(contact.consent_method),
+      provenanceDate ? format(new Date(provenanceDate), "PP") : null,
+    ]
+      .filter((p): p is string => Boolean(p) && p !== "—")
+      .join(" · ") || "—"
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      <div className="shrink-0 px-4 md:px-8 pt-6 md:pt-8 pb-4 bg-bg max-w-4xl w-full">
+      <div className="shrink-0 px-4 md:px-8 pt-6 md:pt-8 pb-4 bg-bg max-w-3xl w-full mx-auto">
         <Link
           href={backHref}
           prefetch
@@ -72,27 +87,30 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
         </Link>
         <PageHeader
           eyebrow="Contact"
-          title={contact.name ?? formatPhone(contact.phone) ?? contact.email ?? "Unknown"}
+          title={displayName}
           actions={
-            <div className="flex items-center gap-2">
-              <CallButton
-                contactId={contact.id}
-                phone={contact.phone}
-                contactName={contact.name}
-                voiceConfigured={voiceConfigured}
-              />
-              <Button asChild variant="secondary">
-                <Link href={editHref}>
-                  <Pencil size={14} />
-                  Edit
-                </Link>
-              </Button>
+            <div className="flex flex-wrap items-center gap-2">
               <Button asChild>
                 <Link href={`/inbox?c=${contact.id}`}>
                   <MessageSquare size={16} />
                   Open thread
                 </Link>
               </Button>
+              <Button asChild variant="secondary">
+                <Link href={editHref}>
+                  <Pencil size={14} />
+                  Edit
+                </Link>
+              </Button>
+              {voiceConfigured && (
+                <CallButton
+                  contactId={contact.id}
+                  phone={contact.phone}
+                  contactName={contact.name}
+                  voiceConfigured={voiceConfigured}
+                  variant="secondary"
+                />
+              )}
             </div>
           }
         />
@@ -104,70 +122,56 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 md:px-8 pb-6 md:pb-8 max-w-4xl w-full">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <section className="md:col-span-2 rounded-lg border border-ink-hairline bg-white p-6">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 md:px-8 pb-6 md:pb-8 max-w-3xl w-full mx-auto space-y-6">
+        {/* Message-first: the human's own words lead the record, not metadata. */}
+        {highlight && (
+          <section className="rounded-lg border border-ink-hairline bg-white p-6">
+            <p className="eyebrow mb-2">{lastInbound ? "What they said" : "Latest message"}</p>
+            <p className="text-lead text-ink leading-prose whitespace-pre-wrap">
+              {highlight.body ?? "(media)"}
+            </p>
+            <p className="text-micro text-ink-muted mt-2" data-dynamic>
+              {repliedSince ? "Replied · " : ""}
+              {format(new Date(highlight.created_at), "MMM d, p")}
+            </p>
+          </section>
+        )}
+
+        <section className="rounded-lg border border-ink-hairline bg-white p-6">
           <p className="eyebrow">Identity</p>
           <dl className="mt-4 space-y-3">
             <Row label="Name" value={contact.name ?? "—"} />
             <Row label="Phone" value={contact.phone ? formatPhone(contact.phone) : "—"} mono={Boolean(contact.phone)} />
             <Row label="Email" value={contact.email ?? "—"} />
             <Row label="Language" value={contact.language === "ru" ? "Russian" : "English"} />
-            <Row label="Source" value={humanizeSource(contact.source)} />
-            <Row
-              label="Consent"
-              value={
-                contact.consent_method
-                  ? `${contact.consent_method}${contact.consent_at ? ` · ${format(new Date(contact.consent_at), "PP")}` : ""}`
-                  : "—"
-              }
-            />
-            <Row
-              label="Created"
-              value={format(new Date(contact.created_at), "PP")}
-            />
+            <Row label="Source" value={provenance} />
           </dl>
 
           <div className="mt-4 flex items-center justify-between gap-3 border-t border-ink-hairline pt-4">
             <div className="min-w-0">
-              <p className="text-label text-ink-faint">Membership</p>
+              <p className="text-label text-ink-muted">Membership</p>
               <p className="text-small text-ink-muted mt-0.5">
-                {contact.is_member
-                  ? "Marked as a church member."
-                  : "Not marked as a member."}
+                {contact.is_member ? "Marked as a church member" : "Not marked as a member"}
               </p>
             </div>
             <MemberToggle contactId={contact.id} isMember={contact.is_member} />
           </div>
 
           <div className="mt-4 border-t border-ink-hairline pt-4">
-            <p className="text-label text-ink-faint">Marketing messages</p>
+            <p className="text-label text-ink-muted">Marketing messages</p>
             <p className="text-small text-ink-muted mt-0.5">
               {smsOptedOut
-                ? "Globally opted out of SMS. They must text START first."
+                ? "Globally opted out of SMS. They must text START first"
                 : marketingOptedIn
-                  ? `Opted in${contact.marketing_consent_method ? ` · ${contact.marketing_consent_method}` : ""}${contact.marketing_consent_at ? ` · ${format(new Date(contact.marketing_consent_at), "PP")}` : ""}`
+                  ? `Opted in${contact.marketing_consent_at ? ` · ${format(new Date(contact.marketing_consent_at), "PP")}` : ""}`
                   : marketingDeclined
                     ? `Declined recurring updates${contact.marketing_opted_out_at ? ` · ${format(new Date(contact.marketing_opted_out_at), "PP")}` : ""}`
-                    : "Not opted in to recurring updates (campaigns)."}
+                    : "Not opted in to recurring updates (campaigns)"}
             </p>
             {optInMode && (
-              <OptInRequest
-                contactId={contact.id}
-                mode={optInMode}
-                requestedAt={contact.marketing_opt_in_requested_at}
-              />
+              <OptInRequest contactId={contact.id} mode={optInMode} requestedAt={contact.marketing_opt_in_requested_at} />
             )}
           </div>
-
-          {contact.notes && (
-            <div className="mt-6 pt-4 border-t border-ink-hairline">
-              <p className="eyebrow mb-2">Notes</p>
-              <p className="text-body text-ink-muted leading-normal whitespace-pre-wrap">
-                {contact.notes}
-              </p>
-            </div>
-          )}
 
           <div className="mt-6 pt-4 border-t border-ink-hairline">
             <p className="eyebrow mb-2">Tags</p>
@@ -180,81 +184,65 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
                 ))}
               </div>
             ) : (
-              <p className="text-small text-ink-faint italic">No tags yet.</p>
+              <p className="text-small text-ink-muted italic">No tags yet</p>
             )}
             <SuggestTags contactId={contact.id} currentTags={contact.tags ?? []} />
           </div>
-        </section>
 
-        <aside className="space-y-6">
-          <section className="rounded-lg border border-ink-hairline bg-white p-6">
-            <p className="eyebrow mb-3">Recent messages</p>
-            {!messages || messages.length === 0 ? (
-              <p className="text-ink-faint text-small">No messages yet.</p>
-            ) : (
-              <ol className="space-y-3">
-                {messages.slice(0, 5).map((m) => (
-                  <li key={m.id} className="text-small">
-                    <p className="text-ink-muted line-clamp-2">{m.body ?? "(media)"}</p>
-                    <p className="text-micro text-ink-faint mt-0.5" data-dynamic>
-                      {m.direction === "out" ? "→" : "←"}{" "}
-                      {format(new Date(m.created_at), "MMM d, p")}
-                    </p>
-                  </li>
-                ))}
-              </ol>
-            )}
-          </section>
-
-          {submissions && submissions.length > 0 && (
-            <section className="rounded-lg border border-ink-hairline bg-white p-6">
-              <p className="eyebrow mb-3">Form submissions</p>
-              <ol className="space-y-2">
-                {submissions.map((s) => (
-                  <li key={s.id} className="text-small">
-                    <p className="text-ink-muted">
-                      <span className="font-mono">{s.form_id ?? "form"}</span>
-                    </p>
-                    <p className="text-micro text-ink-faint" data-dynamic>
-                      {format(new Date(s.created_at), "MMM d, p")}
-                    </p>
-                  </li>
-                ))}
-              </ol>
-            </section>
+          {contact.notes && (
+            <div className="mt-6 pt-4 border-t border-ink-hairline">
+              <p className="eyebrow mb-2">Notes</p>
+              <p className="text-body text-ink-muted leading-normal whitespace-pre-wrap">{contact.notes}</p>
+            </div>
           )}
-        </aside>
-      </div>
-
-      {isAdmin && (
-        <section className="mt-6 rounded-lg border border-danger/30 bg-white p-6">
-          <p className="eyebrow text-danger mb-1">Danger zone</p>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-small text-ink-muted max-w-prose">
-              Permanently delete this contact and their entire message thread.
-              This can’t be undone.
-            </p>
-            <DeleteContactButton
-              contactId={contact.id}
-              contactName={contact.name ?? formatPhone(contact.phone) ?? contact.email ?? "this contact"}
-              messageCount={messageCount ?? undefined}
-              redirectTo="/contacts"
-            />
-          </div>
         </section>
-      )}
+
+        {submissions && submissions.length > 0 && (
+          <section className="rounded-lg border border-ink-hairline bg-white p-6">
+            <p className="eyebrow mb-1">Consent record</p>
+            <p className="text-small text-ink-muted">
+              {submissions.length === 1 ? "1 form submission" : `${submissions.length} form submissions`} on
+              file as proof of opt-in · {format(new Date(submissions[0].created_at), "PP")}
+            </p>
+          </section>
+        )}
+
+        {isAdmin && (
+          <section className="rounded-lg border border-danger/30 bg-white p-6">
+            <p className="eyebrow text-danger mb-1">Danger zone</p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-small text-ink-muted max-w-prose">
+                Permanently delete this contact and their entire message thread. This can’t be undone.
+              </p>
+              <DeleteContactButton
+                contactId={contact.id}
+                contactName={displayName === "Unknown" ? "this contact" : displayName}
+                messageCount={messageCount ?? undefined}
+                redirectTo="/contacts"
+              />
+            </div>
+          </section>
+        )}
       </div>
     </div>
   )
 }
 
+// Friendly consent-method label for the provenance line. Form/CSV methods are
+// omitted (the source already names that channel, and the form proof has its own
+// line); verbal/written are surfaced as the only signal of how consent was taken.
+function consentLabel(method: string | null): string | null {
+  if (!method) return null
+  if (method.startsWith("public_form") || method.startsWith("csv_import")) return null
+  const map: Record<string, string> = { verbal: "verbal consent", written: "written consent" }
+  return map[method] ?? method.replace(/_/g, " ")
+}
+
 function Row({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="grid grid-cols-3 gap-3">
-      <dt className="text-label text-ink-faint">{label}</dt>
-      <dd className={`col-span-2 text-body text-ink break-words ${mono ? "font-mono" : ""}`}>
-        {value}
-      </dd>
+      <dt className="text-label text-ink-muted">{label}</dt>
+      <dd className={`col-span-2 text-body text-ink break-words ${mono ? "font-mono" : ""}`}>{value}</dd>
     </div>
   )
 }

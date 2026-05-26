@@ -1,10 +1,15 @@
 "use client"
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, AlertTriangle, Plus, Loader2, X, ChevronRight, RotateCcw, Sparkles, Clock } from "lucide-react"
+import { ArrowLeft, AlertTriangle, Plus, Loader2, X, ChevronRight, RotateCcw, Sparkles, Clock, Info, ArrowUp, Image as ImageIcon } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu"
 import { format, formatRelative } from "date-fns"
 import { toast } from "sonner"
-import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -20,6 +25,8 @@ import {
 } from "@/lib/media"
 import { isInboxCategory } from "@/lib/inbox-segments"
 import { InboxSegmentControl } from "./inbox-segment-control"
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
+import { ContactPanel } from "./contact-panel"
 import type { Tables } from "@/lib/database.types"
 
 type Contact = Tables<"contacts">
@@ -34,6 +41,10 @@ interface ThreadPaneProps {
    *  lapsed and the contact has no express consent, so sending is blocked
    *  until they message in again. */
   impliedExpired: boolean
+  /** Passed through to the mobile contact sheet (which reuses ContactPanel). */
+  voiceConfigured: boolean
+  optInMode: "send" | "requested" | "blocked" | null
+  optInRequestedAt: string | null
 }
 
 /** Optimistic message rows are real Message shape but with a temp id and
@@ -46,6 +57,9 @@ export function ThreadPane({
   currentUserId,
   senderNames,
   impliedExpired,
+  voiceConfigured,
+  optInMode,
+  optInRequestedAt,
 }: ThreadPaneProps) {
   // Contact is held in state so realtime row updates (e.g. a STOP reply
   // flipping sms_opted_out_at) reflect in the thread immediately, without
@@ -62,6 +76,8 @@ export function ThreadPane({
   const [drafting, setDrafting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const scrollerRef = useRef<HTMLDivElement>(null)
+  // Mobile-only: the contact panel opens as a slide-over sheet (desktop docks it).
+  const [infoOpen, setInfoOpen] = useState(false)
 
   // Typing lock: while one staff member is composing, others are blocked from
   // sending into the same thread (prevents two people double-texting a
@@ -404,6 +420,14 @@ export function ThreadPane({
           ) : null}
         </div>
         {optedOut && <Badge variant="warning" className="shrink-0">Opted out</Badge>}
+        <button
+          type="button"
+          onClick={() => setInfoOpen(true)}
+          aria-label="Contact details"
+          className="lg:hidden inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-pill border border-ink-hairline text-ink-muted transition-colors hover:bg-white hover:text-ink"
+        >
+          <Info size={18} />
+        </button>
         {/* Segment + status: inline on the right on desktop, own row on mobile
             (w-full) so it never squeezes the contact's name. */}
         <div className="w-full md:w-auto md:shrink-0">
@@ -521,30 +545,40 @@ export function ThreadPane({
                 className="hidden"
                 onChange={onPickFile}
               />
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading || locked}
-                aria-label="Attach photo or video"
-                className="btn-icon-action disabled:opacity-50"
-              >
-                {uploading ? <Loader2 size={18} className="animate-spin" /> : <Plus size={20} />}
-              </button>
-              {aiEnabled && (
+              {aiEnabled ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      disabled={uploading || locked}
+                      aria-label="Add to message"
+                      className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-pill border border-ink-hairline bg-white text-ink-muted transition-colors hover:text-ink disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {uploading ? <Loader2 size={18} className="animate-spin" /> : <Plus size={20} />}
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="start"
+                    sideOffset={0}
+                    className="bottom-full top-auto mb-2 min-w-[200px]"
+                  >
+                    <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
+                      <ImageIcon size={16} /> Photo or video
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleDraft} disabled={drafting}>
+                      <Sparkles size={16} /> {body.trim() ? "Improve with AI" : "Draft with AI"}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
                 <button
                   type="button"
-                  onClick={handleDraft}
-                  disabled={drafting || locked}
-                  aria-label={body.trim() ? "Improve this draft with AI" : "Draft a reply with AI"}
-                  title={body.trim() ? "Improve this draft" : "Draft a reply"}
-                  className="inline-flex shrink-0 items-center justify-center gap-1.5 h-11 px-3 rounded-pill border border-gold/40 bg-white text-gold-dark text-label font-medium transition-colors hover:bg-[color-mix(in_oklab,var(--gold)_8%,white)] disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading || locked}
+                  aria-label="Attach photo or video"
+                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-pill border border-ink-hairline bg-white text-ink-muted transition-colors hover:text-ink disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {drafting ? (
-                    <Loader2 size={16} className="animate-spin" />
-                  ) : (
-                    <Sparkles size={16} />
-                  )}
-                  <span className="hidden sm:inline">{body.trim() ? "Improve" : "Draft"}</span>
+                  {uploading ? <Loader2 size={18} className="animate-spin" /> : <Plus size={20} />}
                 </button>
               )}
               <Textarea
@@ -556,9 +590,9 @@ export function ThreadPane({
                 onBlur={stopTyping}
                 disabled={locked}
                 placeholder="Write a reply…"
-                rows={2}
+                rows={1}
                 autoGrow
-                className="flex-1 min-h-[44px] max-h-40 resize-none disabled:opacity-60"
+                className="flex-1 min-h-[44px] max-h-40 resize-none overflow-y-auto rounded-3xl px-4 py-2.5 disabled:opacity-60"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
                     e.preventDefault()
@@ -566,9 +600,14 @@ export function ThreadPane({
                   }
                 }}
               />
-              <Button type="submit" disabled={(!body.trim() && !media) || uploading || locked} size="md">
-                Send
-              </Button>
+              <button
+                type="submit"
+                disabled={(!body.trim() && !media) || uploading || locked}
+                aria-label="Send"
+                className="btn-icon-action shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ArrowUp size={18} strokeWidth={2.5} />
+              </button>
             </form>
             <p className="mt-2 text-micro text-ink-faint">
               Press <span className="font-mono">⌘↵</span> to send · Tap + to attach a photo or short video
@@ -576,6 +615,19 @@ export function ThreadPane({
           </>
         )}
       </footer>
+
+      {/* Mobile contact context: the same panel, presented as a slide-over. */}
+      <Sheet open={infoOpen} onOpenChange={setInfoOpen} side="right">
+        <SheetContent className="p-0 w-[min(92vw,400px)]">
+          <SheetTitle className="sr-only">Contact details</SheetTitle>
+          <ContactPanel
+            contact={contact}
+            voiceConfigured={voiceConfigured}
+            optInMode={optInMode}
+            optInRequestedAt={optInRequestedAt}
+          />
+        </SheetContent>
+      </Sheet>
     </>
   )
 }

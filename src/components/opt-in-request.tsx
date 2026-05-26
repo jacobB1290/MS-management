@@ -18,10 +18,12 @@ export function OptInRequest({
   contactId,
   mode,
   requestedAt,
+  className,
 }: {
   contactId: string
   mode: Mode
   requestedAt: string | null
+  className?: string
 }) {
   const router = useRouter()
   const [sending, setSending] = useState(false)
@@ -54,7 +56,7 @@ export function OptInRequest({
 
   if (mode === "requested") {
     return (
-      <p className="text-small text-ink-faint mt-0.5">
+      <p className="text-small text-ink-muted mt-0.5">
         Invitation sent
         {requestedAt ? ` ${new Date(requestedAt).toLocaleDateString()}` : ""}. Waiting for a JOIN reply.
       </p>
@@ -63,14 +65,20 @@ export function OptInRequest({
 
   if (mode === "blocked") {
     return (
-      <p className="text-small text-ink-faint mt-0.5">
+      <p className="text-small text-ink-muted mt-0.5">
         You can invite them once they’ve messaged you recently.
       </p>
     )
   }
 
   return (
-    <Button variant="secondary" size="sm" onClick={send} disabled={sending} className="mt-2">
+    <Button
+      variant="secondary"
+      size="sm"
+      onClick={send}
+      disabled={sending}
+      className={["mt-2", className].filter(Boolean).join(" ")}
+    >
       <Send size={14} />
       {sending ? "Sending…" : "Send opt-in request"}
     </Button>

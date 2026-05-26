@@ -248,7 +248,9 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: var(--weight-semibold);
   letter-spacing: var(--tracking-wider);
   text-transform: uppercase;
-  color: var(--text-faint);
+  /* Muted (0.72), not faint (0.55): small uppercase text needs >=4.5:1 (WCAG
+     AA), and faint lands at ~3.8:1 on the cream/white surfaces. */
+  color: var(--text-muted);
 }
 
 /* Canonical CTA pill — gold gradient, shadow lift on hover.

@@ -48,10 +48,11 @@ export function MemberToggle({
 
   return (
     <Button
-      variant={member ? "secondary" : "ghost"}
+      variant="secondary"
       size="sm"
       onClick={toggle}
       disabled={saving}
+      className="whitespace-nowrap"
     >
       {member ? <UserCheck size={14} /> : <UserPlus size={14} />}
       {member ? "Remove member" : "Mark as member"}

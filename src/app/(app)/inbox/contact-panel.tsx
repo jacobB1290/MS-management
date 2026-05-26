@@ -1,7 +1,6 @@
 "use client"
 import Link from "next/link"
 import { useEffect, useState } from "react"
-import { format } from "date-fns"
 import { toast } from "sonner"
 import { Pencil, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -9,21 +8,30 @@ import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { CallButton } from "@/components/call-button"
-import { DeleteContactButton } from "@/components/delete-contact-button"
+import { OptInRequest } from "@/components/opt-in-request"
+import { SuggestTags } from "@/components/suggest-tags"
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser"
-import { formatPhone, humanizeSource } from "@/lib/utils"
+import { formatPhone } from "@/lib/utils"
 import type { Tables } from "@/lib/database.types"
 
+/**
+ * The inbox contact panel — a reply cockpit, not a record dump. It carries only
+ * what changes the next message: who they are, how to reach them, the
+ * at-a-glance reachability state, notes, tags, and the opt-in/opt-out actions.
+ * Provenance (source, consent date) and destructive actions live on the full
+ * contact page. Rendered docked on desktop and inside a slide-over sheet on
+ * mobile (see thread-pane), so it must stand alone with no surrounding chrome.
+ */
 export function ContactPanel({
   contact,
   voiceConfigured,
-  isAdmin,
-  messageCount,
+  optInMode,
+  optInRequestedAt,
 }: {
   contact: Tables<"contacts">
   voiceConfigured: boolean
-  isAdmin: boolean
-  messageCount?: number
+  optInMode: "send" | "requested" | "blocked" | null
+  optInRequestedAt: string | null
 }) {
   // Optimistic local state, kept live by a realtime subscription on this
   // contact row so external changes (e.g. a STOP reply) reflect immediately.
@@ -58,6 +66,8 @@ export function ContactPanel({
   } | null>(null)
   const optedOutSms = Boolean(snapshot.sms_opted_out_at)
   const unsubEmail = Boolean(snapshot.email_unsubscribed_at)
+  const hasBadges =
+    snapshot.is_member || optedOutSms || unsubEmail || snapshot.language === "ru"
 
   async function toggleOptOut(channel: "sms" | "email", optedOut: boolean) {
     // Optimistic flip.
@@ -98,7 +108,7 @@ export function ContactPanel({
   return (
     <div className="flex-1 overflow-y-auto p-6">
       <p className="eyebrow">Contact</p>
-      <div className="mt-1 flex items-start justify-between gap-3">
+      <div className="mt-1">
         <Link
           href={`/contacts/${snapshot.id}?from=inbox`}
           prefetch
@@ -109,40 +119,50 @@ export function ContactPanel({
           </span>
           <ChevronRight size={18} className="shrink-0 text-ink-faint" />
         </Link>
-        <CallButton
-          contactId={snapshot.id}
-          phone={snapshot.phone}
-          contactName={snapshot.name}
-          voiceConfigured={voiceConfigured}
-          className="shrink-0"
-        />
       </div>
 
+      {hasBadges && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {snapshot.is_member && <Badge variant="gold">Member</Badge>}
+          {optedOutSms && <Badge variant="warning">SMS opted-out</Badge>}
+          {unsubEmail && <Badge variant="muted">Email unsubscribed</Badge>}
+          {snapshot.language === "ru" && <Badge variant="gold">Russian</Badge>}
+        </div>
+      )}
+
       <dl className="mt-6 space-y-4">
-        <Row label="Phone" value={snapshot.phone ? formatPhone(snapshot.phone) : "—"} />
+        <div>
+          <dt className="text-label text-ink-muted">Phone</dt>
+          <dd className="mt-0.5 flex items-center justify-between gap-2 text-body text-ink break-words">
+            <span>{snapshot.phone ? formatPhone(snapshot.phone) : "—"}</span>
+            {voiceConfigured && snapshot.phone && (
+              <CallButton
+                contactId={snapshot.id}
+                phone={snapshot.phone}
+                contactName={snapshot.name}
+                voiceConfigured={voiceConfigured}
+                className="shrink-0"
+              />
+            )}
+          </dd>
+        </div>
         <Row label="Email" value={snapshot.email ?? "—"} />
         <Row label="Language" value={snapshot.language === "ru" ? "Russian" : "English"} />
-        <Row label="Source" value={humanizeSource(snapshot.source)} />
-        <Row
-          label="Consent"
-          value={
-            snapshot.consent_method
-              ? `${snapshot.consent_method}${snapshot.consent_at ? ` · ${format(new Date(snapshot.consent_at), "PP")}` : ""}`
-              : "—"
-          }
-        />
       </dl>
 
-      {snapshot.tags && snapshot.tags.length > 0 && (
-        <div className="mt-6">
-          <p className="text-label text-ink-faint mb-2">Tags</p>
+      <div className="mt-6">
+        <p className="text-label text-ink-muted mb-2">Tags</p>
+        {snapshot.tags && snapshot.tags.length > 0 ? (
           <div className="flex flex-wrap gap-1.5">
             {snapshot.tags.map((t: string) => (
               <Badge key={t} variant="muted">{t}</Badge>
             ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <p className="text-small text-ink-muted italic">No tags yet</p>
+        )}
+        <SuggestTags contactId={snapshot.id} currentTags={snapshot.tags ?? []} />
+      </div>
 
       <NotesBlock
         contactId={snapshot.id}
@@ -150,9 +170,16 @@ export function ContactPanel({
         onSaved={(notes) => setSnapshot((cur) => ({ ...cur, notes }))}
       />
 
+      {optInMode && (
+        <div className="mt-8 border-t border-ink-hairline pt-6">
+          <p className="text-label text-ink-muted mb-1.5">Recurring updates</p>
+          <OptInRequest contactId={snapshot.id} mode={optInMode} requestedAt={optInRequestedAt} className="w-full" />
+        </div>
+      )}
+
       <div className="mt-8 border-t border-ink-hairline pt-6 space-y-3">
         <div>
-          <p className="text-label text-ink-faint mb-1.5">SMS</p>
+          <p className="text-label text-ink-muted mb-1.5">SMS</p>
           {optedOutSms ? (
             <Button
               variant="secondary"
@@ -176,7 +203,7 @@ export function ContactPanel({
           )}
         </div>
         <div>
-          <p className="text-label text-ink-faint mb-1.5">Email</p>
+          <p className="text-label text-ink-muted mb-1.5">Email</p>
           {unsubEmail ? (
             <Button
               variant="secondary"
@@ -200,19 +227,6 @@ export function ContactPanel({
           )}
         </div>
       </div>
-
-      {isAdmin && (
-        <div className="mt-8 border-t border-ink-hairline pt-6">
-          <p className="text-label text-danger mb-1.5">Danger zone</p>
-          <DeleteContactButton
-            contactId={snapshot.id}
-            contactName={snapshot.name ?? formatPhone(snapshot.phone) ?? snapshot.email ?? "this contact"}
-            messageCount={messageCount}
-            redirectTo="/inbox"
-            fullWidth
-          />
-        </div>
-      )}
 
       <ConfirmDialog
         open={pending !== null}
@@ -290,7 +304,7 @@ function NotesBlock({
   if (editing) {
     return (
       <div className="mt-6 border-t border-ink-hairline pt-6">
-        <p className="text-label text-ink-faint mb-1.5">Notes</p>
+        <p className="text-label text-ink-muted mb-1.5">Notes</p>
         <Textarea
           value={value}
           onChange={(e) => setValue(e.target.value)}
@@ -322,7 +336,7 @@ function NotesBlock({
   return (
     <div className="mt-6 border-t border-ink-hairline pt-6">
       <div className="flex items-center justify-between mb-1.5">
-        <p className="text-label text-ink-faint">Notes</p>
+        <p className="text-label text-ink-muted">Notes</p>
         <button
           type="button"
           onClick={() => setEditing(true)}
@@ -337,7 +351,7 @@ function NotesBlock({
           {initial}
         </p>
       ) : (
-        <p className="text-small text-ink-faint italic">
+        <p className="text-small text-ink-muted italic">
           No notes yet. Drop a quick reminder of what you talked about last.
         </p>
       )}
@@ -348,7 +362,7 @@ function NotesBlock({
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-label text-ink-faint">{label}</dt>
+      <dt className="text-label text-ink-muted">{label}</dt>
       <dd className="text-body text-ink mt-0.5 break-words">{value}</dd>
     </div>
   )

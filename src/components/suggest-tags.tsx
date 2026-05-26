@@ -14,10 +14,10 @@ interface Suggestion {
 }
 
 /**
- * "Suggest tags" affordance on the contact detail page. Asks Claude (Haiku) to
- * pick tags from the thread, shows them as toggleable chips, and only writes
- * the operator-confirmed set to `contacts.tags` via the audited PATCH endpoint.
- * Hidden entirely when the AI integration is not configured.
+ * "Suggest tags" affordance. Asks Claude (Haiku) to pick tags from the thread,
+ * shows them as toggleable chips, and only writes the operator-confirmed set to
+ * `contacts.tags` via the audited PATCH endpoint. Hidden entirely when the AI
+ * integration is not configured. Used on the contact page and the inbox panel.
  */
 export function SuggestTags({
   contactId,
@@ -154,7 +154,7 @@ export function SuggestTags({
               type="button"
               onClick={() => setSuggestion(null)}
               aria-label="Dismiss suggestions"
-              className="shrink-0 text-ink-faint hover:text-ink"
+              className="shrink-0 text-ink-muted hover:text-ink"
             >
               <X size={16} />
             </button>
@@ -162,7 +162,7 @@ export function SuggestTags({
 
           {candidates.length > 0 ? (
             <>
-              <p className="text-label text-ink-faint mt-3 mb-2">
+              <p className="text-label text-ink-muted mt-3 mb-2">
                 Tap to choose, then confirm
               </p>
               <div className="flex flex-wrap gap-1.5">
@@ -178,7 +178,7 @@ export function SuggestTags({
                         "inline-flex items-center gap-1 rounded-pill px-2.5 py-1 text-eyebrow font-semibold uppercase tracking-[var(--tracking-wide)] transition-colors",
                         isSelected
                           ? "bg-gold text-white"
-                          : "bg-transparent text-ink-faint ring-1 ring-ink-hairline hover:text-ink",
+                          : "bg-transparent text-ink-muted ring-1 ring-ink-hairline hover:text-ink",
                       )}
                       aria-pressed={isSelected}
                     >
