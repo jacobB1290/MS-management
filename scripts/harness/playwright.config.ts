@@ -50,5 +50,15 @@ export default defineConfig({
     url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
+    // Boot the app on in-memory demo fixtures so the harness is hermetic — no
+    // Supabase project, secrets, or seeded users. The NEXT_PUBLIC_* values are
+    // placeholders: demo mode serves SSR'd fixtures, and they only need to be
+    // present + well-formed so the browser Supabase client constructs (its
+    // realtime socket never connects, which is fine for screenshots).
+    env: {
+      DEMO_MODE: "1",
+      NEXT_PUBLIC_SUPABASE_URL: "https://demo.supabase.co",
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "demo-anon-key",
+    },
   },
 });
