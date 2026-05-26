@@ -53,6 +53,21 @@ export async function POST(request: NextRequest) {
   }
   const data = parsed.data
 
+  // Field-location tolerance. The website nests the typed message and the
+  // opt-in flags inside `payload` rather than sending them top-level, so accept
+  // either shape and let an explicit top-level value win. Without this the
+  // message never seeds a thread and a checked opt-in box is silently dropped.
+  const payloadObj = data.payload as Record<string, unknown>
+  const resolvedMessage: string | null =
+    data.message ??
+    (typeof payloadObj.message === "string" && payloadObj.message.trim().length > 0
+      ? payloadObj.message.trim().slice(0, 1600)
+      : null)
+  const marketingOptIn =
+    data.marketing_opt_in === true ||
+    payloadObj.marketing_opt_in === true ||
+    payloadObj.updates_opt_in === true
+
   const admin = createSupabaseAdminClient()
 
   // Nonce dedupe via form_submissions.payload->>'_nonce'. We don't have a
@@ -126,7 +141,7 @@ export async function POST(request: NextRequest) {
     // recurring/marketing messages, separate from the baseline reply consent
     // the upsert already records. Only ever sets consent here — never clears
     // it — so an unchecked box on a later form can't revoke a prior opt-in.
-    if (data.marketing_opt_in) {
+    if (marketingOptIn) {
       await admin
         .from("contacts")
         .update({
@@ -142,13 +157,13 @@ export async function POST(request: NextRequest) {
     // (which only lists contacts that have a message) and — being an inbound —
     // opens the conversational-consent window so staff can reply right away.
     // channel 'form' keeps the provenance honest (it did NOT arrive over SMS).
-    if (data.message) {
+    if (resolvedMessage) {
       const { data: inserted } = await admin
         .from("messages")
         .insert({
           contact_id: contactId,
           direction: "in",
-          body: data.message,
+          body: resolvedMessage,
           channel: "form",
           status: "received",
           context: "transactional_event",
@@ -171,7 +186,7 @@ export async function POST(request: NextRequest) {
           const title = c?.name || formatPhone(c?.phone ?? null) || "New form submission"
           await sendPushToStaff({
             title,
-            body: data.message.slice(0, 140),
+            body: resolvedMessage.slice(0, 140),
             url: `/inbox?c=${contactId}`,
             tag: `contact-${contactId}`,
           })
@@ -228,7 +243,7 @@ export async function POST(request: NextRequest) {
       conflict_with: result?.conflict_with ?? null,
       had_phone: Boolean(data.phone),
       had_email: Boolean(data.email),
-      marketing_opt_in: data.marketing_opt_in,
+      marketing_opt_in: marketingOptIn,
       seeded_message: Boolean(messageId),
     },
     ip,
