@@ -105,3 +105,30 @@ recorded outputs and fails if the committed `sim-result.json` or
 never silently leave the simulation — or the demo dataset — stale. When you
 change a prompt or model default, re-run `npm run sim` then `npm run sim:build`
 and commit the refreshed snapshot.
+
+## Source tags + the ambiguity battery (smart vs accurate)
+
+The tagger also assigns acquisition-source tags — `neighborhood` (flyer, card,
+sign, "down the street", drove/walked by, a neighbor) and `online` (search,
+social, an ad) — when the contact gives a signal, even an implicit one. The
+corpus includes an **ambiguity battery** that grades two things at once:
+
+- **smart** — does it infer a source when a human plainly would, from indirect
+  cues ("are you the church down the street on Wildwood?", "drove past your
+  sign", "popped up on my reels")? This is recall.
+- **accurate** — does it stay silent when there is no signal (a bare "what time
+  are services?")? This is restraint / precision.
+
+`sim-assemble` prints a SOURCE-INFERENCE SCORECARD for both.
+
+### Don't teach to the test
+
+Cases carry `set: "dev" | "holdout"`. `dev` uses cues the prompt names;
+`holdout` uses **novel phrasing the prompt never mentions** ("leaflet under my
+wiper", "pass your building on my run"). The scorecard reports them separately:
+if `holdout` tracks `dev`, the model is generalizing; if `holdout` collapses
+while `dev` stays high, the prompt is memorizing the examples. **On every
+iteration, ADD new `holdout` cases (fresh wording, new edge intents) rather than
+re-grading the same battery** — otherwise a rising score may just mean the
+prompt has been tuned to these specific strings. Promote a holdout family to
+`dev` only once it's well covered, and write new holdouts beyond it.

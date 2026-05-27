@@ -200,6 +200,7 @@ export type Database = {
       }
       contacts: {
         Row: {
+          ai_tags: string[]
           consent_at: string | null
           consent_method: string | null
           created_at: string
@@ -225,6 +226,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          ai_tags?: string[]
           consent_at?: string | null
           consent_method?: string | null
           created_at?: string
@@ -250,6 +252,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          ai_tags?: string[]
           consent_at?: string | null
           consent_method?: string | null
           created_at?: string

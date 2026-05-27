@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { CallButton } from "@/components/call-button"
 import { OptInRequest } from "@/components/opt-in-request"
+import { TagList } from "@/components/tag-list"
 import { InboxSegmentControl } from "./inbox-segment-control"
 import { isInboxCategory } from "@/lib/inbox-segments"
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser"
@@ -172,16 +173,8 @@ export function ContactPanel({
 
       <div className="mt-6">
         <p className="text-label text-ink-muted mb-2">Tags</p>
-        {snapshot.tags && snapshot.tags.length > 0 ? (
-          <div className="flex flex-wrap gap-1.5">
-            {snapshot.tags.map((t: string) => (
-              <Badge key={t} variant="muted">{t}</Badge>
-            ))}
-          </div>
-        ) : (
-          <p className="text-small text-ink-muted italic">No tags yet</p>
-        )}
-        <p className="text-micro text-ink-faint mt-2">Added automatically from the conversation</p>
+        <TagList tags={snapshot.tags} aiTags={snapshot.ai_tags} />
+        <p className="text-micro text-ink-faint mt-2">A sparkle marks a tag the AI added; open the contact to edit.</p>
       </div>
 
       <NotesBlock

@@ -25,7 +25,14 @@ export async function PATCH(
   if (parsed.data.name !== undefined) update.name = parsed.data.name
   if (parsed.data.phone !== undefined) update.phone = parsed.data.phone
   if (parsed.data.email !== undefined) update.email = parsed.data.email
-  if (parsed.data.tags !== undefined) update.tags = parsed.data.tags
+  if (parsed.data.tags !== undefined) {
+    update.tags = parsed.data.tags
+    // Provenance: a human edit makes the new set authoritative. Keep the AI
+    // marker only on AI tags the human left in place; tags they added are human,
+    // and removed tags drop from both. (See contacts.ai_tags.)
+    const priorAi = ((before as { ai_tags?: string[] }).ai_tags ?? []).filter(Boolean)
+    update.ai_tags = priorAi.filter((t) => parsed.data.tags!.includes(t))
+  }
   if (parsed.data.language !== undefined) update.language = parsed.data.language
   if (parsed.data.notes !== undefined) update.notes = parsed.data.notes
   if (parsed.data.is_member !== undefined) update.is_member = parsed.data.is_member

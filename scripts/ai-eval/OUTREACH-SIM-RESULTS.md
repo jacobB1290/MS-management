@@ -1,5 +1,11 @@
 # Neighborhood outreach simulation — results
 
+> **v2 note.** The body below is the original run (40 conversations / 50
+> messages). The corpus has since grown to **50 / 60** with source tags
+> (`neighborhood` / `online`), human-vs-AI tag provenance, and a source-inference
+> ambiguity battery. See **“Addendum — source tags, provenance, and the
+> ambiguity test”** at the end for the current numbers.
+
 **Scenario.** The church drops cards + flyers across the surrounding
 neighborhoods. Each card carries the SMS number and a QR to the website contact
 form. This simulates the resulting inbound wave: **40 conversations, 50
@@ -136,3 +142,56 @@ safe, and handed an untrained volunteer five short, labeled piles with enough
 context to act. The two soft spots (soft distress landing in General, one
 sensitive note) are worth a glance but neither is dangerous. **A dumb user
 could absolutely work this wave.**
+
+---
+
+## Addendum — source tags, provenance, and the ambiguity test
+
+The wave now carries acquisition-source tagging (`neighborhood` / `online`),
+human-vs-AI tag provenance, and a 20-case ambiguity battery. Corpus: **50
+conversations / 60 messages**; current grade **117 / 126** strict checks.
+
+### Is it thinking smart, but staying accurate?
+
+The battery grades two things at once — does the tagger *infer* a source when a
+human plainly would (smart / recall), and does it stay *silent* when there's no
+signal (accurate / restraint) — split into `dev` cases (cues the prompt names)
+and `holdout` cases (novel phrasing the prompt never mentions, to catch
+teaching-to-the-test).
+
+| Set | Smart (infer when there's a signal) | Accurate (silent when there isn't) |
+|---|---|---|
+| dev | 9 / 9 | 6 / 6 |
+| holdout | 3 / 3 | 2 / 2 |
+
+It read implicit signals a literal matcher would miss — "are you the church down
+the street on Wildwood?", "drove past your sign", "stopping by our door",
+"moved to the neighborhood" → `neighborhood`; "found you on Google", "saw your
+Facebook post" → `online` — and, crucially, **the held-out cases scored the same
+as dev** ("leaflet under my windshield wiper", "pass your building on my run",
+"popped up on my reels"), so it's generalizing, not memorizing. It also stayed
+silent on bare logistics ("what time are services and do you have parking?",
+"is childcare available?") and on a personal referral ("my coworker invited
+me") — no over-firing. So: smart **and** accurate, on fresh wording.
+
+### Provenance + manual tagging (shipped)
+
+- `contacts.ai_tags` records the subset of tags the background tagger applied
+  with no human in the loop. The auto-tagger is additive-only, so a human's
+  `neighborhood` tag is never removed; the model is now also *told* which tags
+  are staff-authoritative so it won't re-propose or fight them.
+- A human edit recomputes provenance: tags they keep that the AI set stay
+  marked; tags they add are theirs; removed tags drop from both.
+- The UI: a reuse-first tag picker (existing tags in a dropdown, "create new" as
+  the exception) and a sparkle marker on AI-applied, not-yet-confirmed tags.
+
+### Watch items from this run
+
+This was an agent-sweep run (Haiku/Sonnet agents as the engine; batched, so
+some run-to-run variance — re-run `npm run sim` against the live API to
+confirm). It dropped a few **ministry** tags it had caught before (C01/C06 lost
+`kids-ministry`, C22 lost `newcomer`) even as source inference was perfect — a
+sign the source emphasis may be crowding ministry recall on Haiku, or just batch
+variance. The source scorecard is the headline; the ministry-recall dip is the
+thing to watch on the next iteration (and a reason to keep adding fresh holdout
+cases rather than re-grading these).

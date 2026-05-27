@@ -37,5 +37,15 @@
   {"id": "C37", "opt_out": false, "confidence": 0.99, "rationale": "Inquiry about small group alternatives to Sunday attendance."},
   {"id": "C38", "opt_out": true, "confidence": 0.99, "rationale": "Explicit request to be removed from contact list due to wrong number."},
   {"id": "C39", "opt_out": false, "confidence": 0.99, "rationale": "Expression of need for community and church engagement."},
-  {"id": "C40", "opt_out": false, "confidence": 0.98, "rationale": "Conditional interest pending accessibility information, still seeking contact."}
+  {"id": "C40", "opt_out": false, "confidence": 0.98, "rationale": "Conditional interest pending accessibility information, still seeking contact."},
+  {"id": "C41", "opt_out": false, "confidence": 0.99, "rationale": "Confirmation of church location with implied interest."},
+  {"id": "C42", "opt_out": false, "confidence": 0.99, "rationale": "Online discovery of church with inquiry about service times."},
+  {"id": "C43", "opt_out": false, "confidence": 0.99, "rationale": "Physical observation of church sign triggering service time inquiry."},
+  {"id": "C44", "opt_out": false, "confidence": 0.99, "rationale": "Practical questions about services and parking indicating visit consideration."},
+  {"id": "C45", "opt_out": false, "confidence": 0.99, "rationale": "Social media event discovery with inclusive participation inquiry."},
+  {"id": "C46", "opt_out": false, "confidence": 0.99, "rationale": "Flyer discovery with question about church identity."},
+  {"id": "C47", "opt_out": false, "confidence": 0.99, "rationale": "Social media discovery of church with interest in young adults programming."},
+  {"id": "C48", "opt_out": false, "confidence": 0.99, "rationale": "Ongoing observation of church building culminating in curious inquiry."},
+  {"id": "C49", "opt_out": false, "confidence": 0.99, "rationale": "Practical question about childcare during services."},
+  {"id": "C50", "opt_out": false, "confidence": 0.99, "rationale": "Peer referral with tentative visit consideration."}
 ]

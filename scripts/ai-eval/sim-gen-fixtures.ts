@@ -54,6 +54,7 @@ export function generate(): string {
       email: f.email,
       language: f.language,
       tags: f.tags,
+      ai_tags: f.tags, // every sim tag was AI-applied (no human in the loop yet)
       sms_opted_out_at: f.optedOut ? ago(lastMin) : null,
       email_unsubscribed_at: null,
       is_member: f.id === "C23",

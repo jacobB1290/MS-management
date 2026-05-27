@@ -19,17 +19,15 @@
  * Threads are oldest-first. "in" = the neighbor, "out" = staff.
  */
 
+import { BASE_TAG_VOCAB } from "../../src/server/ai/prompts"
+
 /**
- * The established church tag vocabulary the tagging prompt reuses first. Tags
- * are free-form text[] in the CRM (no enum to import), so this is the harness's
- * canonical seed — the one place the simulated "existing tags across contacts"
- * lives, shared by the live runner, the assembler's vocab filter, and the
- * agent-sweep inputs.
+ * The tag vocabulary the simulated tagger reuses first. Pinned to the CRM's
+ * canonical BASE_TAG_VOCAB (src/server/ai/prompts.ts) so the harness and
+ * production share one list — including the `neighborhood` / `online` source
+ * tags — and it can never drift.
  */
-export const SEED_VOCAB = [
-  "visitor", "newcomer", "member", "volunteer", "prayer-request", "needs-followup",
-  "baptism-interest", "kids-ministry", "small-group", "worship-team", "russian-speaker", "espanol",
-] as const
+export const SEED_VOCAB = BASE_TAG_VOCAB
 
 export type Channel = "sms" | "form"
 export type Lang = "en" | "ru"
@@ -47,6 +45,13 @@ export type SimConversation = {
   /** Minutes ago the latest message landed, for the demo timeline. */
   minsAgo: number
   thread: ThreadMsg[]
+  /**
+   * Which test set this case belongs to. "dev" = cases the prompt was written
+   * against. "holdout" = fresh cases with novel phrasing the prompt does NOT
+   * mention, used to tell genuine generalization from teaching-to-the-test.
+   * On every iteration, add NEW holdout cases rather than re-grading the old.
+   */
+  set?: "dev" | "holdout"
   expect: {
     category?: Category
     status?: string | null
@@ -56,6 +61,13 @@ export type SimConversation = {
     keywordStop?: boolean
     mustTagAny?: string[]
     mustNotTag?: string[]
+    /**
+     * Acquisition-source expectation. A string = the contact gave a signal a
+     * human would read (smart inference must apply that source tag); `null` =
+     * no source signal at all (accuracy: must apply NEITHER source tag);
+     * undefined = not asserted.
+     */
+    source?: "neighborhood" | "online" | null
     notesMustContainAny?: string[]
     notesMustNotContain?: string[]
     crisisFloor?: boolean
@@ -80,13 +92,15 @@ export const outreachSim: SimConversation[] = [
       staff("Hi Maria! We meet at 9 and 11am, childcare at both. Would love to have you."),
       inq("Perfect, we'll try this Sunday with our two kids."),
     ],
+    set: "dev",
     expect: {
       category: "question",
       status: "closed",
       mustTagAny: ["kids-ministry"],
+      source: "neighborhood",
       notesMustContainAny: ["kid", "Sunday"],
     },
-    note: "Logistics question, answered, with a durable family fact (two kids).",
+    note: "Logistics question, answered, with a durable family fact (two kids). 'Card on my door' is an explicit neighborhood signal.",
   },
   {
     id: "C02",
@@ -137,13 +151,15 @@ export const outreachSim: SimConversation[] = [
       staff("Welcome to the area, Jennifer! Our 9am has childcare. Want me to save your family a few seats this Sunday?"),
       inq("Yes please, that would be wonderful. We'll be there Sunday!"),
     ],
+    set: "dev",
     expect: {
       category: "outreach",
       status: "done",
       mustTagAny: ["newcomer", "visitor", "kids-ministry"],
+      source: "neighborhood",
       notesMustContainAny: ["church home", "kids", "moved", "Sunday"],
     },
-    note: "QR form → strong seeker. New to area, looking for a church home, young kids, committed to a visit.",
+    note: "QR form → strong seeker. 'Moved to the neighborhood' is an implicit local signal a human would read as neighborhood.",
   },
   {
     id: "C06",
@@ -154,8 +170,9 @@ export const outreachSim: SimConversation[] = [
     language: "en",
     minsAgo: 26,
     thread: [inq("Do you have anything for kids on Sunday mornings?")],
-    expect: { category: "question", status: "new", mustTagAny: ["kids-ministry"] },
-    note: "Kids-ministry logistics question.",
+    set: "dev",
+    expect: { category: "question", status: "new", mustTagAny: ["kids-ministry"], source: null },
+    note: "Kids-ministry logistics question. No source signal — accuracy: must NOT tag a source.",
   },
   {
     id: "C07",
@@ -289,8 +306,9 @@ export const outreachSim: SimConversation[] = [
     language: "en",
     minsAgo: 74,
     thread: [inq("Saw your flyer at the coffee shop. I play guitar, any chance to get involved with the music?")],
-    expect: { mustTagAny: ["worship-team", "volunteer"] },
-    note: "QR form → wants to serve on worship/music.",
+    set: "dev",
+    expect: { mustTagAny: ["worship-team", "volunteer"], source: "neighborhood" },
+    note: "QR form → wants to serve on worship/music. 'Saw your flyer at the coffee shop' is a neighborhood signal.",
   },
   {
     id: "C17",
@@ -449,8 +467,9 @@ export const outreachSim: SimConversation[] = [
       staff("9 and 11am! Hope to see you."),
       inq("perfect thanks"),
     ],
-    expect: { category: "question", status: "closed" },
-    note: "Question asked, answered, acknowledged → closed.",
+    set: "dev",
+    expect: { category: "question", status: "closed", source: null },
+    note: "Question asked, answered, acknowledged → closed. No source signal — must not tag a source.",
   },
   {
     id: "C29",
@@ -503,8 +522,9 @@ export const outreachSim: SimConversation[] = [
     language: "en",
     minsAgo: 201,
     thread: [inq("Thanks for stopping by our door earlier, appreciate it!")],
-    expect: { category: "general", status: null },
-    note: "Warm thanks, nothing actionable.",
+    set: "dev",
+    expect: { category: "general", status: null, source: "neighborhood" },
+    note: "Warm thanks. 'Stopping by our door' is a door-to-door neighborhood signal.",
   },
   {
     id: "C33",
@@ -527,8 +547,9 @@ export const outreachSim: SimConversation[] = [
     language: "en",
     minsAgo: 224,
     thread: [inq("Do I need to dress up to come?")],
-    expect: { category: "question", status: "new" },
-    note: "Logistics question.",
+    set: "dev",
+    expect: { category: "question", status: "new", source: null },
+    note: "Logistics question. No source signal — must not tag a source.",
   },
   {
     id: "C35",
@@ -539,8 +560,9 @@ export const outreachSim: SimConversation[] = [
     language: "en",
     minsAgo: 236,
     thread: [inq("Where exactly are you located?")],
-    expect: { category: "question", status: "new" },
-    note: "Location logistics question.",
+    set: "dev",
+    expect: { category: "question", status: "new", source: null },
+    note: "Location logistics question. No source signal — must not tag a source.",
   },
   {
     id: "C36",
@@ -587,13 +609,15 @@ export const outreachSim: SimConversation[] = [
     language: "en",
     minsAgo: 288,
     thread: [inq("Got your card. I've been wanting to find a church since my divorce, could really use some community.")],
+    set: "dev",
     expect: {
       category: "outreach",
       mustNotTag: ["divorce", "divorced"],
+      source: "neighborhood",
       notesMustContainAny: ["church", "community"],
       notesMustNotContain: ["divorce"],
     },
-    note: "Seeker (outreach). The divorce is a sensitive circumstance: don't tag it, keep it out of notes.",
+    note: "Seeker (outreach). 'Got your card' → neighborhood. The divorce is sensitive: don't tag it, keep it out of notes.",
   },
   {
     id: "C40",
@@ -604,10 +628,149 @@ export const outreachSim: SimConversation[] = [
     language: "en",
     minsAgo: 301,
     thread: [inq("We'd love to visit but my son uses a wheelchair. Is the building accessible?")],
+    set: "dev",
     expect: {
       category: "question",
       mustNotTag: ["wheelchair", "disabled", "disability"],
+      source: null,
     },
-    note: "Accessibility logistics question. The disability is a private circumstance: must not become a tag.",
+    note: "Accessibility logistics question. The disability is private (no tag); no source signal either.",
+  },
+
+  // ---------------------------------------------------------------------------
+  // AMBIGUITY BATTERY — does the source tagger use human-like intelligence
+  // (infer an implicit source) AND stay accurate (no source when there's no
+  // signal)? `dev` cases use cues the prompt mentions; `holdout` cases use
+  // novel phrasing the prompt never names, to catch teaching-to-the-test.
+  // ---------------------------------------------------------------------------
+  {
+    id: "C41",
+    channel: "sms",
+    name: null,
+    phone: "+12085550241",
+    email: null,
+    language: "en",
+    minsAgo: 6,
+    set: "dev",
+    thread: [inq("Are you the church down the street, the one on Wildwood?")],
+    expect: { category: "question", source: "neighborhood" },
+    note: "Implicit neighborhood: 'down the street' names no flyer but plainly implies a local who passes the building.",
+  },
+  {
+    id: "C42",
+    channel: "sms",
+    name: null,
+    phone: "+12085550242",
+    email: null,
+    language: "en",
+    minsAgo: 13,
+    set: "dev",
+    thread: [inq("I found you on Google searching for churches nearby. What time is Sunday service?")],
+    expect: { category: "question", status: "new", source: "online" },
+    note: "Explicit online (found via search).",
+  },
+  {
+    id: "C43",
+    channel: "sms",
+    name: null,
+    phone: "+12085550243",
+    email: null,
+    language: "en",
+    minsAgo: 19,
+    set: "dev",
+    thread: [inq("I drove past your sign out front and wanted to ask what your service times are.")],
+    expect: { category: "question", source: "neighborhood" },
+    note: "Implicit neighborhood: a road/yard sign out front is local physical outreach.",
+  },
+  {
+    id: "C44",
+    channel: "sms",
+    name: null,
+    phone: "+12085550244",
+    email: null,
+    language: "en",
+    minsAgo: 24,
+    set: "dev",
+    thread: [inq("What time are your services and do you have parking?")],
+    expect: { category: "question", status: "new", source: null },
+    note: "Pure logistics, zero source signal — accuracy: must apply NEITHER source tag.",
+  },
+  {
+    id: "C45",
+    channel: "sms",
+    name: null,
+    phone: "+12085550245",
+    email: null,
+    language: "en",
+    minsAgo: 30,
+    set: "dev",
+    thread: [inq("Saw your post on Facebook about the food drive. Can anyone come?")],
+    expect: { category: "question", source: "online" },
+    note: "Explicit online (social media post).",
+  },
+  {
+    id: "C46",
+    channel: "sms",
+    name: null,
+    phone: "+12085550246",
+    email: null,
+    language: "en",
+    minsAgo: 37,
+    set: "holdout",
+    thread: [inq("Someone slipped a little leaflet under my windshield wiper — who are you all?")],
+    expect: { source: "neighborhood" },
+    note: "Holdout neighborhood: 'leaflet under my wiper' — local handout, phrasing the prompt never uses.",
+  },
+  {
+    id: "C47",
+    channel: "sms",
+    name: null,
+    phone: "+12085550247",
+    email: null,
+    language: "en",
+    minsAgo: 44,
+    set: "holdout",
+    thread: [inq("You popped up on my reels last night — do you have a young adults group?")],
+    expect: { category: "question", source: "online" },
+    note: "Holdout online: Instagram 'reels', a platform the prompt never names.",
+  },
+  {
+    id: "C48",
+    channel: "sms",
+    name: null,
+    phone: "+12085550248",
+    email: null,
+    language: "en",
+    minsAgo: 52,
+    set: "holdout",
+    thread: [inq("I pass your building every morning on my run and finally got curious enough to reach out.")],
+    expect: { source: "neighborhood" },
+    note: "Holdout neighborhood: passing the building daily — local, no flyer/card/sign keyword.",
+  },
+  {
+    id: "C49",
+    channel: "sms",
+    name: null,
+    phone: "+12085550249",
+    email: null,
+    language: "en",
+    minsAgo: 60,
+    set: "holdout",
+    thread: [inq("Is childcare available during the service?")],
+    expect: { category: "question", status: "new", source: null },
+    note: "Holdout restraint: a logistics question with no source signal — must apply neither.",
+  },
+  {
+    id: "C50",
+    channel: "sms",
+    name: null,
+    phone: "+12085550250",
+    email: null,
+    language: "en",
+    minsAgo: 68,
+    set: "holdout",
+    thread: [inq("My coworker who goes there invited me to come visit sometime.")],
+    expect: { category: "outreach", source: null },
+    note: "Holdout restraint: a personal referral is neither neighborhood nor online — must not force a source.",
   },
 ]

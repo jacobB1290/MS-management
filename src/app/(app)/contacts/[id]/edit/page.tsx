@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { requireStaff } from "@/server/auth"
+import { BASE_TAG_VOCAB } from "@/server/ai/prompts"
 import { PageHeader } from "@/components/ui/page-header"
 import { ContactForm } from "../../new/contact-form"
 
@@ -18,12 +19,16 @@ export default async function EditContactPage({ params, searchParams }: PageProp
   const { from } = await searchParams
   const backHref = from === "inbox" ? `/contacts/${id}?from=inbox` : `/contacts/${id}`
   const supabase = await createSupabaseServerClient()
-  const { data: contact } = await supabase
-    .from("contacts")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle()
+  const [{ data: contact }, { data: tagRows }] = await Promise.all([
+    supabase.from("contacts").select("*").eq("id", id).maybeSingle(),
+    supabase.from("contacts").select("tags").limit(1000),
+  ])
   if (!contact) notFound()
+  const tagSuggestions = Array.from(
+    new Set([...BASE_TAG_VOCAB, ...(tagRows ?? []).flatMap((r) => (r.tags ?? []) as string[])]),
+  )
+    .filter(Boolean)
+    .sort()
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -39,7 +44,7 @@ export default async function EditContactPage({ params, searchParams }: PageProp
 
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 md:px-8 pb-6 md:pb-8 max-w-2xl w-full">
         <div className="rounded-lg border border-ink-hairline bg-white p-6 md:p-8">
-          <ContactForm contactId={id} initialValues={contact} />
+          <ContactForm contactId={id} initialValues={contact} tagSuggestions={tagSuggestions} />
         </div>
       </div>
     </div>

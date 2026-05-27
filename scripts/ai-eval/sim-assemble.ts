@@ -131,6 +131,11 @@ export function assemble(): AssembleResult {
     if (e.keywordStop) checks.push({ name: "keywordStop", pass: f.optOutSource === "carrier_keyword", detail: `${f.optOutSource}` })
     if (e.mustTagAny) checks.push({ name: "tagAny", pass: e.mustTagAny.some((t) => f.tags.includes(t)), detail: `[${f.tags.join(", ")}] want any of [${e.mustTagAny.join(", ")}]` })
     if (e.mustNotTag) { const bad = e.mustNotTag.filter((t) => f.tags.some((x) => ci(x, t))); checks.push({ name: "tagNot", pass: bad.length === 0, detail: bad.length ? `LEAKED ${bad.join(",")}` : `clean [${f.tags.join(", ")}]` }) }
+    if (e.source !== undefined) {
+      const src = f.tags.filter((t) => t === "neighborhood" || t === "online")
+      if (e.source === null) checks.push({ name: "source", pass: src.length === 0, detail: src.length ? `over-tagged ${src.join(",")}` : "clean (no source)" })
+      else checks.push({ name: "source", pass: src.includes(e.source), detail: `[${src.join(",") || "—"}] want ${e.source}` })
+    }
     if (e.notesMustContainAny) checks.push({ name: "notesAny", pass: e.notesMustContainAny.some((t) => ci(f.notes, t)), detail: e.notesMustContainAny.some((t) => ci(f.notes, t)) ? "ok" : `missing any of [${e.notesMustContainAny.join(", ")}]` })
     if (e.notesMustNotContain) { const bad = e.notesMustNotContain.filter((t) => ci(f.notes, t)); checks.push({ name: "notesNot", pass: bad.length === 0, detail: bad.length ? `LEAKED ${bad.join(",")}` : "clean" }) }
     grades.push({ id: c.id, checks })
@@ -158,6 +163,31 @@ function main() {
   console.log("conf-floored to general:", finals.filter((f) => !f.crisis && f.triageConf !== null && f.triageConf < TRIAGE_CONFIDENCE_FLOOR).map((f) => `${f.id}@${f.triageConf}`).join(", "))
   console.log("contacts with tags:", finals.filter((f) => f.tags.length).length, "/ no tags:", finals.filter((f) => !f.tags.length).length)
   console.log("contacts with notes:", finals.filter((f) => f.notes).length)
+
+  // Source-inference scorecard: smart = applies a source tag when a human would
+  // read one from the thread; accurate = stays silent when there is no signal.
+  // Split dev (cues the prompt names) vs holdout (novel phrasing) to catch
+  // teaching-to-the-test — holdout should track dev, not collapse.
+  const srcRows = outreachSim
+    .filter((c) => c.expect.source !== undefined)
+    .map((c) => {
+      const f = finals.find((x) => x.id === c.id)!
+      return { id: c.id, set: c.set ?? "dev", want: c.expect.source as "neighborhood" | "online" | null, got: f.tags.filter((t) => t === "neighborhood" || t === "online") }
+    })
+  const score = (set: string) => {
+    const rows = srcRows.filter((r) => r.set === set)
+    const recall = rows.filter((r) => r.want !== null)
+    const restraint = rows.filter((r) => r.want === null)
+    const rHit = recall.filter((r) => r.got.includes(r.want as "neighborhood" | "online")).length
+    const sHit = restraint.filter((r) => r.got.length === 0).length
+    return `smart ${rHit}/${recall.length} (infer when signal) · accurate ${sHit}/${restraint.length} (silent when none)`
+  }
+  console.log("\n=== SOURCE-INFERENCE SCORECARD ===")
+  console.log("dev     :", score("dev"))
+  console.log("holdout :", score("holdout"))
+  const srcMiss = srcRows.filter((r) => (r.want === null ? r.got.length > 0 : !r.got.includes(r.want)))
+  if (srcMiss.length) { console.log("source misses:"); for (const m of srcMiss) console.log(`  - ${m.id}(${m.set}) got [${m.got.join(",") || "—"}] want ${m.want ?? "none"}`) }
+
   console.log(`\n=== GRADE vs human expectations: ${passed}/${total} checks pass ===`)
   if (fails.length) { console.log("Misses / judgment calls:"); for (const f of fails) console.log("  - " + f) }
   else console.log("All checks pass.")

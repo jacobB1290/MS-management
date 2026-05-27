@@ -36,7 +36,7 @@ export async function organizeConversation(
     const [{ data: contact }, { data: threadRows }, { data: allTagRows }, config] = await Promise.all([
       admin
         .from("contacts")
-        .select("id, tags, notes, inbox_category, inbox_status, sms_opted_out_at")
+        .select("id, tags, ai_tags, notes, inbox_category, inbox_status, sms_opted_out_at")
         .eq("id", contactId)
         .maybeSingle(),
       admin
@@ -60,6 +60,7 @@ export async function organizeConversation(
     if (messages.length === 0) return
 
     const currentTags = (contact.tags ?? []).filter(Boolean)
+    const currentAiTags = ((contact as { ai_tags?: string[] }).ai_tags ?? []).filter(Boolean)
     const vocab: string[] = []
     for (const row of allTagRows ?? []) for (const t of row.tags ?? []) if (t) vocab.push(t)
 
@@ -68,7 +69,7 @@ export async function organizeConversation(
     const [optOut, triage, tagSuggestion, nextNotes] = await Promise.all([
       detectOptOutIntent(messages, config.optout).catch(() => null),
       classifyConversation(messages, config.triage).catch(() => null),
-      proposeTags(messages, vocab, currentTags, config.tagging).catch(() => null),
+      proposeTags(messages, vocab, currentTags, config.tagging, currentAiTags).catch(() => null),
       mergeNotes(messages, contact.notes, config.notes).catch(() => null),
     ])
 
@@ -146,14 +147,18 @@ export async function organizeConversation(
       ]
       const merged = Array.from(new Set([...currentTags, ...additions]))
       if (merged.length > currentTags.length) {
+        // Provenance: everything newly added here is AI-applied (no human in the
+        // loop). Carry forward prior ai_tags that survive; staff tags stay out.
+        const added = merged.filter((t) => !currentTags.includes(t))
+        const aiTagsNext = Array.from(new Set([...currentAiTags.filter((t) => merged.includes(t)), ...added]))
         try {
-          await admin.from("contacts").update({ tags: merged }).eq("id", contactId)
+          await admin.from("contacts").update({ tags: merged, ai_tags: aiTagsNext }).eq("id", contactId)
           await logAudit({
             action: "contact.auto_tag",
             targetTable: "contacts",
             targetId: contactId,
             diff: {
-              added: merged.filter((t) => !currentTags.includes(t)),
+              added,
               source: opts.source,
               message_sid: opts.messageSid,
             },

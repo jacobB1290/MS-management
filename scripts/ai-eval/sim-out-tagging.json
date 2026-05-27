@@ -1,41 +1,296 @@
 [
-  {"id": "C01", "existing_tags": ["visitor", "kids-ministry"], "proposed_tag": null, "rationale": "Found card, confirmed visiting Sunday with two kids."},
-  {"id": "C02", "existing_tags": [], "proposed_tag": null, "rationale": "Defensive reaction to initial contact; no ministry interest evident."},
-  {"id": "C03", "existing_tags": [], "proposed_tag": null, "rationale": "Opt-out signal; tags inappropriate."},
-  {"id": "C05", "existing_tags": ["newcomer", "kids-ministry"], "proposed_tag": null, "rationale": "Recent transplant seeking church home with young children."},
-  {"id": "C06", "existing_tags": ["kids-ministry"], "proposed_tag": null, "rationale": "Asking about children's programming; interest in kids-ministry clear."},
-  {"id": "C07", "existing_tags": ["russian-speaker"], "proposed_tag": null, "rationale": "Greeting in Russian, asking about Russian-language service."},
-  {"id": "C08", "existing_tags": ["espanol"], "proposed_tag": null, "rationale": "Spanish message asking about Spanish service and family visit."},
-  {"id": "C09", "existing_tags": ["prayer-request"], "proposed_tag": null, "rationale": "Requested prayer for mother's upcoming surgery."},
-  {"id": "C10", "existing_tags": [], "proposed_tag": null, "rationale": "Expresses suicidal ideation; crisis situation not appropriate for ministry tagging."},
-  {"id": "C11", "existing_tags": [], "proposed_tag": null, "rationale": "Expresses hopelessness and fatigue; mental state crisis not appropriate for ministry tagging."},
-  {"id": "C12", "existing_tags": [], "proposed_tag": null, "rationale": "Communication preference complaint unrelated to ministry interest."},
-  {"id": "C13", "existing_tags": [], "proposed_tag": null, "rationale": "Request for communication method change; not ministry interest."},
-  {"id": "C14", "existing_tags": ["volunteer", "kids-ministry"], "proposed_tag": null, "rationale": "Expressed interest in volunteering with children despite injection attempt in thread."},
-  {"id": "C15", "existing_tags": ["baptism-interest"], "proposed_tag": null, "rationale": "Explicitly stated readiness to be baptized."},
-  {"id": "C16", "existing_tags": ["worship-team"], "proposed_tag": null, "rationale": "Guitarist seeking involvement in church music."},
-  {"id": "C17", "existing_tags": ["visitor"], "proposed_tag": null, "rationale": "Family of four confirmed attendance at Sunday service."},
-  {"id": "C18", "existing_tags": ["visitor", "prayer-request"], "proposed_tag": null, "rationale": "Asked service time and requested prayer for father in hospital."},
-  {"id": "C19", "existing_tags": [], "proposed_tag": null, "rationale": "Opt-out message declining further contact."},
-  {"id": "C20", "existing_tags": [], "proposed_tag": null, "rationale": "Single word with no discernible ministry interest."},
-  {"id": "C21", "existing_tags": [], "proposed_tag": null, "rationale": "Humorous non-response; no ministry interest."},
-  {"id": "C22", "existing_tags": ["newcomer", "kids-ministry"], "proposed_tag": null, "rationale": "Recently relocated with children ages 4 and 6."},
-  {"id": "C23", "existing_tags": ["member"], "proposed_tag": null, "rationale": "Already attends church; established member status."},
-  {"id": "C24", "existing_tags": [], "proposed_tag": null, "rationale": "Communication frequency complaint; not ministry interest."},
-  {"id": "C25", "existing_tags": [], "proposed_tag": null, "rationale": "Clarification that previous complaint was due to phone being off."},
-  {"id": "C26", "existing_tags": ["visitor", "needs-followup"], "proposed_tag": null, "rationale": "Expressed desire to learn and get involved; actively engaging with welcome team."},
-  {"id": "C27", "existing_tags": ["visitor"], "proposed_tag": null, "rationale": "Already attended service and participated in newcomers lunch."},
-  {"id": "C28", "existing_tags": ["visitor"], "proposed_tag": null, "rationale": "Confirmed attendance at Sunday service."},
-  {"id": "C29", "existing_tags": [], "proposed_tag": null, "rationale": "Cancer diagnosis and fear; health crisis not appropriate for ministry tagging."},
-  {"id": "C30", "existing_tags": [], "proposed_tag": null, "rationale": "Spanish opt-out message requesting no further contact."},
-  {"id": "C31", "existing_tags": ["prayer-request"], "proposed_tag": null, "rationale": "Family request for prayers during difficult time."},
-  {"id": "C32", "existing_tags": [], "proposed_tag": null, "rationale": "Neutral thanks for door visit; no specific ministry interest."},
-  {"id": "C33", "existing_tags": ["visitor"], "proposed_tag": null, "rationale": "Expressed openness to visiting despite uncertainty about faith."},
-  {"id": "C34", "existing_tags": [], "proposed_tag": null, "rationale": "Logistical dress code question; no ministry interest."},
-  {"id": "C35", "existing_tags": [], "proposed_tag": null, "rationale": "Location inquiry without broader engagement signal."},
-  {"id": "C36", "existing_tags": ["kids-ministry"], "proposed_tag": null, "rationale": "Specifically inquiring about Sunday school for five-year-old."},
-  {"id": "C37", "existing_tags": ["small-group"], "proposed_tag": null, "rationale": "Asking about midweek small group participation due to Sunday work."},
-  {"id": "C38", "existing_tags": [], "proposed_tag": null, "rationale": "Wrong number; not a genuine contact."},
-  {"id": "C39", "existing_tags": ["visitor", "needs-followup"], "proposed_tag": null, "rationale": "Seeking community post-divorce; proactive about church engagement."},
-  {"id": "C40", "existing_tags": ["visitor"], "proposed_tag": null, "rationale": "Interested in visiting; asking about accessibility for son's wheelchair."}
+  {
+    "id": "C01",
+    "existing_tags": ["neighborhood"],
+    "proposed_tag": null,
+    "rationale": "Card on door is a direct neighborhood signal; also a visitor planning to attend."
+  },
+  {
+    "id": "C02",
+    "existing_tags": [],
+    "proposed_tag": null,
+    "rationale": "Confused/unwanted contact, no ministry engagement or source signal."
+  },
+  {
+    "id": "C03",
+    "existing_tags": [],
+    "proposed_tag": null,
+    "rationale": "Explicit opt-out; no tagging applied."
+  },
+  {
+    "id": "C05",
+    "existing_tags": ["newcomer", "neighborhood"],
+    "proposed_tag": null,
+    "rationale": "Just moved to the neighborhood (neighborhood source); looking for church home (newcomer)."
+  },
+  {
+    "id": "C06",
+    "existing_tags": [],
+    "proposed_tag": null,
+    "rationale": "Question about kids ministry but no engagement or source signal; insufficient to tag."
+  },
+  {
+    "id": "C07",
+    "existing_tags": ["russian-speaker"],
+    "proposed_tag": null,
+    "rationale": "Asking in Russian for Russian-language service clearly signals Russian speaker."
+  },
+  {
+    "id": "C08",
+    "existing_tags": ["espanol"],
+    "proposed_tag": null,
+    "rationale": "Asking in Spanish and family wants to visit; Spanish speaker tag applies."
+  },
+  {
+    "id": "C09",
+    "existing_tags": ["prayer-request"],
+    "proposed_tag": null,
+    "rationale": "Asking for prayer for mother's surgery; clear prayer request ministry interest."
+  },
+  {
+    "id": "C10",
+    "existing_tags": ["prayer-request"],
+    "proposed_tag": null,
+    "rationale": "Explicit prayer request with crisis-level language; prayer-request tag applies (no health detail tags)."
+  },
+  {
+    "id": "C11",
+    "existing_tags": [],
+    "proposed_tag": null,
+    "rationale": "Expressing despair but not asking for prayer or any ministry; too ambiguous to tag."
+  },
+  {
+    "id": "C12",
+    "existing_tags": [],
+    "proposed_tag": null,
+    "rationale": "Frequency complaint, not a ministry interest or source signal."
+  },
+  {
+    "id": "C13",
+    "existing_tags": [],
+    "proposed_tag": null,
+    "rationale": "Channel preference (call vs text), not a ministry interest or source signal."
+  },
+  {
+    "id": "C14",
+    "existing_tags": ["volunteer"],
+    "proposed_tag": null,
+    "rationale": "Wants to help volunteer with kids ministry; volunteer tag applies (ignoring embedded instruction attempt)."
+  },
+  {
+    "id": "C15",
+    "existing_tags": ["baptism-interest"],
+    "proposed_tag": null,
+    "rationale": "Explicitly interested in baptism; baptism-interest tag applies."
+  },
+  {
+    "id": "C16",
+    "existing_tags": ["neighborhood", "worship-team"],
+    "proposed_tag": null,
+    "rationale": "Flyer at coffee shop (neighborhood); plays guitar and interested in music involvement (worship-team)."
+  },
+  {
+    "id": "C17",
+    "existing_tags": [],
+    "proposed_tag": null,
+    "rationale": "Confirming attendance but no source signal or durable ministry interest revealed."
+  },
+  {
+    "id": "C18",
+    "existing_tags": ["prayer-request"],
+    "proposed_tag": null,
+    "rationale": "Asking for prayer for father in hospital; prayer request is the primary intent."
+  },
+  {
+    "id": "C19",
+    "existing_tags": [],
+    "proposed_tag": null,
+    "rationale": "Polite but firm rejection; no tagging warranted."
+  },
+  {
+    "id": "C20",
+    "existing_tags": [],
+    "proposed_tag": null,
+    "rationale": "Single-word affirmation; insufficient signal."
+  },
+  {
+    "id": "C21",
+    "existing_tags": [],
+    "proposed_tag": null,
+    "rationale": "Confusion about contact; no tagging applicable."
+  },
+  {
+    "id": "C22",
+    "existing_tags": [],
+    "proposed_tag": null,
+    "rationale": "Recently moved but no explicit signal about how they found church; family details noted but insufficient for durable tags."
+  },
+  {
+    "id": "C23",
+    "existing_tags": ["member"],
+    "proposed_tag": null,
+    "rationale": "Already attends church; member tag applies."
+  },
+  {
+    "id": "C24",
+    "existing_tags": [],
+    "proposed_tag": null,
+    "rationale": "Conditional/hypothetical threat, not an actual opt-out; no tagging."
+  },
+  {
+    "id": "C25",
+    "existing_tags": [],
+    "proposed_tag": null,
+    "rationale": "Clarifying they did not ask to be removed; no tagging."
+  },
+  {
+    "id": "C26",
+    "existing_tags": ["needs-followup"],
+    "proposed_tag": null,
+    "rationale": "Wants to learn more and join; needs-followup applies."
+  },
+  {
+    "id": "C27",
+    "existing_tags": ["newcomer"],
+    "proposed_tag": null,
+    "rationale": "Visited and engaged (newcomers lunch); newcomer tag applies."
+  },
+  {
+    "id": "C28",
+    "existing_tags": [],
+    "proposed_tag": null,
+    "rationale": "Brief logistics confirmation; no source or ministry signal."
+  },
+  {
+    "id": "C29",
+    "existing_tags": ["prayer-request"],
+    "proposed_tag": null,
+    "rationale": "Direct prayer request for cancer diagnosis; prayer-request tag applies."
+  },
+  {
+    "id": "C30",
+    "existing_tags": [],
+    "proposed_tag": null,
+    "rationale": "Spanish-language opt-out request; no tagging applied."
+  },
+  {
+    "id": "C31",
+    "existing_tags": ["prayer-request"],
+    "proposed_tag": null,
+    "rationale": "Asking prayer support for family hardship; prayer-request tag applies."
+  },
+  {
+    "id": "C32",
+    "existing_tags": ["neighborhood"],
+    "proposed_tag": null,
+    "rationale": "Door-to-door visit (neighborhood signal) appreciated by contact."
+  },
+  {
+    "id": "C33",
+    "existing_tags": ["visitor"],
+    "proposed_tag": null,
+    "rationale": "Asking if it is okay to visit despite doubts; visitor interest signal."
+  },
+  {
+    "id": "C34",
+    "existing_tags": [],
+    "proposed_tag": null,
+    "rationale": "Logistics question with no source or ministry signal."
+  },
+  {
+    "id": "C35",
+    "existing_tags": [],
+    "proposed_tag": null,
+    "rationale": "Location question only; no source or ministry signal."
+  },
+  {
+    "id": "C36",
+    "existing_tags": ["kids-ministry"],
+    "proposed_tag": null,
+    "rationale": "Explicitly looking for kids/Sunday school ministry; kids-ministry tag applies."
+  },
+  {
+    "id": "C37",
+    "existing_tags": ["small-group"],
+    "proposed_tag": null,
+    "rationale": "Asking about joining small groups; small-group ministry interest applies."
+  },
+  {
+    "id": "C38",
+    "existing_tags": [],
+    "proposed_tag": null,
+    "rationale": "Wrong number contact requesting removal; no tagging."
+  },
+  {
+    "id": "C39",
+    "existing_tags": ["neighborhood", "needs-followup"],
+    "proposed_tag": null,
+    "rationale": "Card as neighborhood signal; seeking community after life change (needs-followup)."
+  },
+  {
+    "id": "C40",
+    "existing_tags": ["visitor"],
+    "proposed_tag": null,
+    "rationale": "Wants to visit but asking about accessibility; visitor intent with specific pastoral need."
+  },
+  {
+    "id": "C41",
+    "existing_tags": ["neighborhood"],
+    "proposed_tag": null,
+    "rationale": "Asking about church down the street on Wildwood; clear neighborhood/local signal."
+  },
+  {
+    "id": "C42",
+    "existing_tags": ["online"],
+    "proposed_tag": null,
+    "rationale": "Found via Google search; explicit online source signal."
+  },
+  {
+    "id": "C43",
+    "existing_tags": ["neighborhood"],
+    "proposed_tag": null,
+    "rationale": "Drove past sign out front; neighborhood/physical signal."
+  },
+  {
+    "id": "C44",
+    "existing_tags": [],
+    "proposed_tag": null,
+    "rationale": "Service time and parking question with no source or ministry signal."
+  },
+  {
+    "id": "C45",
+    "existing_tags": ["online"],
+    "proposed_tag": null,
+    "rationale": "Saw post on Facebook; explicit online source signal."
+  },
+  {
+    "id": "C46",
+    "existing_tags": ["neighborhood"],
+    "proposed_tag": null,
+    "rationale": "Leaflet under windshield wiper; classic neighborhood outreach signal."
+  },
+  {
+    "id": "C47",
+    "existing_tags": ["online"],
+    "proposed_tag": null,
+    "rationale": "Popped up on Instagram reels; explicit online/social media signal."
+  },
+  {
+    "id": "C48",
+    "existing_tags": ["neighborhood"],
+    "proposed_tag": null,
+    "rationale": "Passes building on morning run; neighborhood/local signal."
+  },
+  {
+    "id": "C49",
+    "existing_tags": [],
+    "proposed_tag": null,
+    "rationale": "Logistics question about childcare with no source or engagement signal."
+  },
+  {
+    "id": "C50",
+    "existing_tags": [],
+    "proposed_tag": null,
+    "rationale": "Coworker invitation; word-of-mouth is relational but not a formal source tag category."
+  }
 ]

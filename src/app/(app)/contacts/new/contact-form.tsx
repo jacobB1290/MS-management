@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { FormField } from "@/components/ui/form-field"
+import { TagInput } from "@/components/tag-input"
 import type { Tables } from "@/lib/database.types"
 
 const CONSENT_OPTIONS = [
@@ -18,13 +19,15 @@ const CONSENT_OPTIONS = [
 interface ContactFormProps {
   initialValues?: Partial<Tables<"contacts">>
   contactId?: string
+  /** Existing tag vocabulary (base + distinct across contacts) for the picker. */
+  tagSuggestions?: string[]
 }
 
 /**
  * Used in both `/contacts/new` and `/contacts/[id]/edit`. When `contactId`
  * is provided, submits a PATCH; otherwise POSTs to create a new contact.
  */
-export function ContactForm({ initialValues, contactId }: ContactFormProps) {
+export function ContactForm({ initialValues, contactId, tagSuggestions = [] }: ContactFormProps) {
   const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -165,12 +168,13 @@ export function ContactForm({ initialValues, contactId }: ContactFormProps) {
         )}
       </div>
 
-      <FormField label="Tags" htmlFor="tags" hint="Comma-separated. Use for audience filters in campaigns.">
-        <Input
+      <FormField label="Tags" htmlFor="tags" hint="Pick from existing tags or create a new one. Used for audience filters in campaigns.">
+        <TagInput
           id="tags"
           name="tags"
-          placeholder="newcomer, volunteer"
-          defaultValue={initialValues?.tags?.join(", ") ?? ""}
+          defaultValue={initialValues?.tags ?? []}
+          suggestions={tagSuggestions}
+          aiTags={initialValues?.ai_tags ?? []}
         />
       </FormField>
 

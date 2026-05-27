@@ -7,15 +7,14 @@
     "language": "en",
     "channel": "sms",
     "category": "outreach",
-    "status": "done",
+    "status": "in_progress",
     "crisis": false,
     "byRule": false,
     "triageConf": 0.95,
     "tags": [
-      "visitor",
-      "kids-ministry"
+      "neighborhood"
     ],
-    "notes": "Found card on door; new to the church.\nPlanning to visit Sunday with two kids.\nChildcare needed.",
+    "notes": "Name: Maria\nFound church via card left on her door\nComing with two young children\nPlanning to visit Sunday; confirmed attendance",
     "optedOut": false,
     "optOutSource": null
   },
@@ -30,7 +29,7 @@
     "status": null,
     "crisis": false,
     "byRule": false,
-    "triageConf": 0.88,
+    "triageConf": 0.65,
     "tags": [],
     "notes": "",
     "optedOut": false,
@@ -47,7 +46,7 @@
     "status": null,
     "crisis": false,
     "byRule": false,
-    "triageConf": 0.92,
+    "triageConf": 0.85,
     "tags": [],
     "notes": "",
     "optedOut": true,
@@ -78,15 +77,15 @@
     "language": "en",
     "channel": "form",
     "category": "outreach",
-    "status": "done",
+    "status": "in_progress",
     "crisis": false,
     "byRule": false,
-    "triageConf": 0.96,
+    "triageConf": 0.98,
     "tags": [
       "newcomer",
-      "kids-ministry"
+      "neighborhood"
     ],
-    "notes": "Recently moved to the neighborhood.\nMarried; husband and two young children.\nLooking for a church home.\nPlanning to attend 9am service Sunday.",
+    "notes": "Name: Jennifer\nRecently moved to the neighborhood; new to the area\nMarried; husband unnamed; two young children\nLooking for a church home\nPlanning to attend 9am Sunday service; seats reserved by staff",
     "optedOut": false,
     "optOutSource": null
   },
@@ -101,11 +100,9 @@
     "status": "new",
     "crisis": false,
     "byRule": false,
-    "triageConf": 0.85,
-    "tags": [
-      "kids-ministry"
-    ],
-    "notes": "Has kids; interested in children's programming on Sunday mornings.",
+    "triageConf": 0.9,
+    "tags": [],
+    "notes": "Has children; inquiring about Sunday morning children's programming",
     "optedOut": false,
     "optOutSource": null
   },
@@ -120,11 +117,11 @@
     "status": "new",
     "crisis": false,
     "byRule": false,
-    "triageConf": 0.82,
+    "triageConf": 0.92,
     "tags": [
       "russian-speaker"
     ],
-    "notes": "Russian speaker; inquired about a Russian-language service.",
+    "notes": "Preferred language: Russian\nAsking about Russian-language service",
     "optedOut": false,
     "optOutSource": null
   },
@@ -139,11 +136,11 @@
     "status": "new",
     "crisis": false,
     "byRule": false,
-    "triageConf": 0.84,
+    "triageConf": 0.92,
     "tags": [
       "espanol"
     ],
-    "notes": "Spanish speaker; family wants to visit.\nInquired about Spanish-language service.",
+    "notes": "Preferred language: Spanish\nFamily wants to visit; inquired about Spanish-language service",
     "optedOut": false,
     "optOutSource": null
   },
@@ -155,14 +152,14 @@
     "language": "en",
     "channel": "sms",
     "category": "prayer",
-    "status": "answered",
+    "status": "praying",
     "crisis": false,
     "byRule": false,
-    "triageConf": 0.92,
+    "triageConf": 0.98,
     "tags": [
       "prayer-request"
     ],
-    "notes": "Asked for prayer for her mother's surgery.",
+    "notes": "Name: Carol\nAsked for prayer for her mother who had surgery on Thursday\nStaff acknowledged and praying",
     "optedOut": false,
     "optOutSource": null
   },
@@ -178,8 +175,10 @@
     "crisis": true,
     "byRule": true,
     "triageConf": 1,
-    "tags": [],
-    "notes": "Asked for prayer and support; expressed deep distress.",
+    "tags": [
+      "prayer-request"
+    ],
+    "notes": "Reached out in crisis; asked for prayer and support",
     "optedOut": false,
     "optOutSource": null
   },
@@ -194,9 +193,9 @@
     "status": null,
     "crisis": false,
     "byRule": false,
-    "triageConf": 0.72,
+    "triageConf": 0.7,
     "tags": [],
-    "notes": "Expressed deep discouragement; may benefit from pastoral outreach.",
+    "notes": "Expressed significant distress; may need pastoral follow-up",
     "optedOut": false,
     "optOutSource": null
   },
@@ -211,7 +210,7 @@
     "status": null,
     "crisis": false,
     "byRule": false,
-    "triageConf": 0.89,
+    "triageConf": 0.8,
     "tags": [],
     "notes": "",
     "optedOut": false,
@@ -228,9 +227,9 @@
     "status": null,
     "crisis": false,
     "byRule": false,
-    "triageConf": 0.88,
+    "triageConf": 0.85,
     "tags": [],
-    "notes": "Prefers phone calls over texts.",
+    "notes": "Prefers phone calls over text messages",
     "optedOut": false,
     "optOutSource": null
   },
@@ -245,12 +244,11 @@
     "status": "new",
     "crisis": false,
     "byRule": false,
-    "triageConf": 0.78,
+    "triageConf": 0.88,
     "tags": [
-      "volunteer",
-      "kids-ministry"
+      "volunteer"
     ],
-    "notes": "Wants to volunteer with kids ministry.",
+    "notes": "Interested in volunteering with children's ministry",
     "optedOut": false,
     "optOutSource": null
   },
@@ -265,11 +263,11 @@
     "status": "new",
     "crisis": false,
     "byRule": false,
-    "triageConf": 0.88,
+    "triageConf": 0.92,
     "tags": [
       "baptism-interest"
     ],
-    "notes": "Been away from church for a long time.\nInterested in baptism; asked how it works here.",
+    "notes": "Been away from church for a long time\nInterested in baptism; asked how the process works here",
     "optedOut": false,
     "optOutSource": null
   },
@@ -284,11 +282,12 @@
     "status": "new",
     "crisis": false,
     "byRule": false,
-    "triageConf": 0.89,
+    "triageConf": 0.93,
     "tags": [
+      "neighborhood",
       "worship-team"
     ],
-    "notes": "Plays guitar; wants to get involved with the worship team.",
+    "notes": "Found church via flyer at a coffee shop\nPlays guitar; interested in joining the worship/music team",
     "optedOut": false,
     "optOutSource": null
   },
@@ -303,11 +302,9 @@
     "status": null,
     "crisis": false,
     "byRule": false,
-    "triageConf": 0.7,
-    "tags": [
-      "visitor"
-    ],
-    "notes": "Family of four planning to visit Sunday.",
+    "triageConf": 0.75,
+    "tags": [],
+    "notes": "Planning to attend Sunday service; family of 4",
     "optedOut": false,
     "optOutSource": null
   },
@@ -324,10 +321,9 @@
     "byRule": false,
     "triageConf": 0.88,
     "tags": [
-      "visitor",
       "prayer-request"
     ],
-    "notes": "Asked for prayer for father who is hospitalized.",
+    "notes": "Asked for prayer for father who is in the hospital",
     "optedOut": false,
     "optOutSource": null
   },
@@ -376,7 +372,7 @@
     "status": null,
     "crisis": false,
     "byRule": false,
-    "triageConf": 0.85,
+    "triageConf": 0.7,
     "tags": [],
     "notes": "",
     "optedOut": false,
@@ -393,12 +389,9 @@
     "status": "new",
     "crisis": false,
     "byRule": false,
-    "triageConf": 0.81,
-    "tags": [
-      "newcomer",
-      "kids-ministry"
-    ],
-    "notes": "Recently moved from Texas.\nMarried; wife is a kindergarten teacher, he works in construction.\nTwo children, ages 4 and 6.",
+    "triageConf": 0.85,
+    "tags": [],
+    "notes": "Recently moved from Texas\nMarried; wife is a kindergarten teacher; contact works in construction\nTwo children, ages 4 and 6",
     "optedOut": false,
     "optOutSource": null
   },
@@ -413,11 +406,11 @@
     "status": null,
     "crisis": false,
     "byRule": false,
-    "triageConf": 0.9,
+    "triageConf": 0.88,
     "tags": [
       "member"
     ],
-    "notes": "Already attends the church.",
+    "notes": "Current church member; saved the church number from a card",
     "optedOut": false,
     "optOutSource": null
   },
@@ -432,7 +425,7 @@
     "status": null,
     "crisis": false,
     "byRule": false,
-    "triageConf": 0.87,
+    "triageConf": 0.9,
     "tags": [],
     "notes": "",
     "optedOut": false,
@@ -449,7 +442,7 @@
     "status": null,
     "crisis": false,
     "byRule": false,
-    "triageConf": 0.84,
+    "triageConf": 0.92,
     "tags": [],
     "notes": "",
     "optedOut": false,
@@ -466,12 +459,11 @@
     "status": "in_progress",
     "crisis": false,
     "byRule": false,
-    "triageConf": 0.91,
+    "triageConf": 0.92,
     "tags": [
-      "visitor",
       "needs-followup"
     ],
-    "notes": "Interested in learning more about the church and getting involved.",
+    "notes": "Interested in learning more about the church and getting involved\nStaff offered to connect with welcome team; contact tentative, still exploring",
     "optedOut": false,
     "optOutSource": null
   },
@@ -486,11 +478,11 @@
     "status": "done",
     "crisis": false,
     "byRule": false,
-    "triageConf": 0.94,
+    "triageConf": 0.96,
     "tags": [
-      "visitor"
+      "newcomer"
     ],
-    "notes": "Visited Sunday and attended newcomers lunch.",
+    "notes": "Received an invitation to visit; came on Sunday\nAttended newcomers lunch",
     "optedOut": false,
     "optOutSource": null
   },
@@ -505,10 +497,8 @@
     "status": "closed",
     "crisis": false,
     "byRule": false,
-    "triageConf": 0.93,
-    "tags": [
-      "visitor"
-    ],
+    "triageConf": 0.94,
+    "tags": [],
     "notes": "",
     "optedOut": false,
     "optOutSource": null
@@ -524,9 +514,11 @@
     "status": "new",
     "crisis": false,
     "byRule": false,
-    "triageConf": 0.97,
-    "tags": [],
-    "notes": "Asked for prayer; dealing with a serious health diagnosis.",
+    "triageConf": 0.98,
+    "tags": [
+      "prayer-request"
+    ],
+    "notes": "Asked for prayer; going through a serious health situation and expressed fear\nNeeds ongoing pastoral care",
     "optedOut": false,
     "optOutSource": null
   },
@@ -541,7 +533,7 @@
     "status": null,
     "crisis": false,
     "byRule": false,
-    "triageConf": 0.91,
+    "triageConf": 0.92,
     "tags": [],
     "notes": "",
     "optedOut": true,
@@ -558,11 +550,11 @@
     "status": "new",
     "crisis": false,
     "byRule": false,
-    "triageConf": 0.94,
+    "triageConf": 0.95,
     "tags": [
       "prayer-request"
     ],
-    "notes": "Asked for prayer for family during a difficult time.",
+    "notes": "Family going through a difficult time; asked for prayer",
     "optedOut": false,
     "optOutSource": null
   },
@@ -577,8 +569,10 @@
     "status": null,
     "crisis": false,
     "byRule": false,
-    "triageConf": 0.86,
-    "tags": [],
+    "triageConf": 0.8,
+    "tags": [
+      "neighborhood"
+    ],
     "notes": "",
     "optedOut": false,
     "optOutSource": null
@@ -594,11 +588,11 @@
     "status": "new",
     "crisis": false,
     "byRule": false,
-    "triageConf": 0.87,
+    "triageConf": 0.85,
     "tags": [
       "visitor"
     ],
-    "notes": "Spiritually curious but uncertain in belief; open to visiting.",
+    "notes": "Spiritually exploring; not yet certain about beliefs but open to visiting",
     "optedOut": false,
     "optOutSource": null
   },
@@ -613,7 +607,7 @@
     "status": "new",
     "crisis": false,
     "byRule": false,
-    "triageConf": 0.86,
+    "triageConf": 0.88,
     "tags": [],
     "notes": "",
     "optedOut": false,
@@ -630,7 +624,7 @@
     "status": "new",
     "crisis": false,
     "byRule": false,
-    "triageConf": 0.9,
+    "triageConf": 0.92,
     "tags": [],
     "notes": "",
     "optedOut": false,
@@ -647,11 +641,11 @@
     "status": "new",
     "crisis": false,
     "byRule": false,
-    "triageConf": 0.88,
+    "triageConf": 0.94,
     "tags": [
       "kids-ministry"
     ],
-    "notes": "Has a 5-year-old; interested in Sunday school for that age.",
+    "notes": "Has a 5-year-old child; looking for Sunday school / children's programming",
     "optedOut": false,
     "optOutSource": null
   },
@@ -666,11 +660,11 @@
     "status": "new",
     "crisis": false,
     "byRule": false,
-    "triageConf": 0.85,
+    "triageConf": 0.88,
     "tags": [
       "small-group"
     ],
-    "notes": "Works most Sundays; interested in a midweek small group.",
+    "notes": "Works most Sundays; unable to attend Sunday services\nInterested in midweek small groups",
     "optedOut": false,
     "optOutSource": null
   },
@@ -685,7 +679,7 @@
     "status": null,
     "crisis": false,
     "byRule": false,
-    "triageConf": 0.9,
+    "triageConf": 0.88,
     "tags": [],
     "notes": "",
     "optedOut": true,
@@ -702,12 +696,12 @@
     "status": "new",
     "crisis": false,
     "byRule": false,
-    "triageConf": 0.9,
+    "triageConf": 0.92,
     "tags": [
-      "visitor",
+      "neighborhood",
       "needs-followup"
     ],
-    "notes": "Recently divorced; looking for community and a church home.",
+    "notes": "Found church via outreach card\nLooking for community and a church home; going through a significant life transition",
     "optedOut": false,
     "optOutSource": null
   },
@@ -722,11 +716,195 @@
     "status": "new",
     "crisis": false,
     "byRule": false,
-    "triageConf": 0.89,
+    "triageConf": 0.9,
     "tags": [
       "visitor"
     ],
-    "notes": "Has a son who uses a wheelchair; asked about building accessibility before visiting.",
+    "notes": "Family wants to visit\nSon uses a wheelchair; accessibility is a requirement before attending",
+    "optedOut": false,
+    "optOutSource": null
+  },
+  {
+    "id": "C41",
+    "name": null,
+    "phone": "+12085550241",
+    "email": null,
+    "language": "en",
+    "channel": "sms",
+    "category": "question",
+    "status": "new",
+    "crisis": false,
+    "byRule": false,
+    "triageConf": 0.88,
+    "tags": [
+      "neighborhood"
+    ],
+    "notes": "",
+    "optedOut": false,
+    "optOutSource": null
+  },
+  {
+    "id": "C42",
+    "name": null,
+    "phone": "+12085550242",
+    "email": null,
+    "language": "en",
+    "channel": "sms",
+    "category": "question",
+    "status": "new",
+    "crisis": false,
+    "byRule": false,
+    "triageConf": 0.92,
+    "tags": [
+      "online"
+    ],
+    "notes": "Found church via Google search",
+    "optedOut": false,
+    "optOutSource": null
+  },
+  {
+    "id": "C43",
+    "name": null,
+    "phone": "+12085550243",
+    "email": null,
+    "language": "en",
+    "channel": "sms",
+    "category": "question",
+    "status": "new",
+    "crisis": false,
+    "byRule": false,
+    "triageConf": 0.9,
+    "tags": [
+      "neighborhood"
+    ],
+    "notes": "Found church by driving past the building and seeing the sign",
+    "optedOut": false,
+    "optOutSource": null
+  },
+  {
+    "id": "C44",
+    "name": null,
+    "phone": "+12085550244",
+    "email": null,
+    "language": "en",
+    "channel": "sms",
+    "category": "question",
+    "status": "new",
+    "crisis": false,
+    "byRule": false,
+    "triageConf": 0.88,
+    "tags": [],
+    "notes": "",
+    "optedOut": false,
+    "optOutSource": null
+  },
+  {
+    "id": "C45",
+    "name": null,
+    "phone": "+12085550245",
+    "email": null,
+    "language": "en",
+    "channel": "sms",
+    "category": "question",
+    "status": "new",
+    "crisis": false,
+    "byRule": false,
+    "triageConf": 0.85,
+    "tags": [
+      "online"
+    ],
+    "notes": "Found church via Facebook; saw post about a food drive\nInterested in the food drive event",
+    "optedOut": false,
+    "optOutSource": null
+  },
+  {
+    "id": "C46",
+    "name": null,
+    "phone": "+12085550246",
+    "email": null,
+    "language": "en",
+    "channel": "sms",
+    "category": "question",
+    "status": "new",
+    "crisis": false,
+    "byRule": false,
+    "triageConf": 0.88,
+    "tags": [
+      "neighborhood"
+    ],
+    "notes": "Found church via leaflet placed on windshield",
+    "optedOut": false,
+    "optOutSource": null
+  },
+  {
+    "id": "C47",
+    "name": null,
+    "phone": "+12085550247",
+    "email": null,
+    "language": "en",
+    "channel": "sms",
+    "category": "outreach",
+    "status": "new",
+    "crisis": false,
+    "byRule": false,
+    "triageConf": 0.8,
+    "tags": [
+      "online"
+    ],
+    "notes": "Found church via social media (reels)\nInterested in a young adults group",
+    "optedOut": false,
+    "optOutSource": null
+  },
+  {
+    "id": "C48",
+    "name": null,
+    "phone": "+12085550248",
+    "email": null,
+    "language": "en",
+    "channel": "sms",
+    "category": "outreach",
+    "status": "new",
+    "crisis": false,
+    "byRule": false,
+    "triageConf": 0.82,
+    "tags": [
+      "neighborhood"
+    ],
+    "notes": "Passes the church building regularly on morning runs; reached out out of curiosity",
+    "optedOut": false,
+    "optOutSource": null
+  },
+  {
+    "id": "C49",
+    "name": null,
+    "phone": "+12085550249",
+    "email": null,
+    "language": "en",
+    "channel": "sms",
+    "category": "question",
+    "status": "new",
+    "crisis": false,
+    "byRule": false,
+    "triageConf": 0.92,
+    "tags": [],
+    "notes": "Has young children; asked about childcare availability during service",
+    "optedOut": false,
+    "optOutSource": null
+  },
+  {
+    "id": "C50",
+    "name": null,
+    "phone": "+12085550250",
+    "email": null,
+    "language": "en",
+    "channel": "sms",
+    "category": "outreach",
+    "status": "new",
+    "crisis": false,
+    "byRule": false,
+    "triageConf": 0.91,
+    "tags": [],
+    "notes": "Invited to visit by a coworker who attends the church",
     "optedOut": false,
     "optOutSource": null
   }

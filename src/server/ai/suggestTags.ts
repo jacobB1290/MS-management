@@ -3,7 +3,7 @@ import { z } from "zod"
 import { createSupabaseAdminClient } from "@/lib/supabase/server"
 import { createAnthropicClient, isAiEnabled } from "./client"
 import { getFeatureConfig, modelSupportsEffort, type AiFeatureConfig } from "./config"
-import { TAGGING_SYSTEM_PROMPT, SENSITIVE_TAG, buildTranscript, type ThreadMessage } from "./prompts"
+import { TAGGING_SYSTEM_PROMPT, SENSITIVE_TAG, BASE_TAG_VOCAB, buildTranscript, type ThreadMessage } from "./prompts"
 
 /** How many recent messages to feed the model. Enough to characterize the
  *  relationship without ballooning token cost on chatty threads. */
@@ -67,16 +67,24 @@ export async function proposeTags(
   vocab: string[],
   currentTags: string[],
   config: AiFeatureConfig,
+  aiTags: string[] = [],
 ): Promise<TagSuggestion | null> {
   const thread = messages.filter((m) => Boolean(m.body))
   if (thread.length === 0) return null
 
-  const vocabList = Array.from(new Set(vocab.filter(Boolean))).sort().slice(0, TAG_VOCAB_LIMIT)
+  // Union the canonical base vocab so source/ministry tags work from day one
+  // (no cold-start gap) on top of whatever tags staff have created.
+  const vocabList = Array.from(new Set([...BASE_TAG_VOCAB, ...vocab.filter(Boolean)])).sort().slice(0, TAG_VOCAB_LIMIT)
+  // Split current tags by provenance so the model treats staff tags as
+  // authoritative context (it only ever adds; the app never auto-removes).
+  const aiSet = new Set(aiTags)
+  const staffTags = currentTags.filter((t) => !aiSet.has(t))
+  const autoTags = currentTags.filter((t) => aiSet.has(t))
   const userContent = [
     `Existing tag vocabulary (choose only from these for existing_tags):\n${
       vocabList.length ? vocabList.join(", ") : "(none yet)"
     }`,
-    `Tags already on this contact: ${currentTags.length ? currentTags.join(", ") : "(none)"}`,
+    `Tags already on this contact:\n- added by staff (authoritative, do not re-propose): ${staffTags.length ? staffTags.join(", ") : "(none)"}\n- previously auto-applied: ${autoTags.length ? autoTags.join(", ") : "(none)"}`,
     `Recent thread (oldest first):\n${buildTranscript(thread)}`,
   ].join("\n\n")
 
@@ -140,7 +148,7 @@ export async function suggestTags(contactId: string): Promise<SuggestTagsResult>
   const admin = createSupabaseAdminClient()
   const [config, { data: contact }, { data: thread }, { data: allTagRows }] = await Promise.all([
     getFeatureConfig("tagging"),
-    admin.from("contacts").select("id, tags").eq("id", contactId).maybeSingle(),
+    admin.from("contacts").select("id, tags, ai_tags").eq("id", contactId).maybeSingle(),
     admin
       .from("messages")
       .select("direction, body")
@@ -162,7 +170,8 @@ export async function suggestTags(contactId: string): Promise<SuggestTagsResult>
   const vocab: string[] = []
   for (const row of allTagRows ?? []) for (const t of row.tags ?? []) if (t) vocab.push(t)
 
-  const suggestion = await proposeTags(messages, vocab, currentTags, config)
+  const aiTags = ((contact as { ai_tags?: string[] }).ai_tags ?? []).filter(Boolean)
+  const suggestion = await proposeTags(messages, vocab, currentTags, config, aiTags)
   if (!suggestion) return { ok: false, reason: "provider_failed" }
   return { ok: true, currentTags, suggestion }
 }

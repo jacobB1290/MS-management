@@ -8,7 +8,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { requireStaff } from "@/server/auth"
 import { isVoiceConfigured } from "@/server/comms/voice"
 import { resolveOptInMode } from "@/server/comms/optInMode"
-import { Badge } from "@/components/ui/badge"
+import { TagList } from "@/components/tag-list"
 import { CallButton } from "@/components/call-button"
 import { formatPhone, humanizeSource } from "@/lib/utils"
 import { DeleteContactButton } from "@/components/delete-contact-button"
@@ -180,17 +180,7 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
               <div className="min-w-0">
                 <dt className="eyebrow mb-2">Tags</dt>
                 <dd>
-                  {contact.tags && contact.tags.length > 0 ? (
-                    <div className="flex flex-wrap gap-1.5">
-                      {contact.tags.map((t) => (
-                        <Badge key={t} variant="muted">
-                          {t}
-                        </Badge>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-small text-ink-muted italic">No tags yet</p>
-                  )}
+                  <TagList tags={contact.tags} aiTags={contact.ai_tags} />
                 </dd>
               </div>
               <div className="shrink-0">

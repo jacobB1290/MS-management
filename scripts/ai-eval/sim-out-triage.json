@@ -2,267 +2,337 @@
   {
     "id": "C01",
     "category": "outreach",
-    "status": "done",
+    "status": "in_progress",
     "confidence": 0.95,
-    "rationale": "New visitor found card and confirmed attendance with kids; outreach opportunity has been acted on and person is coming."
+    "rationale": "First-time contact responding positively to church outreach with commitment to visit."
   },
   {
     "id": "C02",
     "category": "general",
     "status": null,
-    "confidence": 0.88,
-    "rationale": "Person is confused about contact source; unclear if they want opt-out or just clarification."
+    "confidence": 0.65,
+    "rationale": "Unclear context; contact doesn't recognize church or ask a substantive question."
   },
   {
     "id": "C03",
     "category": "general",
     "status": null,
-    "confidence": 0.92,
-    "rationale": "Clear opt-out request; this is a compliance action, not a conversation segment."
+    "confidence": 0.85,
+    "rationale": "Rejection without asking for prayer or community connection; not a core segment."
   },
   {
     "id": "C05",
     "category": "outreach",
-    "status": "done",
-    "confidence": 0.96,
-    "rationale": "New family seeking church home, staff engaged with welcome offer, family confirmed attendance."
+    "status": "in_progress",
+    "confidence": 0.98,
+    "rationale": "Newcomer to area explicitly seeking church home, staff engaged, family committed to visit."
   },
   {
     "id": "C06",
     "category": "question",
     "status": "new",
-    "confidence": 0.85,
-    "rationale": "Logistical question about kids programs; no staff response yet."
+    "confidence": 0.9,
+    "rationale": "Direct question about children's ministry offerings with no staff response yet."
   },
   {
     "id": "C07",
     "category": "question",
     "status": "new",
-    "confidence": 0.82,
-    "rationale": "Asking about Russian-language service; logistical question not yet answered."
+    "confidence": 0.92,
+    "rationale": "Asking whether church offers services in Russian language."
   },
   {
     "id": "C08",
     "category": "question",
     "status": "new",
-    "confidence": 0.84,
-    "rationale": "Asking about Spanish service and family visit; logistical question not yet answered."
+    "confidence": 0.92,
+    "rationale": "Asking about Spanish-language service with intent to visit."
   },
   {
     "id": "C09",
     "category": "prayer",
-    "status": "answered",
-    "confidence": 0.92,
-    "rationale": "Prayer request for mother's surgery, staff acknowledged prayer, contact thanked and conversation concluded."
+    "status": "praying",
+    "confidence": 0.98,
+    "rationale": "Prayer request for mother's surgery acknowledged by staff with ongoing intercession."
   },
   {
     "id": "C11",
     "category": "prayer",
     "status": "new",
-    "confidence": 0.72,
-    "rationale": "Expression of despair and hopelessness; appears to be a spiritual/emotional need that staff should engage with, though brief and ambiguous."
+    "confidence": 0.7,
+    "rationale": "Expression of despair and hopelessness suggests emotional/spiritual distress needing pastoral care."
   },
   {
     "id": "C12",
     "category": "general",
     "status": null,
-    "confidence": 0.89,
-    "rationale": "Complaint about messaging frequency; operational feedback, not a prayer/question/outreach need."
+    "confidence": 0.8,
+    "rationale": "Complaint about frequency; not a request to opt-out, prayer, question, or outreach opportunity."
   },
   {
     "id": "C13",
     "category": "general",
     "status": null,
-    "confidence": 0.88,
-    "rationale": "Request to switch communication method from text to call; preference update, not a core conversation segment."
+    "confidence": 0.85,
+    "rationale": "Channel preference request; contact still wants engagement but not via text."
   },
   {
     "id": "C14",
     "category": "outreach",
     "status": "new",
-    "confidence": 0.78,
-    "rationale": "Person wants to volunteer with kids ministry; warm engagement opportunity. Prompt injection in text is ignored."
+    "confidence": 0.88,
+    "rationale": "Despite injection attempt noise, clear expression of interest in volunteering with kids ministry."
   },
   {
     "id": "C15",
     "category": "question",
     "status": "new",
-    "confidence": 0.88,
-    "rationale": "Asking about baptism process; logistical/spiritual question not yet answered by staff."
+    "confidence": 0.92,
+    "rationale": "Direct question about baptism process for person re-engaging with church."
   },
   {
     "id": "C16",
     "category": "outreach",
     "status": "new",
-    "confidence": 0.89,
-    "rationale": "Person with musical skills interested in worship involvement; proactive engagement opportunity not yet pursued."
+    "confidence": 0.93,
+    "rationale": "Potential volunteer signaling readiness to join worship team with specific skill."
   },
   {
     "id": "C17",
     "category": "general",
     "status": null,
-    "confidence": 0.70,
-    "rationale": "Confirmation of attendance; likely responding to prior invitation but thread shows only this acknowledgment."
+    "confidence": 0.75,
+    "rationale": "Confirmation response to outreach invitation; logistics confirmation rather than new segment."
   },
   {
     "id": "C18",
     "category": "prayer",
     "status": "new",
     "confidence": 0.88,
-    "rationale": "Multi-intent message asking service time and prayer for father in hospital; prayer need is higher-stakes and takes precedence."
+    "rationale": "Prayer request for hospitalized parent takes precedence over logistics question."
   },
   {
     "id": "C19",
     "category": "general",
     "status": null,
-    "confidence": 0.90,
-    "rationale": "Explicit opt-out request with explanation; compliance action, not an ongoing conversation segment."
+    "confidence": 0.9,
+    "rationale": "Explicit non-interest; not seeking prayer, community, or further engagement."
   },
   {
     "id": "C20",
     "category": "general",
     "status": null,
-    "confidence": 0.60,
-    "rationale": "Single word acknowledgment; too brief to classify as question, prayer, or outreach."
+    "confidence": 0.6,
+    "rationale": "Minimal response with no clear intent or content."
   },
   {
     "id": "C21",
     "category": "general",
     "status": null,
-    "confidence": 0.85,
-    "rationale": "Humorous confusion about new phone; not a genuine request or question to engage with."
+    "confidence": 0.7,
+    "rationale": "Joking response indicating new phone; no substantive church inquiry."
   },
   {
     "id": "C22",
     "category": "outreach",
     "status": "new",
-    "confidence": 0.81,
-    "rationale": "New family to area sharing context about kids and occupations; implicit interest in church connection, staff opportunity to engage."
+    "confidence": 0.85,
+    "rationale": "Family new to area with children looking for church engagement; warm relational signal."
   },
   {
     "id": "C23",
     "category": "general",
     "status": null,
-    "confidence": 0.90,
-    "rationale": "Existing member clarifying they are already connected; no action needed."
+    "confidence": 0.88,
+    "rationale": "Existing member saving contact; no new engagement or need."
   },
   {
     "id": "C24",
     "category": "general",
     "status": null,
-    "confidence": 0.87,
-    "rationale": "Warning about too frequent contact; operational complaint, not a conversation segment."
+    "confidence": 0.9,
+    "rationale": "Conditional complaint about frequency; not a present unconditional opt-out request."
   },
   {
     "id": "C25",
     "category": "general",
     "status": null,
-    "confidence": 0.84,
-    "rationale": "Clarification that lack of response was due to phone being off; reassurance message."
+    "confidence": 0.92,
+    "rationale": "Clarification that previous silence was unavailability, not rejection."
   },
   {
     "id": "C26",
     "category": "outreach",
     "status": "in_progress",
-    "confidence": 0.91,
-    "rationale": "Person wants to learn more and get involved, staff initiated coffee meeting, contact is engaged but logistics still being worked out."
+    "confidence": 0.92,
+    "rationale": "Person expressing interest in learning and involvement with staff actively facilitating next step."
   },
   {
     "id": "C27",
     "category": "outreach",
     "status": "done",
-    "confidence": 0.94,
-    "rationale": "Invited person visited, attended newcomers event, and expressed gratitude; outreach completed successfully."
+    "confidence": 0.96,
+    "rationale": "Visitor has completed visit and participated in community event; connection established."
   },
   {
     "id": "C28",
     "category": "question",
     "status": "closed",
-    "confidence": 0.93,
-    "rationale": "Person asked service time, staff answered, contact confirmed and thanked; question resolved."
+    "confidence": 0.94,
+    "rationale": "Service time question answered by staff with contact confirmation of understanding."
   },
   {
     "id": "C29",
     "category": "prayer",
     "status": "new",
-    "confidence": 0.97,
-    "rationale": "Critical prayer request: recent cancer diagnosis with expressed fear; urgent new prayer need."
+    "confidence": 0.98,
+    "rationale": "Urgent prayer request for serious health crisis with expressed fear; new pastoral need."
   },
   {
     "id": "C30",
     "category": "general",
     "status": null,
-    "confidence": 0.91,
-    "rationale": "Spanish opt-out request; compliance action, not an ongoing conversation segment."
+    "confidence": 0.92,
+    "rationale": "Clear opt-out request in Spanish; handled at compliance level not triage."
   },
   {
     "id": "C31",
     "category": "prayer",
     "status": "new",
-    "confidence": 0.94,
-    "rationale": "Request for family to be kept in prayers during hard time; prayer request with no staff response yet."
+    "confidence": 0.95,
+    "rationale": "Request for prayer support during family hardship; active pastoral need."
   },
   {
     "id": "C32",
     "category": "general",
     "status": null,
-    "confidence": 0.86,
-    "rationale": "Short thank-you for door visit; polite acknowledgment, conversation naturally concluded."
+    "confidence": 0.8,
+    "rationale": "Brief thanks for in-person visit; no ongoing need or question."
   },
   {
     "id": "C33",
     "category": "question",
     "status": "new",
-    "confidence": 0.87,
-    "rationale": "Asking if unbelievers are welcome; legitimate logistical/doctrinal question not yet answered."
+    "confidence": 0.85,
+    "rationale": "Question about welcome policy for those uncertain about faith."
   },
   {
     "id": "C34",
     "category": "question",
     "status": "new",
-    "confidence": 0.86,
-    "rationale": "Asking about dress code; logistical question not yet answered."
+    "confidence": 0.88,
+    "rationale": "Logistical question about dress code for visiting."
   },
   {
     "id": "C35",
     "category": "question",
     "status": "new",
-    "confidence": 0.90,
-    "rationale": "Asking for specific location; logistical question not yet answered."
+    "confidence": 0.92,
+    "rationale": "Direct question about church location."
   },
   {
     "id": "C36",
     "category": "question",
     "status": "new",
-    "confidence": 0.88,
-    "rationale": "Asking about Sunday school for 5-year-old; logistical question about programs not yet answered."
+    "confidence": 0.94,
+    "rationale": "Question about Sunday school program for specific age group."
   },
   {
     "id": "C37",
     "category": "question",
     "status": "new",
-    "confidence": 0.85,
-    "rationale": "Asking about midweek small groups for non-Sunday availability; logistical question not yet answered."
+    "confidence": 0.88,
+    "rationale": "Question about small groups with schedule constraint; potential outreach if interested."
   },
   {
     "id": "C38",
     "category": "general",
     "status": null,
-    "confidence": 0.90,
-    "rationale": "Wrong number contact requesting removal; compliance action."
+    "confidence": 0.88,
+    "rationale": "Wrong number with removal request; contact issue rather than church interest."
   },
   {
     "id": "C39",
     "category": "outreach",
     "status": "new",
-    "confidence": 0.90,
-    "rationale": "New contact post-divorce seeking community; warm relational opportunity for staff proactive follow-up."
+    "confidence": 0.92,
+    "rationale": "Post-divorce seeking community and church connection; warm relational opportunity."
   },
   {
     "id": "C40",
     "category": "question",
     "status": "new",
-    "confidence": 0.89,
-    "rationale": "Asking about wheelchair accessibility before visit; logistical/access question not yet answered."
+    "confidence": 0.9,
+    "rationale": "Question about accessibility with intent to visit as family."
+  },
+  {
+    "id": "C41",
+    "category": "question",
+    "status": "new",
+    "confidence": 0.88,
+    "rationale": "Question confirming church location with neighborhood reference."
+  },
+  {
+    "id": "C42",
+    "category": "question",
+    "status": "new",
+    "confidence": 0.92,
+    "rationale": "Asks service time after finding via online search; question about logistics."
+  },
+  {
+    "id": "C43",
+    "category": "question",
+    "status": "new",
+    "confidence": 0.9,
+    "rationale": "Question about service times prompted by driving past building."
+  },
+  {
+    "id": "C44",
+    "category": "question",
+    "status": "new",
+    "confidence": 0.88,
+    "rationale": "Two logistics questions about service time and parking."
+  },
+  {
+    "id": "C45",
+    "category": "question",
+    "status": "new",
+    "confidence": 0.85,
+    "rationale": "Question about event participation requirements."
+  },
+  {
+    "id": "C46",
+    "category": "question",
+    "status": "new",
+    "confidence": 0.88,
+    "rationale": "Question about church identity prompted by flyer; seeking basic information."
+  },
+  {
+    "id": "C47",
+    "category": "outreach",
+    "status": "new",
+    "confidence": 0.8,
+    "rationale": "Social media discovery with interest in young adults group; potential volunteer/member."
+  },
+  {
+    "id": "C48",
+    "category": "outreach",
+    "status": "new",
+    "confidence": 0.82,
+    "rationale": "Regular proximity to building showing curiosity and readiness to engage."
+  },
+  {
+    "id": "C49",
+    "category": "question",
+    "status": "new",
+    "confidence": 0.92,
+    "rationale": "Question about childcare availability during service."
+  },
+  {
+    "id": "C50",
+    "category": "outreach",
+    "status": "new",
+    "confidence": 0.91,
+    "rationale": "Warm referral from existing member suggesting coworker visit; relationship-based opportunity."
   }
 ]

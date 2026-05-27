@@ -1,7 +1,7 @@
 [
   {
     "id": "C01",
-    "notes": "Found card on door; new to the church.\nPlanning to visit Sunday with two kids.\nChildcare needed."
+    "notes": "Name: Maria\nFound church via card left on her door\nComing with two young children\nPlanning to visit Sunday; confirmed attendance"
   },
   {
     "id": "C02",
@@ -13,31 +13,31 @@
   },
   {
     "id": "C05",
-    "notes": "Recently moved to the neighborhood.\nMarried; husband and two young children.\nLooking for a church home.\nPlanning to attend 9am service Sunday."
+    "notes": "Name: Jennifer\nRecently moved to the neighborhood; new to the area\nMarried; husband unnamed; two young children\nLooking for a church home\nPlanning to attend 9am Sunday service; seats reserved by staff"
   },
   {
     "id": "C06",
-    "notes": "Has kids; interested in children's programming on Sunday mornings."
+    "notes": "Has children; inquiring about Sunday morning children's programming"
   },
   {
     "id": "C07",
-    "notes": "Russian speaker; inquired about a Russian-language service."
+    "notes": "Preferred language: Russian\nAsking about Russian-language service"
   },
   {
     "id": "C08",
-    "notes": "Spanish speaker; family wants to visit.\nInquired about Spanish-language service."
+    "notes": "Preferred language: Spanish\nFamily wants to visit; inquired about Spanish-language service"
   },
   {
     "id": "C09",
-    "notes": "Asked for prayer for her mother's surgery."
+    "notes": "Name: Carol\nAsked for prayer for her mother who had surgery on Thursday\nStaff acknowledged and praying"
   },
   {
     "id": "C10",
-    "notes": "Asked for prayer and support; expressed deep distress."
+    "notes": "Reached out in crisis; asked for prayer and support"
   },
   {
     "id": "C11",
-    "notes": "Expressed deep discouragement; may benefit from pastoral outreach."
+    "notes": "Expressed significant distress; may need pastoral follow-up"
   },
   {
     "id": "C12",
@@ -45,27 +45,27 @@
   },
   {
     "id": "C13",
-    "notes": "Prefers phone calls over texts."
+    "notes": "Prefers phone calls over text messages"
   },
   {
     "id": "C14",
-    "notes": "Wants to volunteer with kids ministry."
+    "notes": "Interested in volunteering with children's ministry"
   },
   {
     "id": "C15",
-    "notes": "Been away from church for a long time.\nInterested in baptism; asked how it works here."
+    "notes": "Been away from church for a long time\nInterested in baptism; asked how the process works here"
   },
   {
     "id": "C16",
-    "notes": "Plays guitar; wants to get involved with the worship team."
+    "notes": "Found church via flyer at a coffee shop\nPlays guitar; interested in joining the worship/music team"
   },
   {
     "id": "C17",
-    "notes": "Family of four planning to visit Sunday."
+    "notes": "Planning to attend Sunday service; family of 4"
   },
   {
     "id": "C18",
-    "notes": "Asked for prayer for father who is hospitalized."
+    "notes": "Asked for prayer for father who is in the hospital"
   },
   {
     "id": "C19",
@@ -81,11 +81,11 @@
   },
   {
     "id": "C22",
-    "notes": "Recently moved from Texas.\nMarried; wife is a kindergarten teacher, he works in construction.\nTwo children, ages 4 and 6."
+    "notes": "Recently moved from Texas\nMarried; wife is a kindergarten teacher; contact works in construction\nTwo children, ages 4 and 6"
   },
   {
     "id": "C23",
-    "notes": "Already attends the church."
+    "notes": "Current church member; saved the church number from a card"
   },
   {
     "id": "C24",
@@ -97,11 +97,11 @@
   },
   {
     "id": "C26",
-    "notes": "Interested in learning more about the church and getting involved."
+    "notes": "Interested in learning more about the church and getting involved\nStaff offered to connect with welcome team; contact tentative, still exploring"
   },
   {
     "id": "C27",
-    "notes": "Visited Sunday and attended newcomers lunch."
+    "notes": "Received an invitation to visit; came on Sunday\nAttended newcomers lunch"
   },
   {
     "id": "C28",
@@ -109,7 +109,7 @@
   },
   {
     "id": "C29",
-    "notes": "Asked for prayer; dealing with a serious health diagnosis."
+    "notes": "Asked for prayer; going through a serious health situation and expressed fear\nNeeds ongoing pastoral care"
   },
   {
     "id": "C30",
@@ -117,7 +117,7 @@
   },
   {
     "id": "C31",
-    "notes": "Asked for prayer for family during a difficult time."
+    "notes": "Family going through a difficult time; asked for prayer"
   },
   {
     "id": "C32",
@@ -125,7 +125,7 @@
   },
   {
     "id": "C33",
-    "notes": "Spiritually curious but uncertain in belief; open to visiting."
+    "notes": "Spiritually exploring; not yet certain about beliefs but open to visiting"
   },
   {
     "id": "C34",
@@ -137,11 +137,11 @@
   },
   {
     "id": "C36",
-    "notes": "Has a 5-year-old; interested in Sunday school for that age."
+    "notes": "Has a 5-year-old child; looking for Sunday school / children's programming"
   },
   {
     "id": "C37",
-    "notes": "Works most Sundays; interested in a midweek small group."
+    "notes": "Works most Sundays; unable to attend Sunday services\nInterested in midweek small groups"
   },
   {
     "id": "C38",
@@ -149,10 +149,50 @@
   },
   {
     "id": "C39",
-    "notes": "Recently divorced; looking for community and a church home."
+    "notes": "Found church via outreach card\nLooking for community and a church home; going through a significant life transition"
   },
   {
     "id": "C40",
-    "notes": "Has a son who uses a wheelchair; asked about building accessibility before visiting."
+    "notes": "Family wants to visit\nSon uses a wheelchair; accessibility is a requirement before attending"
+  },
+  {
+    "id": "C41",
+    "notes": ""
+  },
+  {
+    "id": "C42",
+    "notes": "Found church via Google search"
+  },
+  {
+    "id": "C43",
+    "notes": "Found church by driving past the building and seeing the sign"
+  },
+  {
+    "id": "C44",
+    "notes": ""
+  },
+  {
+    "id": "C45",
+    "notes": "Found church via Facebook; saw post about a food drive\nInterested in the food drive event"
+  },
+  {
+    "id": "C46",
+    "notes": "Found church via leaflet placed on windshield"
+  },
+  {
+    "id": "C47",
+    "notes": "Found church via social media (reels)\nInterested in a young adults group"
+  },
+  {
+    "id": "C48",
+    "notes": "Passes the church building regularly on morning runs; reached out out of curiosity"
+  },
+  {
+    "id": "C49",
+    "notes": "Has young children; asked about childcare availability during service"
+  },
+  {
+    "id": "C50",
+    "notes": "Invited to visit by a coworker who attends the church"
   }
 ]
