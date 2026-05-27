@@ -78,7 +78,7 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
     <div className="flex flex-col h-full min-h-0">
       <div className="shrink-0 px-4 md:px-8 pt-4 md:pt-6 pb-4 bg-bg max-w-3xl w-full mx-auto">
         {/* iOS contact-card header: back chevron + name inline, quick actions below. */}
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-3 min-w-0">
           <Link
             href={backHref}
             prefetch
@@ -87,22 +87,23 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
           >
             <ArrowLeft size={20} />
           </Link>
-          <h1 className="font-display text-title text-ink leading-[var(--leading-snug)] tracking-[var(--tracking-tight)] font-semibold truncate">
+          <h1 className="font-display text-title text-ink leading-[var(--leading-snug)] tracking-[var(--tracking-tight)] font-semibold truncate min-w-0">
             {displayName}
           </h1>
+          {/* Status flags ride inline with the name as quiet uppercase labels —
+              present and color-coded, but not styled like tappable chips. */}
+          {(contact.is_member ||
+            contact.sms_opted_out_at ||
+            contact.email_unsubscribed_at ||
+            contact.language === "ru") && (
+            <div className="flex items-center gap-2.5 shrink-0 text-label font-semibold uppercase tracking-[var(--tracking-wide)] leading-none">
+              {contact.is_member && <span className="text-gold-dark">Member</span>}
+              {contact.sms_opted_out_at && <span className="text-warning">SMS opted-out</span>}
+              {contact.email_unsubscribed_at && <span className="text-ink-faint">Email unsubscribed</span>}
+              {contact.language === "ru" && <span className="text-gold-dark">Russian</span>}
+            </div>
+          )}
         </div>
-
-        {(contact.is_member ||
-          contact.sms_opted_out_at ||
-          contact.email_unsubscribed_at ||
-          contact.language === "ru") && (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {contact.is_member && <Badge variant="gold">Member</Badge>}
-            {contact.sms_opted_out_at && <Badge variant="warning">SMS opted-out</Badge>}
-            {contact.email_unsubscribed_at && <Badge variant="muted">Email unsubscribed</Badge>}
-            {contact.language === "ru" && <Badge variant="gold">Russian</Badge>}
-          </div>
-        )}
 
         <div className="mt-5 flex flex-wrap items-start gap-4">
           <ActionCircle href={`/inbox?c=${contact.id}`} label="Message" icon={<MessageSquare size={20} />} />
