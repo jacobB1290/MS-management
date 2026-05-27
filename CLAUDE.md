@@ -235,6 +235,41 @@ harness can run without provisioning a real Twilio number first.
 6. Email via SendGrid (template by ID, Event Webhook)
 7. Polish: search, reporting, CSV import/export
 
+## 13.1 Live provider setup — done and remaining
+
+Operational (provider-side) config, separate from code. Current as of 2026-05.
+
+**Done — Twilio.** Messaging Service `MG4a07acf58acc03b696ba922ec371692c`
+("Claude Code Dev"), sender `+1 208 567 1893`. Advanced Opt-Out enabled, so
+STOP/START/HELP are auto-answered at the carrier; keyword lists left at Twilio
+defaults and `JOIN`/`SUBSCRIBE` intentionally NOT added (the CRM owns marketing
+opt-in via `detectMarketingJoin`). Inbound + status webhooks point at
+`/api/webhook/twilio-inbound` and `/api/webhook/twilio-status`.
+
+**Remaining / to verify:**
+
+- **Vercel env (load-bearing).** `TWILIO_MESSAGING_SERVICE_SID` must equal the
+  MG SID above, or `sendSms` falls back to the raw number and bypasses Advanced
+  Opt-Out + the 10DLC campaign (`src/server/comms/sendSms.ts`). Also set
+  `TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN` (the token also gates inbound
+  webhook signature verification — without it, STOP/START never reach us).
+- **A2P 10DLC.** Campaign "Low Volume Mixed" is in TCR review. Sends fail with
+  error 30034 until it clears; no manual step on approval. The CRM already
+  explains 30034 in failed-message bubbles (`src/lib/twilio-errors.ts`).
+- **Inbound voice — NOT set up.** Only outbound click-to-call is wired
+  (`src/server/comms/voice.ts`); there is no inbound voice handling (no IVR,
+  voicemail, or call forwarding), so inbound calls hit Twilio's default. The
+  HELP auto-reply tells people to *call* `+1 208 567 1893`, so either configure
+  inbound voice (forward to a staffed line or a voicemail TwiML) or point HELP
+  at a staffed number.
+- **Email / SendGrid.** Set `SENDGRID_API_KEY`, `SENDGRID_FROM_EMAIL`,
+  `SENDGRID_UNSUBSCRIBE_GROUP_ID` (bulk email is refused without the group), and
+  configure the Event Webhook -> `/api/webhook/sendgrid` with
+  `SENDGRID_WEBHOOK_PUBLIC_KEY`. Re-enabling email in the CRM only clears the
+  local flag; a contact who used an email unsubscribe link stays suppressed in
+  SendGrid until removed from the suppression group (the next send is dropped and
+  the `dropped` event self-heals `email_unsubscribed_at`).
+
 ## 14. Future phases (do NOT build yet)
 
 - v2: ONE high-leverage integration — Meta Lead Ads → CRM, or Google
