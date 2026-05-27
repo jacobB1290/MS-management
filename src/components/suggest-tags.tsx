@@ -137,14 +137,15 @@ export function SuggestTags({
   }
 
   return (
-    <div className="mt-4">
-      {!suggestion ? (
-        <Button variant="secondary" size="sm" onClick={runSuggest} disabled={loading}>
-          {loading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-          {loading ? "Thinking…" : "Suggest tags"}
-        </Button>
-      ) : (
-        <div className="rounded-md border border-ink-hairline bg-surface p-4">
+    <div className="relative">
+      <Button variant="secondary" size="sm" onClick={runSuggest} disabled={loading}>
+        {loading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+        {loading ? "Thinking…" : "Suggest tags"}
+      </Button>
+
+      {/* Suggestions float as a popover so the trigger can sit inline in a row. */}
+      {suggestion && (
+        <div className="absolute right-0 top-[calc(100%+0.5rem)] z-30 w-[min(340px,80vw)] rounded-md border border-ink-hairline bg-surface p-4 text-left shadow-[var(--shadow-md)]">
           <div className="flex items-start justify-between gap-3">
             <p className="text-small text-ink-muted leading-prose">
               <Sparkles size={13} className="inline-block mr-1 -mt-0.5 text-gold" />

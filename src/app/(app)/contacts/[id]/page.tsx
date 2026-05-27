@@ -142,7 +142,7 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
 
         {/* Identity as an iOS-style grouped list: small label over value, hairline
             dividers, interactive rows (membership toggle, opt-in, tags) preserved. */}
-        <section className="rounded-lg border border-ink-hairline bg-white overflow-hidden">
+        <section className="rounded-lg border border-ink-hairline bg-white">
           <dl className="divide-y divide-ink-hairline">
             <InfoRow label="Phone">
               <span className={contact.phone ? "font-mono" : ""}>
@@ -171,38 +171,52 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
               <MemberToggle contactId={contact.id} isMember={contact.is_member} />
             </div>
 
-            <div className="px-4 py-3.5">
-              <dt className="eyebrow mb-1">Marketing messages</dt>
-              <dd className="text-small text-ink-muted">
-                {smsOptedOut
-                  ? "Globally opted out of SMS. They must text START first"
-                  : marketingOptedIn
-                    ? `Opted in${contact.marketing_consent_at ? ` · ${format(new Date(contact.marketing_consent_at), "PP")}` : ""}`
-                    : marketingDeclined
-                      ? `Declined recurring updates${contact.marketing_opted_out_at ? ` · ${format(new Date(contact.marketing_opted_out_at), "PP")}` : ""}`
-                      : "Not opted in to recurring updates (campaigns)"}
-              </dd>
-              {optInMode && (
-                <OptInRequest contactId={contact.id} mode={optInMode} requestedAt={contact.marketing_opt_in_requested_at} />
+            <div className="px-4 py-3.5 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <dt className="eyebrow mb-1">Marketing messages</dt>
+                <dd className="text-small text-ink-muted">
+                  {smsOptedOut
+                    ? "Globally opted out of SMS. They must text START first"
+                    : marketingOptedIn
+                      ? `Opted in${contact.marketing_consent_at ? ` · ${format(new Date(contact.marketing_consent_at), "PP")}` : ""}`
+                      : marketingDeclined
+                        ? `Declined recurring updates${contact.marketing_opted_out_at ? ` · ${format(new Date(contact.marketing_opted_out_at), "PP")}` : ""}`
+                        : "Not opted in to recurring updates (campaigns)"}
+                </dd>
+                {optInMode && optInMode !== "send" && (
+                  <OptInRequest contactId={contact.id} mode={optInMode} requestedAt={contact.marketing_opt_in_requested_at} />
+                )}
+              </div>
+              {optInMode === "send" && (
+                <OptInRequest
+                  contactId={contact.id}
+                  mode={optInMode}
+                  requestedAt={contact.marketing_opt_in_requested_at}
+                  className="mt-0 shrink-0 whitespace-nowrap"
+                />
               )}
             </div>
 
-            <div className="px-4 py-3.5">
-              <dt className="eyebrow mb-2">Tags</dt>
-              <dd>
-                {contact.tags && contact.tags.length > 0 ? (
-                  <div className="flex flex-wrap gap-1.5">
-                    {contact.tags.map((t) => (
-                      <Badge key={t} variant="muted">
-                        {t}
-                      </Badge>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-small text-ink-muted italic">No tags yet</p>
-                )}
+            <div className="px-4 py-3.5 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <dt className="eyebrow mb-2">Tags</dt>
+                <dd>
+                  {contact.tags && contact.tags.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {contact.tags.map((t) => (
+                        <Badge key={t} variant="muted">
+                          {t}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-small text-ink-muted italic">No tags yet</p>
+                  )}
+                </dd>
+              </div>
+              <div className="shrink-0">
                 <SuggestTags contactId={contact.id} currentTags={contact.tags ?? []} />
-              </dd>
+              </div>
             </div>
 
             {contact.notes && (
