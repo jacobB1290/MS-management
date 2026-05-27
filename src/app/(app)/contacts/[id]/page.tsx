@@ -35,10 +35,9 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
   const editHref = cameFromThread ? `/contacts/${id}/edit?from=inbox` : `/contacts/${id}/edit`
 
   const supabase = await createSupabaseServerClient()
-  const [{ data: contact }, { data: messages }, { data: submissions }, { count: messageCount }] =
+  const [{ data: contact }, { data: submissions }, { count: messageCount }] =
     await Promise.all([
       supabase.from("contacts").select("*").eq("id", id).maybeSingle(),
-      supabase.from("messages").select("*").eq("contact_id", id).order("created_at", { ascending: false }).limit(20),
       supabase.from("form_submissions").select("*").eq("contact_id", id).order("created_at", { ascending: false }).limit(10),
       supabase.from("messages").select("id", { count: "exact", head: true }).eq("contact_id", id),
     ])
@@ -54,13 +53,6 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
   const optInMode = await resolveOptInMode(contact)
 
   const displayName = contact.name ?? formatPhone(contact.phone) ?? contact.email ?? "Unknown"
-
-  // Message-first: lead with the person's own words (their latest inbound),
-  // falling back to the most recent message in the thread.
-  const lastInbound = messages?.find((m) => m.direction === "in") ?? null
-  const latest = messages?.[0] ?? null
-  const highlight = lastInbound ?? latest
-  const repliedSince = Boolean(lastInbound && latest && latest.id !== lastInbound.id)
 
   // Provenance collapses to one line: for most contacts the consent date is the
   // same event as creation, so we show source + how they consented + one date.
@@ -127,20 +119,6 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 md:px-8 pb-6 md:pb-8 max-w-3xl w-full mx-auto space-y-6">
-        {/* Message-first: the human's own words lead the record, not metadata. */}
-        {highlight && (
-          <section className="rounded-lg border border-ink-hairline bg-white p-6">
-            <p className="eyebrow mb-2">{lastInbound ? "What they said" : "Latest message"}</p>
-            <p className="text-lead text-ink leading-prose whitespace-pre-wrap">
-              {highlight.body ?? "(media)"}
-            </p>
-            <p className="text-micro text-ink-muted mt-2" data-dynamic>
-              {repliedSince ? "Replied · " : ""}
-              {format(new Date(highlight.created_at), "MMM d, p")}
-            </p>
-          </section>
-        )}
-
         {/* Identity as an iOS-style grouped list: small label over value, hairline
             dividers, interactive rows (membership toggle, opt-in, tags) preserved. */}
         <section className="rounded-lg border border-ink-hairline bg-white">
