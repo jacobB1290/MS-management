@@ -1,10 +1,32 @@
+import { unstable_cache } from "next/cache"
 import { requireStaff } from "@/server/auth"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { createSupabaseAdminClient } from "@/lib/supabase/server"
 import { isDemoEnabled } from "@/server/demo"
 import { Sidebar } from "@/components/shell/sidebar"
 import { MobileNav } from "@/components/shell/mobile-nav"
 import { Topbar } from "@/components/shell/topbar"
 import { ServiceWorkerRegister } from "@/components/shell/service-worker-register"
+import { LiveRefresh } from "@/components/shell/live-refresh"
+
+// Threads whose last message is inbound and that we can still reply to are
+// awaiting a reply — surfaced as a count on the Inbox nav item. The query runs
+// the contact_summary lateral join over every contact, so without a cache it
+// re-ran on EVERY page navigation across the whole app. The count is the same
+// for all staff, so cache it briefly (admin client, no per-user cookie) and
+// let it go a few seconds stale rather than paying for it on every render.
+const getAwaitingReplyCount = unstable_cache(
+  async () => {
+    const admin = createSupabaseAdminClient()
+    const { count } = await admin
+      .from("contact_summary")
+      .select("id", { count: "exact", head: true })
+      .eq("last_message_direction", "in")
+      .is("sms_opted_out_at", null)
+    return count ?? 0
+  },
+  ["awaiting-reply-count"],
+  { revalidate: 15, tags: ["awaiting-reply"] },
+)
 
 export default async function AppLayout({
   children,
@@ -12,17 +34,7 @@ export default async function AppLayout({
   children: React.ReactNode
 }) {
   const user = await requireStaff()
-
-  // Threads whose last message is inbound and that we can still reply to are
-  // awaiting a reply — surfaced as a count on the Inbox nav item. Opted-out
-  // contacts are excluded (no reply possible). Refreshes on navigation.
-  const supabase = await createSupabaseServerClient()
-  const { count } = await supabase
-    .from("contact_summary")
-    .select("id", { count: "exact", head: true })
-    .eq("last_message_direction", "in")
-    .is("sms_opted_out_at", null)
-  const awaitingReply = count ?? 0
+  const awaitingReply = await getAwaitingReplyCount()
 
   return (
     // Lock the whole app to the viewport. Children get `flex-1 min-h-0
@@ -31,6 +43,7 @@ export default async function AppLayout({
     // outer document. Fixes "everything scrolls" feel.
     <div className="flex h-dvh bg-bg overflow-hidden">
       <ServiceWorkerRegister />
+      <LiveRefresh />
       <Sidebar user={user} awaitingReply={awaitingReply} />
 
       <div className="flex-1 flex flex-col min-w-0">

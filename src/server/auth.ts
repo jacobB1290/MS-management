@@ -17,7 +17,7 @@ export type StaffUser = {
  * name barely change. Invalidate via `revalidateTag("app_users:<id>")` from
  * the team-management endpoints when a role flips.
  *
- * Uses the service-role client because `auth.getUser()` already proved the
+ * Uses the service-role client because the JWT claims already proved the
  * identity — we just need the row, and we want the cache key to be the user
  * id (which is stable), not the cookie.
  */
@@ -50,18 +50,22 @@ export const requireStaff = cache(async (): Promise<StaffUser> => {
     redirect("/login")
   }
 
+  // Verify the session from the JWT claims rather than auth.getUser(). With
+  // asymmetric signing keys this validates locally — no network round-trip to
+  // the Auth server on every navigation, which is what made each page wait on
+  // Supabase before it could render. The middleware already refreshes the
+  // token, so the cookie the claims come from is current.
   const supabase = await createSupabaseServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect("/login")
+  const { data: claimsData } = await supabase.auth.getClaims()
+  const claims = claimsData?.claims
+  if (!claims?.sub) redirect("/login")
 
-  const appUser = await getAppUserCached(user.id)
+  const appUser = await getAppUserCached(claims.sub)
   if (!appUser) redirect("/access-denied")
 
   return {
-    id: user.id,
-    email: user.email ?? null,
+    id: claims.sub,
+    email: (typeof claims.email === "string" ? claims.email : null),
     role: (appUser.role as "admin" | "member") ?? "member",
     displayName: appUser.display_name,
   }
