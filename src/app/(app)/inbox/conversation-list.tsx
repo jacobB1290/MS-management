@@ -303,24 +303,25 @@ export function ConversationList({
                       </span>
                     )}
                   </div>
-                  <p className={cn("text-small truncate mt-0.5", awaitingReply ? "text-ink" : "text-ink-muted")}>
-                    {c.last_message_body ? (
-                      <>
-                        {c.last_message_direction === "out" && (
-                          <span className="text-ink-faint">You: </span>
-                        )}
-                        {c.last_message_body}
-                      </>
-                    ) : (
-                      <span className="text-ink-faint">
-                        {c.phone ? formatPhone(c.phone) : c.email ?? "No messages yet"}
-                      </span>
-                    )}
-                  </p>
-                  <div className="flex items-center gap-1.5 mt-1.5 min-h-[18px]">
-                    {c.is_member && <Badge variant="gold">Member</Badge>}
-                    {c.sms_opted_out_at && <Badge variant="warning">STOP</Badge>}
-                    {c.email_unsubscribed_at && <Badge variant="muted">UNSUB</Badge>}
+                  {/* Preview + compliance flags share one line so every row is the
+                      same height (avatar + two lines). STOP/UNSUB stay inline. */}
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <p className={cn("text-small truncate min-w-0 flex-1", awaitingReply ? "text-ink" : "text-ink-muted")}>
+                      {c.last_message_body ? (
+                        <>
+                          {c.last_message_direction === "out" && (
+                            <span className="text-ink-faint">You: </span>
+                          )}
+                          {c.last_message_body}
+                        </>
+                      ) : (
+                        <span className="text-ink-faint">
+                          {c.phone ? formatPhone(c.phone) : c.email ?? "No messages yet"}
+                        </span>
+                      )}
+                    </p>
+                    {c.sms_opted_out_at && <Badge variant="warning" className="shrink-0">STOP</Badge>}
+                    {c.email_unsubscribed_at && <Badge variant="muted" className="shrink-0">UNSUB</Badge>}
                   </div>
                 </div>
               </button>
