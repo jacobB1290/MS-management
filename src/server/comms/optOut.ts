@@ -193,3 +193,20 @@ export function detectMarketingJoin(body: string | null | undefined): boolean {
   const tokens = trimmed.split(/[\s.,!?;:]+/).filter(Boolean)
   return tokens.length > 0 && tokens.length <= 4 && MARKETING_JOIN_KEYWORDS.has(tokens[0])
 }
+
+/**
+ * Help keyword. Twilio's Advanced Opt-Out answers HELP/INFO at the carrier
+ * level, so the CRM must NOT also auto-reply (e.g. fire a first-contact
+ * welcome) when one of these is the inbound. We only detect it to suppress our
+ * own replies; the message is still stored and staff are still notified.
+ */
+const HELP_KEYWORDS = new Set(["HELP", "INFO"])
+
+export function detectHelpKeyword(body: string | null | undefined): boolean {
+  if (!body) return false
+  const trimmed = body.trim().toUpperCase()
+  if (!trimmed) return false
+  if (HELP_KEYWORDS.has(trimmed)) return true
+  const tokens = trimmed.split(/[\s.,!?;:]+/).filter(Boolean)
+  return tokens.length > 0 && tokens.length <= 4 && HELP_KEYWORDS.has(tokens[0])
+}

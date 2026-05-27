@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server"
 import { verifyTwilioRequest } from "@/server/webhooks/verify"
 import { createSupabaseAdminClient } from "@/lib/supabase/server"
 import { logAudit } from "@/server/audit"
-import { detectOptOutKeyword, detectMarketingJoin } from "@/server/comms/optOut"
+import { detectOptOutKeyword, detectMarketingJoin, detectHelpKeyword } from "@/server/comms/optOut"
 import { toE164 } from "@/server/validation/phone"
 import { sendPushToStaff } from "@/server/push/send"
 import { organizeConversation } from "@/server/ai/organizeInbound"
@@ -95,6 +95,7 @@ export async function POST(request: NextRequest) {
 
   const keyword = detectOptOutKeyword(body)
   const isJoin = detectMarketingJoin(body)
+  const isHelp = detectHelpKeyword(body)
   const nowIso = new Date().toISOString()
 
   if (keyword === "stop") {
@@ -201,9 +202,13 @@ export async function POST(request: NextRequest) {
       /* swallow — delivery is best-effort */
     }
 
-    // Control replies (STOP/START/JOIN) carry no content and are fully handled
-    // above, so the content-driven follow-ups below skip them.
-    const isControl = keyword === "stop" || keyword === "start" || isJoin
+    // Control keywords carry no real content and own their own handling: STOP/
+    // START toggle consent above, JOIN is confirmed below, and HELP/INFO are
+    // answered by Twilio's Advanced Opt-Out at the carrier. The content-driven
+    // follow-ups (welcome, AI organize) skip all of them, so the CRM never piles
+    // a second auto-reply on top of Twilio's.
+    const isControl =
+      keyword === "stop" || keyword === "start" || isJoin || isHelp
 
     // Auto-replies are best-effort: a failure here must never 500 the webhook,
     // or Twilio would retry and re-send. A first-ever contact gets a one-time
