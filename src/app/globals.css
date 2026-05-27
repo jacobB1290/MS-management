@@ -328,6 +328,26 @@ h1, h2, h3, h4, h5, h6 {
   background: var(--gold-deeper);
 }
 
+/* Softer circular action button — a tinted gold fill for the iOS-style quick
+ * action row (Message / Call / Email / Edit), where four solid gold-dark
+ * circles would read too heavy. A component class (not utilities) because the
+ * global button reset zeroes utility backgrounds/colors on <button>. */
+.btn-icon-soft {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 52px;
+  width: 52px;
+  flex-shrink: 0;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--gold) 14%, transparent);
+  color: var(--gold-deeper);
+  transition: background var(--motion-fast) var(--ease-standard);
+}
+.btn-icon-soft:hover {
+  background: color-mix(in srgb, var(--gold) 22%, transparent);
+}
+
 /* Inbox segment filter chip + segment control trigger. Background and text
  * live in a component class (not Tailwind utilities) because the global button
  * reset zeroes utility backgrounds/colors on <button>, exactly as the notes on

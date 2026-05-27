@@ -1,14 +1,13 @@
 import type { Metadata } from "next"
+import type { ReactNode } from "react"
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import { format } from "date-fns"
-import { MessageSquare, Pencil } from "lucide-react"
+import { ArrowLeft, MessageSquare, Mail, Pencil } from "lucide-react"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { requireStaff } from "@/server/auth"
 import { isVoiceConfigured } from "@/server/comms/voice"
 import { resolveOptInMode } from "@/server/comms/optInMode"
-import { PageHeader } from "@/components/ui/page-header"
-import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { CallButton } from "@/components/call-button"
 import { formatPhone, humanizeSource } from "@/lib/utils"
@@ -78,33 +77,51 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
   return (
     <div className="flex flex-col h-full min-h-0">
       <div className="shrink-0 px-4 md:px-8 pt-4 md:pt-6 pb-4 bg-bg max-w-3xl w-full mx-auto">
-        <PageHeader
-          eyebrow="Contact"
-          title={displayName}
-          backHref={backHref}
-          backLabel={backLabel}
-          actions={
-            <div className="flex flex-wrap items-center gap-2">
-              <Button asChild>
-                <Link href={`/inbox?c=${contact.id}`}>
-                  <MessageSquare size={16} />
-                  Open thread
-                </Link>
-              </Button>
-              <Button asChild variant="secondary">
-                <Link href={editHref}>
-                  <Pencil size={14} />
-                  Edit
-                </Link>
-              </Button>
+        {/* iOS contact-card header: back chevron + name inline, quick actions below. */}
+        <div className="flex items-center gap-2 min-w-0">
+          <Link
+            href={backHref}
+            prefetch
+            aria-label={backLabel}
+            className="inline-flex items-center justify-center h-11 w-11 -ml-2 rounded-pill text-ink-muted hover:text-ink hover:bg-white transition-colors shrink-0"
+          >
+            <ArrowLeft size={20} />
+          </Link>
+          <h1 className="font-display text-title text-ink leading-[var(--leading-snug)] tracking-[var(--tracking-tight)] font-semibold truncate">
+            {displayName}
+          </h1>
+        </div>
+
+        {(contact.is_member ||
+          contact.sms_opted_out_at ||
+          contact.email_unsubscribed_at ||
+          contact.language === "ru") && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {contact.is_member && <Badge variant="gold">Member</Badge>}
+            {contact.sms_opted_out_at && <Badge variant="warning">SMS opted-out</Badge>}
+            {contact.email_unsubscribed_at && <Badge variant="muted">Email unsubscribed</Badge>}
+            {contact.language === "ru" && <Badge variant="gold">Russian</Badge>}
+          </div>
+        )}
+
+        <div className="mt-5 flex flex-wrap items-start gap-4">
+          <ActionCircle href={`/inbox?c=${contact.id}`} label="Message" icon={<MessageSquare size={20} />} />
+          {voiceConfigured && contact.phone && (
+            <div className="flex flex-col items-center gap-1.5">
+              <CallButton
+                contactId={contact.id}
+                phone={contact.phone}
+                contactName={contact.name}
+                voiceConfigured={voiceConfigured}
+                variant="icon-soft"
+              />
+              <span className="text-micro text-ink-muted">Call</span>
             </div>
-          }
-        />
-        <div className="mt-2 flex flex-wrap gap-2">
-          {contact.is_member && <Badge variant="gold">Member</Badge>}
-          {contact.sms_opted_out_at && <Badge variant="warning">SMS opted-out</Badge>}
-          {contact.email_unsubscribed_at && <Badge variant="muted">Email unsubscribed</Badge>}
-          {contact.language === "ru" && <Badge variant="gold">Russian</Badge>}
+          )}
+          {contact.email && (
+            <ActionCircle href={`mailto:${contact.email}`} label="Email" icon={<Mail size={20} />} />
+          )}
+          <ActionCircle href={editHref} label="Edit" icon={<Pencil size={20} />} />
         </div>
       </div>
 
@@ -123,80 +140,78 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
           </section>
         )}
 
-        <section className="rounded-lg border border-ink-hairline bg-white p-6">
-          <p className="eyebrow">Identity</p>
-          <dl className="mt-4 space-y-3">
-            <Row label="Name" value={contact.name ?? "—"} />
-            <div className="grid grid-cols-3 gap-3">
-              <dt className="text-label text-ink-muted">Phone</dt>
-              <dd className="col-span-2 flex items-center justify-between gap-2">
-                <span className={`text-body text-ink break-words ${contact.phone ? "font-mono" : ""}`}>
-                  {contact.phone ? formatPhone(contact.phone) : "—"}
-                </span>
-                {voiceConfigured && contact.phone && (
-                  <CallButton
-                    contactId={contact.id}
-                    phone={contact.phone}
-                    contactName={contact.name}
-                    voiceConfigured={voiceConfigured}
-                    className="shrink-0"
-                  />
+        {/* Identity as an iOS-style grouped list: small label over value, hairline
+            dividers, interactive rows (membership toggle, opt-in, tags) preserved. */}
+        <section className="rounded-lg border border-ink-hairline bg-white overflow-hidden">
+          <dl className="divide-y divide-ink-hairline">
+            <InfoRow label="Phone">
+              <span className={contact.phone ? "font-mono" : ""}>
+                {contact.phone ? formatPhone(contact.phone) : "—"}
+              </span>
+            </InfoRow>
+            <InfoRow label="Email">
+              {contact.email ? (
+                <a href={`mailto:${contact.email}`} className="text-gold hover:underline break-words">
+                  {contact.email}
+                </a>
+              ) : (
+                "—"
+              )}
+            </InfoRow>
+            <InfoRow label="Language">{contact.language === "ru" ? "Russian" : "English"}</InfoRow>
+            <InfoRow label="Source">{provenance}</InfoRow>
+
+            <div className="px-4 py-3.5 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <dt className="eyebrow mb-1">Membership</dt>
+                <dd className="text-small text-ink-muted">
+                  {contact.is_member ? "Marked as a church member" : "Not marked as a member"}
+                </dd>
+              </div>
+              <MemberToggle contactId={contact.id} isMember={contact.is_member} />
+            </div>
+
+            <div className="px-4 py-3.5">
+              <dt className="eyebrow mb-1">Marketing messages</dt>
+              <dd className="text-small text-ink-muted">
+                {smsOptedOut
+                  ? "Globally opted out of SMS. They must text START first"
+                  : marketingOptedIn
+                    ? `Opted in${contact.marketing_consent_at ? ` · ${format(new Date(contact.marketing_consent_at), "PP")}` : ""}`
+                    : marketingDeclined
+                      ? `Declined recurring updates${contact.marketing_opted_out_at ? ` · ${format(new Date(contact.marketing_opted_out_at), "PP")}` : ""}`
+                      : "Not opted in to recurring updates (campaigns)"}
+              </dd>
+              {optInMode && (
+                <OptInRequest contactId={contact.id} mode={optInMode} requestedAt={contact.marketing_opt_in_requested_at} />
+              )}
+            </div>
+
+            <div className="px-4 py-3.5">
+              <dt className="eyebrow mb-2">Tags</dt>
+              <dd>
+                {contact.tags && contact.tags.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {contact.tags.map((t) => (
+                      <Badge key={t} variant="muted">
+                        {t}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-small text-ink-muted italic">No tags yet</p>
                 )}
+                <SuggestTags contactId={contact.id} currentTags={contact.tags ?? []} />
               </dd>
             </div>
-            <Row label="Email" value={contact.email ?? "—"} />
-            <Row label="Language" value={contact.language === "ru" ? "Russian" : "English"} />
-            <Row label="Source" value={provenance} />
-          </dl>
 
-          <div className="mt-4 flex items-center justify-between gap-3 border-t border-ink-hairline pt-4">
-            <div className="min-w-0">
-              <p className="eyebrow">Membership</p>
-              <p className="text-small text-ink-muted mt-0.5">
-                {contact.is_member ? "Marked as a church member" : "Not marked as a member"}
-              </p>
-            </div>
-            <MemberToggle contactId={contact.id} isMember={contact.is_member} />
-          </div>
-
-          <div className="mt-4 border-t border-ink-hairline pt-4">
-            <p className="eyebrow">Marketing messages</p>
-            <p className="text-small text-ink-muted mt-0.5">
-              {smsOptedOut
-                ? "Globally opted out of SMS. They must text START first"
-                : marketingOptedIn
-                  ? `Opted in${contact.marketing_consent_at ? ` · ${format(new Date(contact.marketing_consent_at), "PP")}` : ""}`
-                  : marketingDeclined
-                    ? `Declined recurring updates${contact.marketing_opted_out_at ? ` · ${format(new Date(contact.marketing_opted_out_at), "PP")}` : ""}`
-                    : "Not opted in to recurring updates (campaigns)"}
-            </p>
-            {optInMode && (
-              <OptInRequest contactId={contact.id} mode={optInMode} requestedAt={contact.marketing_opt_in_requested_at} />
-            )}
-          </div>
-
-          <div className="mt-6 pt-4 border-t border-ink-hairline">
-            <p className="eyebrow mb-2">Tags</p>
-            {contact.tags && contact.tags.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5">
-                {contact.tags.map((t) => (
-                  <Badge key={t} variant="muted">
-                    {t}
-                  </Badge>
-                ))}
+            {contact.notes && (
+              <div className="px-4 py-3.5">
+                <dt className="eyebrow mb-1">Notes</dt>
+                <dd className="text-body text-ink-muted leading-normal whitespace-pre-wrap">{contact.notes}</dd>
               </div>
-            ) : (
-              <p className="text-small text-ink-muted italic">No tags yet</p>
             )}
-            <SuggestTags contactId={contact.id} currentTags={contact.tags ?? []} />
-          </div>
-
-          {contact.notes && (
-            <div className="mt-6 pt-4 border-t border-ink-hairline">
-              <p className="eyebrow mb-2">Notes</p>
-              <p className="text-body text-ink-muted leading-normal whitespace-pre-wrap">{contact.notes}</p>
-            </div>
-          )}
+          </dl>
         </section>
 
         {submissions && submissions.length > 0 && (
@@ -240,11 +255,32 @@ function consentLabel(method: string | null): string | null {
   return map[method] ?? method.replace(/_/g, " ")
 }
 
-function Row({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
+// One iOS-style grouped row: small gold label over the value, value in Inter.
+function InfoRow({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="grid grid-cols-3 gap-3">
-      <dt className="text-label text-ink-muted">{label}</dt>
-      <dd className={`col-span-2 text-body text-ink break-words ${mono ? "font-mono" : ""}`}>{value}</dd>
+    <div className="px-4 py-3.5">
+      <dt className="eyebrow mb-1">{label}</dt>
+      <dd className="text-body text-ink break-words">{children}</dd>
     </div>
+  )
+}
+
+// A circular quick action (iOS contact-card style): tinted gold circle + label.
+function ActionCircle({ href, label, icon }: { href: string; label: string; icon: ReactNode }) {
+  const content = (
+    <>
+      <span className="btn-icon-soft">{icon}</span>
+      <span className="text-micro text-ink-muted">{label}</span>
+    </>
+  )
+  const className = "flex flex-col items-center gap-1.5"
+  return href.startsWith("mailto:") ? (
+    <a href={href} aria-label={label} className={className}>
+      {content}
+    </a>
+  ) : (
+    <Link href={href} prefetch aria-label={label} className={className}>
+      {content}
+    </Link>
   )
 }

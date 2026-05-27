@@ -29,7 +29,7 @@ interface CallButtonProps {
   /** Whether the Twilio Voice env is fully configured (server-checked). */
   voiceConfigured: boolean
   /** Visual style: icon-only (panel header) is the default. */
-  variant?: "icon" | "secondary"
+  variant?: "icon" | "icon-soft" | "secondary"
   className?: string
 }
 
@@ -65,6 +65,8 @@ export function CallButton({
   const connectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const active = state !== "idle"
+  const isIcon = variant !== "secondary"
+  const iconClass = variant === "icon-soft" ? "btn-icon-soft" : "btn-icon-action"
 
   const stopTimer = useCallback(() => {
     if (timerRef.current) {
@@ -208,12 +210,12 @@ export function CallButton({
   if (!voiceConfigured) {
     return (
       <Tooltip content="Voice calling not set up yet">
-        {variant === "icon" ? (
+        {isIcon ? (
           <button
             type="button"
             disabled
             aria-label="Call (not available)"
-            className="btn-icon-action opacity-50 cursor-not-allowed"
+            className={cn(iconClass, "opacity-50 cursor-not-allowed")}
           >
             <Phone size={18} />
           </button>
@@ -229,14 +231,14 @@ export function CallButton({
 
   return (
     <>
-      {variant === "icon" ? (
+      {isIcon ? (
         <Tooltip content="Call this contact">
           <button
             type="button"
             onClick={startCall}
             disabled={active}
             aria-label="Call this contact"
-            className={cn("btn-icon-action", className)}
+            className={cn(iconClass, className)}
           >
             <Phone size={18} />
           </button>
