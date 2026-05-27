@@ -1,8 +1,7 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
-import Link from "next/link"
 import { format } from "date-fns"
-import { ArrowLeft, MessageSquare, Mail } from "lucide-react"
+import { MessageSquare, Mail } from "lucide-react"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { requireStaff } from "@/server/auth"
 import {
@@ -120,17 +119,12 @@ export default async function CampaignDetail({ params }: PageProps) {
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      <div className="shrink-0 px-4 md:px-8 pt-6 md:pt-8 pb-4 bg-bg max-w-4xl w-full">
-        <Link
-          href="/campaigns"
-          prefetch
-          className="inline-flex items-center gap-1.5 text-small text-ink-muted active:text-ink mb-4 min-h-11"
-        >
-          <ArrowLeft size={14} /> All campaigns
-        </Link>
+      <div className="shrink-0 px-4 md:px-8 pt-4 md:pt-6 pb-4 bg-bg max-w-4xl w-full">
         <PageHeader
           eyebrow="Campaign"
           title={campaign.name}
+          backHref="/campaigns"
+          backLabel="All campaigns"
           actions={<CampaignActions campaign={campaign} audienceBreakdown={audienceBreakdown} />}
         />
         <div className="mt-2 flex items-center gap-2 flex-wrap">

@@ -37,7 +37,7 @@ export default async function AuditPage() {
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      <div className="shrink-0 px-4 md:px-8 pt-6 md:pt-8 pb-4 bg-bg">
+      <div className="shrink-0 px-4 md:px-8 pt-4 md:pt-6 pb-4 bg-bg">
         <PageHeader
           eyebrow="Console"
           title="Audit log"

@@ -9,7 +9,7 @@ export default async function NewContactPage() {
   await requireStaff()
   return (
     <div className="flex flex-col h-full min-h-0">
-      <div className="shrink-0 px-4 md:px-8 pt-6 md:pt-8 pb-4 bg-bg max-w-2xl w-full">
+      <div className="shrink-0 px-4 md:px-8 pt-4 md:pt-6 pb-4 bg-bg max-w-2xl w-full">
         <PageHeader
           eyebrow="Directory"
           title="New contact"

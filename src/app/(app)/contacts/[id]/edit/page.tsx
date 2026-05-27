@@ -1,7 +1,5 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
-import Link from "next/link"
-import { ArrowLeft } from "lucide-react"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { requireStaff } from "@/server/auth"
 import { PageHeader } from "@/components/ui/page-header"
@@ -29,17 +27,12 @@ export default async function EditContactPage({ params, searchParams }: PageProp
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      <div className="shrink-0 px-4 md:px-8 pt-6 md:pt-8 pb-4 bg-bg max-w-2xl w-full">
-        <Link
-          href={backHref}
-          prefetch
-          className="inline-flex items-center gap-1.5 text-small text-ink-muted active:text-ink mb-4 min-h-11"
-        >
-          <ArrowLeft size={14} /> Back to contact
-        </Link>
+      <div className="shrink-0 px-4 md:px-8 pt-4 md:pt-6 pb-4 bg-bg max-w-2xl w-full">
         <PageHeader
           eyebrow="Directory"
           title="Edit contact"
+          backHref={backHref}
+          backLabel="Back to contact"
           info="Update what we know. Consent method and source are preserved from the original record."
         />
       </div>

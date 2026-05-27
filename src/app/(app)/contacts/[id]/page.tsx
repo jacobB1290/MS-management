@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import { format } from "date-fns"
-import { MessageSquare, ArrowLeft, Pencil } from "lucide-react"
+import { MessageSquare, Pencil } from "lucide-react"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { requireStaff } from "@/server/auth"
 import { isVoiceConfigured } from "@/server/comms/voice"
@@ -77,17 +77,12 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      <div className="shrink-0 px-4 md:px-8 pt-6 md:pt-8 pb-4 bg-bg max-w-3xl w-full mx-auto">
-        <Link
-          href={backHref}
-          prefetch
-          className="inline-flex items-center gap-1.5 text-small text-ink-muted active:text-ink mb-4 min-h-11"
-        >
-          <ArrowLeft size={14} /> {backLabel}
-        </Link>
+      <div className="shrink-0 px-4 md:px-8 pt-4 md:pt-6 pb-4 bg-bg max-w-3xl w-full mx-auto">
         <PageHeader
           eyebrow="Contact"
           title={displayName}
+          backHref={backHref}
+          backLabel={backLabel}
           actions={
             <div className="flex flex-wrap items-center gap-2">
               <Button asChild>
