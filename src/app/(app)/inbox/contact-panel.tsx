@@ -254,7 +254,9 @@ export function ContactPanel({
         description={
           pending?.optedOut
             ? `They’ll be excluded from all future ${pending.channel === "sms" ? "messages" : "emails"} until they opt back in.`
-            : `Only do this if they’ve explicitly asked to receive ${pending?.channel === "sms" ? "messages" : "emails"} again. Never opt someone back in without consent.`
+            : pending?.channel === "sms"
+              ? "Only do this if you opted them out manually, not if they texted STOP. Twilio blocks STOP replies at the carrier, and only the contact texting START can lift it; re-enabling here won’t deliver, and the next send will fail and re-flag them."
+              : "Only do this if they’ve explicitly asked to receive emails again. Never opt someone back in without consent."
         }
         confirmLabel={pending?.optedOut ? "Opt out" : "Re-enable"}
         destructive={pending?.optedOut ?? false}

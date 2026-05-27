@@ -2,6 +2,7 @@ import "server-only"
 import { createSupabaseAdminClient } from "@/lib/supabase/server"
 import { assertCanSendSms, type SmsSkipReason, type SendContext } from "./optOut"
 import { logAudit } from "@/server/audit"
+import { TWILIO_OPT_OUT_ERROR_CODE } from "@/lib/twilio-errors"
 
 /**
  * Canonical 1:1 SMS send path. Every SMS the operator UI sends goes through
@@ -77,6 +78,27 @@ export async function sendSms(args: {
     },
   })
 
+  // Twilio rejected the send because the recipient is opted out at the carrier
+  // (they texted STOP). Twilio is the source of truth: there's no API to lift
+  // its block, so the contact is unreachable until they text START. Re-sync our
+  // flag so the CRM stops believing they're reachable — this self-corrects a
+  // stale opt-in, e.g. after a staffer manually re-enabled SMS for someone who
+  // had in fact opted out.
+  if (provider.code === TWILIO_OPT_OUT_ERROR_CODE) {
+    await admin
+      .from("contacts")
+      .update({ sms_opted_out_at: new Date().toISOString() })
+      .eq("id", args.contactId)
+      .is("sms_opted_out_at", null)
+    await logAudit({
+      action: "contact.opt_out_sms",
+      actorUserId: args.sentByUserId ?? null,
+      targetTable: "contacts",
+      targetId: args.contactId,
+      diff: { source: "twilio_21610_resync", message_id: inserted.id },
+    })
+  }
+
   return {
     ok: true,
     messageId: inserted.id,
@@ -93,6 +115,8 @@ interface ProviderResult {
   sid: string | null
   status: string
   error: string | null
+  /** Numeric Twilio error code, when the failure came with one. */
+  code: number | null
   mock: boolean
 }
 
@@ -112,6 +136,7 @@ async function callTwilioOrMock(args: {
       sid: `MOCK_${crypto.randomUUID()}`,
       status: "mocked",
       error: null,
+      code: null,
       mock: true,
     }
   }
@@ -140,10 +165,18 @@ async function callTwilioOrMock(args: {
 
     const json = (await res.json()) as { sid?: string; status?: string; message?: string; code?: number }
     if (!res.ok) {
+      // Store the numeric code (with Twilio's message kept for uncommon codes)
+      // so the UI can translate it; fall back to the HTTP status if there's no
+      // code at all. `explainTwilioError` parses the leading code back out.
+      const error =
+        json.code != null
+          ? `${json.code}: ${json.message ?? ""}`.trim()
+          : json.message ?? `Twilio ${res.status}`
       return {
         sid: null,
         status: "failed",
-        error: json.message ?? `Twilio ${res.status}`,
+        error,
+        code: json.code ?? null,
         mock: false,
       }
     }
@@ -151,6 +184,7 @@ async function callTwilioOrMock(args: {
       sid: json.sid ?? null,
       status: json.status ?? "queued",
       error: null,
+      code: null,
       mock: false,
     }
   } catch (err) {
@@ -158,6 +192,7 @@ async function callTwilioOrMock(args: {
       sid: null,
       status: "failed",
       error: err instanceof Error ? err.message : String(err),
+      code: null,
       mock: false,
     }
   }

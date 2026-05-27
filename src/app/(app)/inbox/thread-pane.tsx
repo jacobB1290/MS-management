@@ -27,6 +27,7 @@ import {
 } from "@/lib/media"
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import { ContactPanel } from "./contact-panel"
+import { explainTwilioError } from "@/lib/twilio-errors"
 import type { Tables } from "@/lib/database.types"
 
 type Contact = Tables<"contacts">
@@ -649,6 +650,7 @@ function MessageBubble({
   const pending = message.status === "sending" || message._optimistic
   const failed =
     isOut && (message.status === "failed" || message.status === "undelivered")
+  const failureReason = failed ? explainTwilioError(message.error, message.status) : null
 
   return (
     <div className={cn("flex flex-col", isOut ? "items-end" : "items-start")}>
@@ -702,13 +704,23 @@ function MessageBubble({
         </p>
       </div>
       {failed && (
-        <button
-          type="button"
-          onClick={() => onRetry(message)}
-          className="mt-1 inline-flex items-center gap-1 text-micro text-danger font-medium hover:underline active:opacity-70"
-        >
-          <RotateCcw size={11} /> Tap to retry
-        </button>
+        <div className="mt-1 flex flex-col items-end gap-0.5 max-w-[85%] md:max-w-[72%]">
+          {failureReason && (
+            <p className="text-micro text-danger text-right leading-snug">
+              <span className="font-medium">{failureReason.title}.</span> {failureReason.detail}
+              {failureReason.action && (
+                <span className="block text-ink-muted">{failureReason.action}</span>
+              )}
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={() => onRetry(message)}
+            className="inline-flex items-center gap-1 text-micro text-danger font-medium hover:underline active:opacity-70"
+          >
+            <RotateCcw size={11} /> Tap to retry
+          </button>
+        </div>
       )}
     </div>
   )
