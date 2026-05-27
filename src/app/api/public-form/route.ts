@@ -5,6 +5,7 @@ import { publicFormSubmissionSchema } from "@/server/validation/schemas"
 import { logAudit } from "@/server/audit"
 import { sendPushToStaff } from "@/server/push/send"
 import { organizeConversation } from "@/server/ai/organizeInbound"
+import { sendWelcome } from "@/server/comms/welcome"
 import { formatPhone } from "@/lib/utils"
 
 const REPLAY_WINDOW_MS = 5 * 60 * 1000 // 5 minutes
@@ -124,11 +125,13 @@ export async function POST(request: NextRequest) {
 
   const result = upsertResult as {
     contact_id: string
+    created: boolean
     needs_review: boolean
     conflict_with: string | null
   } | null
 
   const contactId = result?.contact_id ?? null
+  const created = result?.created ?? false
   let messageId: string | null = null
 
   if (contactId) {
@@ -197,6 +200,18 @@ export async function POST(request: NextRequest) {
         // Background-organize the conversation (segment + status, tags, notes,
         // opt-out). Non-destructive on the inbox and entirely best-effort.
         await organizeConversation(contactId, { source: "public_form", messageSid: messageId })
+      }
+    }
+
+    // First-ever contact: one-time welcome. Runs after the consent write and any
+    // seeded inbound above, so it reads current marketing consent and (for the
+    // invite variant) has a conversational basis to ask. Best-effort — a welcome
+    // failure must never fail an already-persisted submission.
+    if (created) {
+      try {
+        await sendWelcome({ contactId, source: "public_form" })
+      } catch {
+        /* swallow — welcome is best-effort */
       }
     }
   }

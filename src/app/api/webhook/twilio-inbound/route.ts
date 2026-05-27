@@ -6,6 +6,7 @@ import { detectOptOutKeyword, detectMarketingJoin } from "@/server/comms/optOut"
 import { toE164 } from "@/server/validation/phone"
 import { sendPushToStaff } from "@/server/push/send"
 import { organizeConversation } from "@/server/ai/organizeInbound"
+import { sendWelcome, sendJoinConfirmation } from "@/server/comms/welcome"
 import { formatPhone } from "@/lib/utils"
 
 /**
@@ -82,7 +83,9 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const contactId = (upsertResult as { contact_id: string } | null)?.contact_id
+  const upsert = upsertResult as { contact_id: string; created: boolean } | null
+  const contactId = upsert?.contact_id
+  const created = upsert?.created ?? false
   if (!contactId) {
     return new NextResponse(`<?xml version="1.0" encoding="UTF-8"?>\n<Response/>`, {
       status: 200,
@@ -91,6 +94,7 @@ export async function POST(request: NextRequest) {
   }
 
   const keyword = detectOptOutKeyword(body)
+  const isJoin = detectMarketingJoin(body)
   const nowIso = new Date().toISOString()
 
   if (keyword === "stop") {
@@ -122,7 +126,7 @@ export async function POST(request: NextRequest) {
       targetId: contactId,
       diff: { source: "inbound_start", message_sid: messageSid, consent_at: nowIso },
     })
-  } else if (detectMarketingJoin(body)) {
+  } else if (isJoin) {
     // Reply JOIN/SUBSCRIBE = express opt-in to recurring/marketing messages.
     // Distinct from START (which only lifts a STOP). Clears any prior decline.
     // Intentionally does NOT clear sms_opted_out_at: a contact under a global
@@ -197,12 +201,29 @@ export async function POST(request: NextRequest) {
       /* swallow — delivery is best-effort */
     }
 
+    // Control replies (STOP/START/JOIN) carry no content and are fully handled
+    // above, so the content-driven follow-ups below skip them.
+    const isControl = keyword === "stop" || keyword === "start" || isJoin
+
+    // Auto-replies are best-effort: a failure here must never 500 the webhook,
+    // or Twilio would retry and re-send. A first-ever contact gets a one-time
+    // welcome — but a control-keyword first message is handled by its own path
+    // (STOP opts out; JOIN is confirmed below), so we don't also welcome those.
+    try {
+      if (created && !isControl) {
+        await sendWelcome({ contactId, source: "sms_inbound" })
+      }
+      if (isJoin) {
+        await sendJoinConfirmation(contactId)
+      }
+    } catch {
+      /* swallow — auto-reply delivery is best-effort */
+    }
+
     // Background-organize the conversation: sort it into a segment + advance its
     // status, add ministry-interest tags, update the running notes, and catch a
     // plain-language opt-out. Non-destructive on the inbox (never hides from
-    // General) and entirely best-effort. Skipped for control replies
-    // (STOP/START/JOIN) which carry no content and are already handled above.
-    const isControl = keyword === "stop" || keyword === "start" || detectMarketingJoin(body)
+    // General) and entirely best-effort.
     if (!isControl) {
       await organizeConversation(contactId, { source: "sms_inbound", messageSid })
     }
