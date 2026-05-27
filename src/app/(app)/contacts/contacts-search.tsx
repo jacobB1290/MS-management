@@ -1,13 +1,14 @@
 "use client"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useTransition, type ReactNode } from "react"
-import { Search, Tag, Check, ChevronDown } from "lucide-react"
+import { Search, Tag, Check } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 
@@ -47,57 +48,54 @@ export function ContactsSearch({
   }
 
   return (
-    <div className="space-y-2.5">
-      {/* Search inline with the primary action (passed in as children). */}
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1">
-          <Search
-            size={14}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint pointer-events-none"
-          />
-          <Input
-            type="search"
-            placeholder="Search contacts by name, phone, email"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") commit({ q })
-            }}
-            className="pl-9"
-          />
-        </div>
-        {children}
-      </div>
-
-      {/* Tag filter: a small, secondary dropdown chip — not a full-width field. */}
+    <div className="flex items-center gap-2">
+      {/* Tag filter folded into one dropdown button, left of the search — the
+          reply-bar layout (round button, rounded field, round action). */}
       {tags.length > 0 && (
         <DropdownMenu>
           <DropdownMenuTrigger
+            aria-label="Filter by tag"
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-pill border px-3 py-1.5 min-h-9 text-small transition-colors",
+              "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-pill border transition-colors",
               tag
-                ? "border-[color-mix(in_oklab,var(--gold)_45%,white)] bg-[color-mix(in_oklab,var(--gold)_12%,white)] text-gold-dark font-medium"
+                ? "border-gold bg-[color-mix(in_oklab,var(--gold)_12%,white)] text-gold-dark"
                 : "border-ink-hairline bg-white text-ink-muted hover:text-ink",
             )}
           >
-            <Tag size={13} />
-            {tag || "All tags"}
-            <ChevronDown size={13} className="text-ink-faint" />
+            <Tag size={18} />
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="max-h-64 overflow-y-auto">
+          <DropdownMenuContent align="start" className="max-h-64 overflow-y-auto min-w-[180px]">
+            <DropdownMenuLabel>Tag</DropdownMenuLabel>
             <DropdownMenuItem onClick={() => pickTag("")}>
+              <span className="flex-1">All tags</span>
               <Check size={14} className={cn("shrink-0", tag ? "opacity-0" : "text-gold")} />
-              All tags
             </DropdownMenuItem>
             {tags.map((t) => (
               <DropdownMenuItem key={t} onClick={() => pickTag(t)}>
+                <span className="flex-1">{t}</span>
                 <Check size={14} className={cn("shrink-0", t === tag ? "text-gold" : "opacity-0")} />
-                {t}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
       )}
+      <div className="relative flex-1">
+        <Search
+          size={14}
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint pointer-events-none"
+        />
+        <Input
+          type="search"
+          placeholder="Search contacts by name, phone, email"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commit({ q })
+          }}
+          className="pl-9 rounded-pill"
+        />
+      </div>
+      {children}
     </div>
   )
 }

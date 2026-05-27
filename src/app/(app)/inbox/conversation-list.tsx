@@ -2,10 +2,17 @@
 import { useEffect, useMemo, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { formatDistanceToNow } from "date-fns"
-import { Search } from "lucide-react"
+import { Search, ListFilter, Check } from "lucide-react"
 import { Avatar } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu"
 import { NewMessageDialog } from "./new-message-dialog"
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser"
 import { cn, formatPhone } from "@/lib/utils"
@@ -193,6 +200,41 @@ export function ConversationList({
           the page name already lives in the top bar / sidebar. */}
       <div className="shrink-0 px-4 pt-4 pb-3 border-b border-ink-hairline bg-surface/95 backdrop-blur supports-[backdrop-filter]:bg-surface/85 z-10">
         <div className="flex items-center gap-2">
+          {/* Segment filter folded into one dropdown, left of the search — the
+              reply-bar layout (round button, rounded field, round action). The
+              per-segment awaiting-reply counts move into the menu. */}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              aria-label="Filter conversations by segment"
+              className={cn(
+                "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-pill border transition-colors",
+                segment !== "all"
+                  ? "border-gold bg-[color-mix(in_oklab,var(--gold)_12%,white)] text-gold-dark"
+                  : "border-ink-hairline bg-white text-ink-muted hover:text-ink",
+              )}
+            >
+              <ListFilter size={18} />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="min-w-[180px]">
+              <DropdownMenuLabel>Segment</DropdownMenuLabel>
+              {INBOX_SEGMENTS.map((seg) => {
+                const count = segmentCounts[seg]
+                return (
+                  <DropdownMenuItem key={seg} onClick={() => setSegment(seg)} closeOnSelect>
+                    <span className="flex-1">{SEGMENT_META[seg].label}</span>
+                    {count > 0 && (
+                      <span className="text-micro font-semibold text-gold-dark">{count}</span>
+                    )}
+                    <Check
+                      size={14}
+                      className={cn("shrink-0", seg === segment ? "text-gold" : "opacity-0")}
+                    />
+                  </DropdownMenuItem>
+                )
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <div className="relative flex-1">
             <Search
               size={14}
@@ -203,42 +245,10 @@ export function ConversationList({
               placeholder="Search by name, phone, email"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="pl-9 text-small"
+              className="pl-9 text-small rounded-pill"
             />
           </div>
           <NewMessageDialog />
-        </div>
-        {/* Segment chips. General is unfiltered + authoritative; the rest are
-            filters layered on the one list, never separate inboxes. They wrap
-            rather than scroll so no segment is ever hidden off-screen — the
-            whole point is that nothing is out of sight. */}
-        <div
-          aria-label="Filter conversations by segment"
-          className="flex items-center gap-2 mt-2.5 overflow-x-auto no-scrollbar"
-        >
-          {INBOX_SEGMENTS.map((seg) => {
-            const active = segment === seg
-            const count = segmentCounts[seg]
-            return (
-              <button
-                key={seg}
-                type="button"
-                aria-pressed={active}
-                onClick={() => setSegment(seg)}
-                className={cn(
-                  "seg-chip inline-flex shrink-0 items-center gap-1.5 rounded-pill border px-3 py-1 text-label font-medium transition-colors",
-                  active ? "border-gold" : "border-ink-hairline",
-                )}
-              >
-                {SEGMENT_META[seg].label}
-                {count > 0 && (
-                  <span className={cn("text-micro", active ? "text-white/80" : "text-gold-dark font-semibold")}>
-                    {count}
-                  </span>
-                )}
-              </button>
-            )
-          })}
         </div>
       </div>
 
