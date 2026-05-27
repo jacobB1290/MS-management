@@ -1,6 +1,7 @@
 "use client"
-import { useEffect, useMemo, useRef, useState, useTransition } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { formatDistanceToNow } from "date-fns"
 import { Search, ListFilter, Check } from "lucide-react"
 import { Avatar } from "@/components/ui/avatar"
@@ -54,12 +55,14 @@ export function ConversationList({
   selectedId,
 }: ConversationListProps) {
   const router = useRouter()
-  const [pending, startTransition] = useTransition()
-  // Optimistic selection: flip immediately so the active row paints before
-  // the route navigation finishes.
+  // Optimistic selection: a tap flips the active row immediately, ahead of the
+  // route change, so the highlight never lags the navigation. We follow the
+  // server's selection whenever it actually changes (back button, deep link),
+  // but a fresh tap stays ahead of it without being reverted mid-navigation.
   const [optimisticId, setOptimisticId] = useState<string | undefined>(selectedId)
-  if (selectedId !== undefined && selectedId !== optimisticId && !pending) {
-    // Server caught up — sync.
+  const [lastServerId, setLastServerId] = useState<string | undefined>(selectedId)
+  if (selectedId !== lastServerId) {
+    setLastServerId(selectedId)
     setOptimisticId(selectedId)
   }
   const activeId = optimisticId ?? selectedId
@@ -86,11 +89,6 @@ export function ConversationList({
         { event: "INSERT", schema: "public", table: "messages" },
         (payload) => {
           const m = payload.new as Tables<"messages">
-          // The warmed (prefetched) copy of this thread is now stale — it
-          // predates this message. Drop it so the warm effect re-prefetches a
-          // fresh payload, keeping a just-opened thread both instant and
-          // current.
-          if (m.contact_id) warmed.current.delete(m.contact_id)
           setItems((cur) => {
             const idx = cur.findIndex((c) => c.id === m.contact_id)
             if (idx < 0) {
@@ -154,31 +152,6 @@ export function ConversationList({
     }
   }, [router])
 
-  // Warm the most-recent threads into the router cache as soon as the inbox
-  // loads, so the FIRST tap on a conversation opens instantly instead of
-  // waiting on a server round-trip. This route has no loading.tsx, so a route
-  // prefetch pulls the full thread payload (messages included), not just a
-  // skeleton. Each id is warmed once; as the list shifts we only warm threads
-  // we haven't seen yet. The inbox layout remounts this component whenever you
-  // re-enter the inbox, so the cache is re-warmed each visit.
-  const warmed = useRef<Set<string>>(new Set())
-  useEffect(() => {
-    const ids: string[] = []
-    for (const c of items.slice(0, 8)) {
-      if (c.id && !warmed.current.has(c.id)) ids.push(c.id)
-    }
-    if (ids.length === 0) return
-    // Small delay so the first paint of the list isn't competing with the
-    // prefetch fetches.
-    const t = setTimeout(() => {
-      for (const id of ids) {
-        warmed.current.add(id)
-        router.prefetch(`/inbox?c=${id}`)
-      }
-    }, 200)
-    return () => clearTimeout(t)
-  }, [items, router])
-
   const filtered = useMemo(() => {
     const base = items.filter((c) => inSegment(c, segment))
     if (!query.trim()) return base
@@ -215,13 +188,6 @@ export function ConversationList({
     }
     return counts
   }, [items])
-
-  function selectConversation(id: string) {
-    setOptimisticId(id)
-    startTransition(() => {
-      router.push(`/inbox?c=${id}`, { scroll: false })
-    })
-  }
 
   return (
     <>
@@ -301,11 +267,16 @@ export function ConversationList({
             : null
           return (
             <li key={c.id}>
-              <button
-                type="button"
-                onClick={() => c.id && selectConversation(c.id)}
-                onMouseEnter={() => c.id && router.prefetch(`/inbox?c=${c.id}`)}
-                onPointerDown={() => c.id && router.prefetch(`/inbox?c=${c.id}`)}
+              {/* A real prefetching Link (not a button): prefetch pulls the
+                  full thread — messages included — as the row enters the
+                  viewport, so the FIRST tap opens instantly with no load,
+                  matching the contacts list. scroll={false} keeps the list
+                  scroll position; onClick flips the active row optimistically. */}
+              <Link
+                href={`/inbox?c=${c.id}`}
+                prefetch
+                scroll={false}
+                onClick={() => c.id && setOptimisticId(c.id)}
                 className={cn(
                   "w-full text-left flex items-center gap-2.5 px-4 py-3.5 transition-colors",
                   active
@@ -355,7 +326,7 @@ export function ConversationList({
                     {c.email_unsubscribed_at && <Badge variant="muted" className="shrink-0">UNSUB</Badge>}
                   </div>
                 </div>
-              </button>
+              </Link>
             </li>
           )
         })}

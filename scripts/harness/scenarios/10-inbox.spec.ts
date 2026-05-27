@@ -10,7 +10,7 @@ test("inbox list with conversations", async ({ authed }) => {
 test("inbox with thread open", async ({ authed }) => {
   // Open the most recent conversation (Elena Volkov, seeded ~4h ago)
   await gotoAndSettle(authed, "/inbox")
-  await authed.locator("ol li button").first().click()
+  await authed.locator("ol li a").first().click()
   await authed.waitForURL(/\?c=/)
   await authed.waitForTimeout(400)
   await screenshotPage(authed, "inbox-thread")
