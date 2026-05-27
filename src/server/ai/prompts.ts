@@ -41,6 +41,18 @@ export const CRISIS =
 export const SENSITIVE_TAG =
   /grief|griev|crisis|suicid|self.?harm|depress|anxiet|mental|addict|alcohol|\bdrug|abuse|divorce|\bsick|illness|cancer|disease|disab|debt|bankrupt|financ|\blegal|arrest|prison|custody|pregnan/i
 
+/**
+ * Deterministic confidence floors the app applies on top of the model output.
+ * They live here — beside the prompts they backstop — so the production call
+ * sites AND the offline eval harness import one value and can never drift apart.
+ *   - triage: below this segment-confidence the conversation stays in the
+ *     always-visible General instead of being routed into a quieter segment.
+ *   - opt-out: a model-detected opt-out only fires at/above this confidence (it
+ *     suppresses ALL SMS, reversible by staff, so the bar is deliberately high).
+ */
+export const TRIAGE_CONFIDENCE_FLOOR = 0.75
+export const OPTOUT_CONFIDENCE_FLOOR = 0.85
+
 // ---------------------------------------------------------------------------
 // TRIAGE — one segment + its lifecycle status for the conversation.
 // ---------------------------------------------------------------------------

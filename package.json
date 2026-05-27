@@ -9,7 +9,11 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "harness": "playwright test --config=scripts/harness/playwright.config.ts",
-    "harness:update": "playwright test --config=scripts/harness/playwright.config.ts --update-snapshots"
+    "harness:update": "playwright test --config=scripts/harness/playwright.config.ts --update-snapshots",
+    "ai-eval": "tsx scripts/ai-eval/run.ts",
+    "sim": "tsx scripts/ai-eval/sim-run.ts",
+    "sim:build": "tsx scripts/ai-eval/sim-assemble.ts && tsx scripts/ai-eval/sim-gen-fixtures.ts",
+    "sim:verify": "tsx scripts/ai-eval/sim-verify.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.98.0",
@@ -41,6 +45,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4",
+    "tsx": "^4.19.2",
     "typescript": "^5"
   }
 }

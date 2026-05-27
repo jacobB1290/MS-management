@@ -29,6 +29,12 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Simulation in sync with the CRM
+        # Deterministic, no secrets: re-applies today's AI guards to the
+        # recorded outreach-sim outputs and fails if sim-result.json or the
+        # demo fixtures have drifted. Keeps the harness + demo dataset honest.
+        run: npm run sim:verify
+
       - name: Build
         run: npm run build
 

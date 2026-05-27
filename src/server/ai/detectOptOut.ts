@@ -2,14 +2,20 @@ import "server-only"
 import { z } from "zod"
 import { createAnthropicClient } from "./client"
 import { modelSupportsEffort, type AiFeatureConfig } from "./config"
-import { OPTOUT_SYSTEM_PROMPT, buildTranscript, type ThreadMessage } from "./prompts"
+import {
+  OPTOUT_SYSTEM_PROMPT,
+  OPTOUT_CONFIDENCE_FLOOR,
+  buildTranscript,
+  type ThreadMessage,
+} from "./prompts"
 
 /**
- * Confidence required before we act on a model-detected opt-out. A positive
- * result opts the contact out of ALL SMS (reversible by staff), so the bar is
- * high: below this we leave them reachable and let staff judge.
+ * Confidence required before we act on a model-detected opt-out (a positive
+ * result suppresses ALL SMS, reversible by staff, so the bar is high). The
+ * value is defined in ./prompts beside the other guards; re-exported here so
+ * existing callers keep importing it from this module.
  */
-export const OPTOUT_CONFIDENCE_FLOOR = 0.85
+export { OPTOUT_CONFIDENCE_FLOOR }
 
 const OPTOUT_JSON_SCHEMA = {
   type: "object",

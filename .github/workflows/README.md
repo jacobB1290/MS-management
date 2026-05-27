@@ -3,9 +3,11 @@
 ## Workflows
 
 - **`ci.yml`** — runs on every pull request and push to `main`. Installs
-  deps, runs `typecheck`, `lint`, then the Playwright visual harness across
-  the full viewport matrix. Uploads `playwright-report/` as an artifact on
-  failure so visual diffs are reviewable in the Actions UI.
+  deps, runs `typecheck`, `lint`, `sim:verify` (asserts the outreach-sim
+  harness + demo dataset are still in sync with the CRM's AI guards), and
+  `build`; a separate non-blocking job runs the Playwright visual harness
+  across the full viewport matrix and uploads `playwright-report/` as an
+  artifact on failure so visual diffs are reviewable in the Actions UI.
 - **`heartbeat.yml`** — runs daily at 09:00 UTC (and on manual
   `workflow_dispatch`). Reads then patches the `heartbeat` row in Supabase
   to keep the free-tier project warm and to catch credential rot early.

@@ -19,6 +19,18 @@
  * Threads are oldest-first. "in" = the neighbor, "out" = staff.
  */
 
+/**
+ * The established church tag vocabulary the tagging prompt reuses first. Tags
+ * are free-form text[] in the CRM (no enum to import), so this is the harness's
+ * canonical seed — the one place the simulated "existing tags across contacts"
+ * lives, shared by the live runner, the assembler's vocab filter, and the
+ * agent-sweep inputs.
+ */
+export const SEED_VOCAB = [
+  "visitor", "newcomer", "member", "volunteer", "prayer-request", "needs-followup",
+  "baptism-interest", "kids-ministry", "small-group", "worship-team", "russian-speaker", "espanol",
+] as const
+
 export type Channel = "sms" | "form"
 export type Lang = "en" | "ru"
 export type ThreadMsg = { direction: "in" | "out"; body: string }

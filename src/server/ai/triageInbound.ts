@@ -2,7 +2,13 @@ import "server-only"
 import { z } from "zod"
 import { createAnthropicClient } from "./client"
 import { modelSupportsEffort, type AiFeatureConfig } from "./config"
-import { TRIAGE_SYSTEM_PROMPT, CRISIS, buildTranscript, type ThreadMessage } from "./prompts"
+import {
+  TRIAGE_SYSTEM_PROMPT,
+  CRISIS,
+  TRIAGE_CONFIDENCE_FLOOR,
+  buildTranscript,
+  type ThreadMessage,
+} from "./prompts"
 import {
   INBOX_CATEGORIES,
   CATEGORY_STATUS,
@@ -10,14 +16,6 @@ import {
   isValidStatus,
   type InboxCategory,
 } from "@/lib/inbox-segments"
-
-/**
- * Below this model confidence we keep the conversation in General rather than
- * routing it into a quieter segment. Misfiling into General is harmless (it's
- * the authoritative, always-visible view); burying a real prayer/crisis in a
- * segment nobody watches is not. So ambiguity always resolves to General.
- */
-const CONFIDENCE_FLOOR = 0.75
 
 const TRIAGE_JSON_SCHEMA = {
   type: "object",
@@ -137,7 +135,7 @@ export async function classifyConversation(
     const confidence = Math.max(0, Math.min(1, parsed.confidence))
     // Below the floor, or an out-of-range category, falls back to General.
     const category: InboxCategory =
-      isInboxCategory(parsed.category) && confidence >= CONFIDENCE_FLOOR ? parsed.category : "general"
+      isInboxCategory(parsed.category) && confidence >= TRIAGE_CONFIDENCE_FLOOR ? parsed.category : "general"
 
     return {
       ok: true,
