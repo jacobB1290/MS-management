@@ -1,6 +1,8 @@
 "use client"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useContext, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { InboxNavContext } from "./inbox-frame"
 import { ArrowLeft, AlertTriangle, Plus, Loader2, X, ChevronRight, RotateCcw, Sparkles, Clock, Info, ArrowUp, Image as ImageIcon } from "lucide-react"
 import {
   DropdownMenu,
@@ -76,6 +78,16 @@ export function ThreadPane({
   const scrollerRef = useRef<HTMLDivElement>(null)
   // Mobile-only: the contact panel opens as a slide-over sheet (desktop docks it).
   const [infoOpen, setInfoOpen] = useState(false)
+
+  // Mobile back: animate the thread overlay out (InboxFrame keeps the content
+  // mounted through the slide), then fall back to a plain nav if we're somehow
+  // rendered outside the inbox frame.
+  const router = useRouter()
+  const inboxNav = useContext(InboxNavContext)
+  function handleBack() {
+    if (inboxNav) inboxNav.closeThread()
+    else router.push("/inbox")
+  }
 
   // Typing lock: while one staff member is composing, others are blocked from
   // sending into the same thread (prevents two people double-texting a
@@ -381,14 +393,14 @@ export function ThreadPane({
   return (
     <>
       <header className="shrink-0 flex flex-wrap items-center gap-x-3 gap-y-2 px-4 md:px-6 py-3 border-b border-ink-hairline bg-bg/95 backdrop-blur">
-        <Link
-          href="/inbox"
-          prefetch
-          className="md:hidden inline-flex items-center justify-center h-11 w-11 -ml-2 rounded-pill hover:bg-white transition-colors"
+        <button
+          type="button"
+          onClick={handleBack}
+          className="md:hidden inline-flex items-center justify-center h-11 w-11 -ml-2 rounded-pill hover:bg-white active:bg-white transition-colors"
           aria-label="Back to inbox"
         >
           <ArrowLeft size={18} />
-        </Link>
+        </button>
         <Avatar name={contact.name ?? contact.phone} size="md" />
         <div className="min-w-0 flex-1">
           <Link

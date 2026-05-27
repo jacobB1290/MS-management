@@ -72,6 +72,7 @@ export default async function CampaignsPage() {
                     <td className="px-4 py-3">
                       <Link
                         href={`/campaigns/${c.id}`}
+                        prefetch
                         className="font-medium text-ink hover:underline"
                       >
                         {c.name}

@@ -35,11 +35,17 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
 
   return (
     <div className="flex h-full min-h-0 overflow-hidden">
-      <Suspense fallback={<ThreadSkeleton />} key={selectedId}>
+      {/* No per-thread Suspense key: keeping one boundary lets React hold the
+          current thread on screen while the next one streams in (the nav is a
+          transition), so switching threads is seamless instead of flashing a
+          skeleton every time. The very first open from the empty state is the
+          only time the skeleton shows. ThreadPane resets its own state when the
+          contact id changes. */}
+      <Suspense fallback={<ThreadSkeleton />}>
         <ThreadLoader contactId={selectedId} currentUserId={user.id} />
       </Suspense>
       <div className="hidden lg:flex w-72 xl:w-80 shrink-0 border-l border-ink-hairline bg-surface flex-col min-h-0">
-        <Suspense fallback={<ContactPanelSkeleton />} key={selectedId}>
+        <Suspense fallback={<ContactPanelSkeleton />}>
           <ContactPanelLoader contactId={selectedId} />
         </Suspense>
       </div>

@@ -1,6 +1,6 @@
 "use client"
 import { useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser"
 
 /**
@@ -23,8 +23,15 @@ const MAX_WAIT_MS = 4000
 
 export function LiveRefresh() {
   const router = useRouter()
+  const pathname = usePathname()
 
   useEffect(() => {
+    // The inbox keeps itself live through its own conversation-list and thread
+    // subscriptions, and a blanket router.refresh() there would wipe the
+    // prefetched threads that make opening a conversation instant. So
+    // LiveRefresh sits the inbox out and only reconciles the other surfaces.
+    if (pathname?.startsWith("/inbox")) return
+
     let debounce: ReturnType<typeof setTimeout> | null = null
     let firstPendingAt = 0
 
@@ -62,7 +69,7 @@ export function LiveRefresh() {
       document.removeEventListener("visibilitychange", onVisible)
       void supabase.removeChannel(channel)
     }
-  }, [router])
+  }, [router, pathname])
 
   return null
 }

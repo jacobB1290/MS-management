@@ -39,6 +39,7 @@ export async function Sidebar({
               <li key={item.href}>
                 <Link
                   href={item.href}
+                  prefetch
                   className={cn(
                     "group flex items-center gap-3 rounded-md px-3 py-2.5 text-body transition-colors",
                     active

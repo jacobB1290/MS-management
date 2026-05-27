@@ -1,5 +1,6 @@
 "use client"
-import { useSearchParams } from "next/navigation"
+import { createContext, useCallback, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { ConversationList } from "./conversation-list"
 import { cn } from "@/lib/utils"
 import type { Tables } from "@/lib/database.types"
@@ -18,31 +19,66 @@ interface InboxFrameProps {
   children: React.ReactNode
 }
 
+/**
+ * Lets the thread (rendered as server `children`, so it can't reach this
+ * component's state directly) trigger the mobile slide-out before the route
+ * actually changes. The back button animates the panel away with its content
+ * still mounted, then we drop `?c=` — otherwise the content would snap to the
+ * empty state the instant you tapped back.
+ */
+export const InboxNavContext = createContext<{ closeThread: () => void } | null>(null)
+
+const SLIDE_MS = 300
+
 export function InboxFrame({ conversations, children }: InboxFrameProps) {
   // useSearchParams stays in sync with the URL without remounting the list.
   const sp = useSearchParams()
+  const router = useRouter()
   const selectedId = sp.get("c") ?? undefined
+  const [closing, setClosing] = useState(false)
+
+  const closeThread = useCallback(() => {
+    setClosing(true)
+    // Let the slide-out play to completion, then actually clear the route.
+    window.setTimeout(() => {
+      router.push("/inbox", { scroll: false })
+      setClosing(false)
+    }, SLIDE_MS)
+  }, [router])
+
+  // Drives the mobile slide. Desktop ignores it (both panes are docked there).
+  const threadOpen = Boolean(selectedId) && !closing
 
   return (
-    <div className="flex h-full overflow-hidden">
-      <div
-        className={cn(
-          "shrink-0 flex-col border-r border-ink-hairline bg-surface min-h-0",
-          "lg:flex lg:w-80 xl:w-96",
-          selectedId ? "hidden lg:flex" : "flex w-full",
-        )}
-      >
-        <ConversationList conversations={conversations} selectedId={selectedId} />
-      </div>
+    <InboxNavContext.Provider value={{ closeThread }}>
+      <div className="h-full overflow-hidden">
+        {/* Two-pane track. On mobile it's twice the viewport wide (list screen +
+            thread screen) and slides one screen left to reveal the thread, then
+            back to reveal the list — iMessage-style, with both panes mounted so
+            the slide is seamless in both directions. On desktop the track
+            collapses to the normal list-rail + thread layout with no transform. */}
+        <div
+          className={cn(
+            "flex h-full min-h-0",
+            "transition-transform duration-300 ease-out lg:transition-none",
+            // The track's own width is one viewport; -translate-x-full shifts it
+            // a full screen so the second pane (thread) fills the viewport.
+            threadOpen ? "max-lg:-translate-x-full" : "translate-x-0",
+          )}
+        >
+          {/* Conversation list: a full inbox-pane on mobile, a fixed rail on
+              desktop. w-full (not w-screen) so it fits the inbox area even when
+              the app sidebar is showing at tablet widths. */}
+          <div className="flex min-h-0 w-full shrink-0 flex-col border-r border-ink-hairline bg-surface lg:w-80 xl:w-96">
+            <ConversationList conversations={conversations} selectedId={selectedId} />
+          </div>
 
-      <div
-        className={cn(
-          "flex-1 min-w-0 min-h-0 flex flex-col",
-          selectedId ? "flex" : "hidden lg:flex",
-        )}
-      >
-        {children}
+          {/* Thread pane: a full inbox-pane on mobile, the flexible remainder on desktop. */}
+          <div className="flex min-h-0 flex-col bg-bg max-lg:w-full max-lg:shrink-0 lg:flex-1">
+            {children}
+          </div>
+        </div>
       </div>
-    </div>
+    </InboxNavContext.Provider>
   )
 }

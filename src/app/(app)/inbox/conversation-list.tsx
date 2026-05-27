@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useMemo, useState, useTransition } from "react"
+import { useEffect, useMemo, useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { formatDistanceToNow } from "date-fns"
 import { Search, ListFilter, Check } from "lucide-react"
@@ -86,6 +86,11 @@ export function ConversationList({
         { event: "INSERT", schema: "public", table: "messages" },
         (payload) => {
           const m = payload.new as Tables<"messages">
+          // The warmed (prefetched) copy of this thread is now stale — it
+          // predates this message. Drop it so the warm effect re-prefetches a
+          // fresh payload, keeping a just-opened thread both instant and
+          // current.
+          if (m.contact_id) warmed.current.delete(m.contact_id)
           setItems((cur) => {
             const idx = cur.findIndex((c) => c.id === m.contact_id)
             if (idx < 0) {
@@ -148,6 +153,31 @@ export function ConversationList({
       void supabase.removeChannel(channel)
     }
   }, [router])
+
+  // Warm the most-recent threads into the router cache as soon as the inbox
+  // loads, so the FIRST tap on a conversation opens instantly instead of
+  // waiting on a server round-trip. This route has no loading.tsx, so a route
+  // prefetch pulls the full thread payload (messages included), not just a
+  // skeleton. Each id is warmed once; as the list shifts we only warm threads
+  // we haven't seen yet. The inbox layout remounts this component whenever you
+  // re-enter the inbox, so the cache is re-warmed each visit.
+  const warmed = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    const ids: string[] = []
+    for (const c of items.slice(0, 8)) {
+      if (c.id && !warmed.current.has(c.id)) ids.push(c.id)
+    }
+    if (ids.length === 0) return
+    // Small delay so the first paint of the list isn't competing with the
+    // prefetch fetches.
+    const t = setTimeout(() => {
+      for (const id of ids) {
+        warmed.current.add(id)
+        router.prefetch(`/inbox?c=${id}`)
+      }
+    }, 200)
+    return () => clearTimeout(t)
+  }, [items, router])
 
   const filtered = useMemo(() => {
     const base = items.filter((c) => inSegment(c, segment))
@@ -275,6 +305,7 @@ export function ConversationList({
                 type="button"
                 onClick={() => c.id && selectConversation(c.id)}
                 onMouseEnter={() => c.id && router.prefetch(`/inbox?c=${c.id}`)}
+                onPointerDown={() => c.id && router.prefetch(`/inbox?c=${c.id}`)}
                 className={cn(
                   "w-full text-left flex items-center gap-2.5 px-4 py-3.5 transition-colors",
                   active
