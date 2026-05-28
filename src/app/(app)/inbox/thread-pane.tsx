@@ -3,7 +3,7 @@ import { useContext, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { InboxNavContext } from "./inbox-frame"
-import { ArrowLeft, AlertTriangle, Plus, Loader2, X, ChevronRight, RotateCcw, Sparkles, Clock, Info, ArrowUp, Image as ImageIcon, Mail, MessageSquare, MailX } from "lucide-react"
+import { ArrowLeft, AlertTriangle, Plus, Loader2, X, ChevronRight, RotateCcw, Sparkles, Clock, Info, ArrowUp, Image as ImageIcon, Mail, MessageSquare, MailX, Paperclip, FileText, Pencil } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -26,6 +26,15 @@ import {
   isVideoUrl,
   uploadMedia,
 } from "@/lib/media"
+import {
+  ATTACHMENT_ACCEPT_ATTR,
+  ACCEPTED_ATTACHMENT_TYPES,
+  MAX_ATTACHMENT_FILE_BYTES,
+  MAX_ATTACHMENT_TOTAL_BYTES,
+  MAX_ATTACHMENT_COUNT,
+  uploadEmailAttachment,
+  type EmailAttachment,
+} from "@/lib/email-attachments"
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import { ContactPanel } from "./contact-panel"
 import { explainTwilioError } from "@/lib/twilio-errors"
@@ -99,7 +108,15 @@ export function ThreadPane({
   // when the integration is not configured. `drafting` drives its loading state.
   const [aiEnabled, setAiEnabled] = useState(false)
   const [drafting, setDrafting] = useState(false)
+  // Email-only composer state: file attachments, AI beautify preview, and the
+  // beautify loading flag. The preview holds freshly-sanitized AI HTML; it is
+  // the ONLY HTML the operator UI renders (thread bubbles stay plain text).
+  const [attachments, setAttachments] = useState<EmailAttachment[]>([])
+  const [attachUploading, setAttachUploading] = useState(false)
+  const [emailHtml, setEmailHtml] = useState<string | null>(null)
+  const [beautifying, setBeautifying] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const attachInputRef = useRef<HTMLInputElement>(null)
   const scrollerRef = useRef<HTMLDivElement>(null)
   // Mobile-only: the contact panel opens as a slide-over sheet (desktop docks it).
   const [infoOpen, setInfoOpen] = useState(false)
@@ -155,6 +172,8 @@ export function ThreadPane({
     setSubject(deriveReplySubject(initialMessages))
     setChannel(contactProp.phone ? "sms" : contactProp.email ? "email" : "sms")
     setMedia(null)
+    setAttachments([])
+    setEmailHtml(null)
     setLockedBy(null)
     setSawInbound(false)
   }
@@ -299,6 +318,82 @@ export function ThreadPane({
     }
   }
 
+  // Ask Claude to draft a fresh email (empty composer) or beautify the current
+  // plain-text draft into formatted HTML. The result lands in a preview card
+  // the operator reviews before sending — never auto-sent. The returned HTML is
+  // already server-sanitized; we render it via dangerouslySetInnerHTML in the
+  // preview only.
+  async function handleBeautify() {
+    if (beautifying || locked || emailBlocker) return
+    setBeautifying(true)
+    try {
+      const res = await fetch("/api/ai/draft-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contact_id: contact.id, draft: body }),
+      })
+      const json = await res.json().catch(() => null)
+      if (!res.ok) {
+        toast.error(
+          json?.error === "no_context"
+            ? "Nothing to reply to yet"
+            : json?.error === "disabled"
+              ? "AI email assist isn’t configured"
+              : "Couldn’t draft an email",
+        )
+        return
+      }
+      if (typeof json?.subject === "string" && json.subject.trim() && !subject.trim()) {
+        setSubject(json.subject as string)
+      }
+      setEmailHtml(json.html as string)
+    } catch (err) {
+      toast.error(`Network error: ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setBeautifying(false)
+    }
+  }
+
+  // Revert the AI preview back to the editable textarea so the operator can
+  // tweak the plain text and re-beautify.
+  function editPreviewText() {
+    setEmailHtml(null)
+  }
+
+  function onPickEmailFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = "" // allow re-selecting the same file
+    if (!file) return
+    if (!ACCEPTED_ATTACHMENT_TYPES.includes(file.type)) {
+      toast.error("Unsupported file type. Use a PDF, image, or document.")
+      return
+    }
+    if (file.size > MAX_ATTACHMENT_FILE_BYTES) {
+      toast.error("File too large. 25 MB max per file")
+      return
+    }
+    if (attachments.length >= MAX_ATTACHMENT_COUNT) {
+      toast.error(`You can attach up to ${MAX_ATTACHMENT_COUNT} files`)
+      return
+    }
+    const currentBytes = attachments.reduce((sum, a) => sum + a.size, 0)
+    if (currentBytes + file.size > MAX_ATTACHMENT_TOTAL_BYTES) {
+      toast.error("Attachments exceed the 25 MB total limit")
+      return
+    }
+    setAttachUploading(true)
+    uploadEmailAttachment(file)
+      .then((meta) => setAttachments((cur) => [...cur, meta]))
+      .catch((err) =>
+        toast.error(`Upload failed: ${err instanceof Error ? err.message : String(err)}`),
+      )
+      .finally(() => setAttachUploading(false))
+  }
+
+  function removeAttachment(path: string) {
+    setAttachments((cur) => cur.filter((a) => a.path !== path))
+  }
+
   function trackTyping(at: number | null) {
     typingAtRef.current = at
     void channelRef.current?.track({
@@ -433,7 +528,9 @@ export function ThreadPane({
     if (sending || locked) return
     if (msg.channel === "email") {
       if (emailBlocker || !msg.subject?.trim() || !msg.body?.trim()) return
-      await dispatchEmail(msg.subject, msg.body, false)
+      // Retry resends the plain-text part only: the branded HTML can be
+      // re-beautified and attachments re-attached from the composer if needed.
+      await dispatchEmail(msg.subject, msg.body, null, [], false)
       return
     }
     if (optedOut || noPhone || conversationLapsed) return
@@ -444,7 +541,13 @@ export function ThreadPane({
   // subject, and no media/segments. Optimistic insert + realtime swap mirror
   // the SMS path. `restoreComposerOnFail` hands the draft back on a fresh send;
   // a retry of an already-failed bubble has no draft to restore.
-  async function dispatchEmail(subj: string, text: string, restoreComposerOnFail: boolean) {
+  async function dispatchEmail(
+    subj: string,
+    text: string,
+    html: string | null,
+    files: EmailAttachment[],
+    restoreComposerOnFail: boolean,
+  ) {
     setSending(true)
     const tempId = `tmp_${crypto.randomUUID()}`
     const optimistic: OptimisticMessage = {
@@ -458,7 +561,10 @@ export function ThreadPane({
       channel: "email",
       twilio_sid: null,
       provider_message_id: null,
-      email_meta: null,
+      email_meta:
+        files.length > 0
+          ? { attachments: files.map((a) => ({ filename: a.filename, type: a.type, size: a.size })) }
+          : null,
       status: "sending",
       error: null,
       context: "conversational_reply",
@@ -475,12 +581,22 @@ export function ThreadPane({
       const res = await fetch("/api/messages/send-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contact_id: contact.id, subject: subj, body: text }),
+        body: JSON.stringify({
+          contact_id: contact.id,
+          subject: subj,
+          body: text,
+          html,
+          attachments: files,
+        }),
       })
       const json = await res.json()
       if (!res.ok) {
         setMessages((cur) => cur.filter((m) => m.id !== tempId))
-        if (restoreComposerOnFail) setBody(text)
+        if (restoreComposerOnFail) {
+          setBody(text)
+          setEmailHtml(html)
+          setAttachments(files)
+        }
         toast.error(
           json.error === "unsubscribed"
             ? "Contact has unsubscribed from email"
@@ -496,7 +612,11 @@ export function ThreadPane({
       }
     } catch (err) {
       setMessages((cur) => cur.filter((m) => m.id !== tempId))
-      if (restoreComposerOnFail) setBody(text)
+      if (restoreComposerOnFail) {
+        setBody(text)
+        setEmailHtml(html)
+        setAttachments(files)
+      }
       toast.error(`Network error: ${err instanceof Error ? err.message : String(err)}`)
     } finally {
       setSending(false)
@@ -506,11 +626,18 @@ export function ThreadPane({
   async function handleSendEmail(e: React.FormEvent) {
     e.preventDefault()
     const subj = subject.trim()
+    // When an AI preview is active the body holds the plain text we derived it
+    // from; we still send that as the text/plain part and the previewed HTML as
+    // the rich part. The plain-text body is required either way.
     const text = body.trim()
-    if (!subj || !text || sending || locked || emailBlocker) return
+    if (!subj || !text || sending || locked || emailBlocker || attachUploading || beautifying) return
     stopTyping()
+    const sentHtml = emailHtml
+    const sentFiles = attachments
     setBody("")
-    await dispatchEmail(subj, text, true)
+    setEmailHtml(null)
+    setAttachments([])
+    await dispatchEmail(subj, text, sentHtml, sentFiles, true)
   }
 
   return (
@@ -699,6 +826,13 @@ export function ThreadPane({
               </div>
             )}
             <form onSubmit={handleSendEmail} className="space-y-2">
+              <input
+                ref={attachInputRef}
+                type="file"
+                accept={ATTACHMENT_ACCEPT_ATTR}
+                className="hidden"
+                onChange={onPickEmailFile}
+              />
               <Input
                 value={subject}
                 onChange={(e) => {
@@ -711,37 +845,128 @@ export function ThreadPane({
                 aria-label="Email subject"
                 className="rounded-2xl text-small disabled:opacity-60"
               />
-              <div className="flex items-end gap-2">
-                <Textarea
-                  value={body}
-                  onChange={(e) => {
-                    setBody(e.target.value)
-                    onComposeInput()
-                  }}
-                  onBlur={stopTyping}
-                  disabled={locked}
-                  placeholder="Write an email…"
-                  rows={2}
-                  autoGrow
-                  className="flex-1 min-h-[60px] max-h-60 resize-none overflow-y-auto rounded-3xl px-4 py-2.5 disabled:opacity-60"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                      e.preventDefault()
-                      void handleSendEmail(e)
-                    }
-                  }}
-                />
-                <button
-                  type="submit"
-                  disabled={!subject.trim() || !body.trim() || locked || sending}
-                  aria-label="Send email"
-                  className="btn-icon-action shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  {sending ? <Loader2 size={18} className="animate-spin" /> : <Mail size={18} strokeWidth={2.25} />}
-                </button>
-              </div>
+              {attachments.length > 0 && (
+                <ul className="flex flex-wrap gap-1.5">
+                  {attachments.map((a) => (
+                    <li
+                      key={a.path}
+                      className="inline-flex items-center gap-1.5 rounded-pill border border-ink-hairline bg-white px-2.5 py-1 text-micro text-ink-muted max-w-[220px]"
+                    >
+                      <FileText size={13} className="shrink-0 text-ink-faint" />
+                      <span className="truncate">{a.filename}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeAttachment(a.path)}
+                        aria-label={`Remove ${a.filename}`}
+                        className="shrink-0 text-ink-faint hover:text-ink"
+                      >
+                        <X size={13} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {emailHtml !== null ? (
+                <div className="rounded-3xl border border-gold/40 bg-white">
+                  <div className="flex items-center gap-1.5 border-b border-ink-hairline px-4 py-2 text-micro text-gold-dark">
+                    <Sparkles size={13} className="shrink-0" />
+                    AI formatted preview
+                  </div>
+                  <div
+                    className="email-ai-preview max-h-60 overflow-y-auto px-4 py-3 text-body text-ink"
+                    dangerouslySetInnerHTML={{ __html: emailHtml }}
+                  />
+                  <div className="flex flex-wrap items-center gap-2 border-t border-ink-hairline px-4 py-2.5">
+                    <button
+                      type="button"
+                      onClick={editPreviewText}
+                      disabled={locked || sending}
+                      className="inline-flex items-center gap-1.5 rounded-pill border border-ink-hairline bg-white px-3 py-1.5 text-small text-ink-muted transition-colors hover:text-ink disabled:opacity-50"
+                    >
+                      <Pencil size={14} /> Edit text
+                    </button>
+                    {aiEnabled && (
+                      <button
+                        type="button"
+                        onClick={handleBeautify}
+                        disabled={beautifying || locked || sending}
+                        className="inline-flex items-center gap-1.5 rounded-pill border border-ink-hairline bg-white px-3 py-1.5 text-small text-ink-muted transition-colors hover:text-ink disabled:opacity-50"
+                      >
+                        {beautifying ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />} Regenerate
+                      </button>
+                    )}
+                    <button
+                      type="submit"
+                      disabled={!subject.trim() || !body.trim() || locked || sending}
+                      className="ml-auto inline-flex items-center gap-1.5 rounded-pill bg-gold px-4 py-1.5 text-small font-medium text-white shadow-sm transition-colors hover:bg-gold-dark disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {sending ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} strokeWidth={2.25} />} Send
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-end gap-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        disabled={attachUploading || beautifying || locked}
+                        aria-label="Add to email"
+                        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-pill border border-ink-hairline bg-white text-ink-muted transition-colors hover:text-ink disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {attachUploading || beautifying ? (
+                          <Loader2 size={18} className="animate-spin" />
+                        ) : (
+                          <Plus size={20} />
+                        )}
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align="start"
+                      sideOffset={0}
+                      className="bottom-full top-auto mb-2 min-w-[200px]"
+                    >
+                      <DropdownMenuItem onClick={() => attachInputRef.current?.click()}>
+                        <Paperclip size={16} /> Attach files
+                      </DropdownMenuItem>
+                      {aiEnabled && (
+                        <DropdownMenuItem onClick={handleBeautify} disabled={beautifying}>
+                          <Sparkles size={16} /> {body.trim() ? "Improve with AI" : "Draft with AI"}
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <Textarea
+                    value={body}
+                    onChange={(e) => {
+                      setBody(e.target.value)
+                      onComposeInput()
+                    }}
+                    onBlur={stopTyping}
+                    disabled={locked}
+                    placeholder="Write an email…"
+                    rows={2}
+                    autoGrow
+                    className="flex-1 min-h-[60px] max-h-60 resize-none overflow-y-auto rounded-3xl px-4 py-2.5 disabled:opacity-60"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                        e.preventDefault()
+                        void handleSendEmail(e)
+                      }
+                    }}
+                  />
+                  <button
+                    type="submit"
+                    disabled={!subject.trim() || !body.trim() || locked || sending || attachUploading}
+                    aria-label="Send email"
+                    className="btn-icon-action shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {sending ? <Loader2 size={18} className="animate-spin" /> : <Mail size={18} strokeWidth={2.25} />}
+                  </button>
+                </div>
+              )}
               <p className="text-micro text-ink-faint">
-                Sends from the church email · Press <span className="font-mono">⌘↵</span> to send
+                Sends from the church email · Press <span className="font-mono">⌘↵</span> to send · Tap + to attach files or use AI
               </p>
             </form>
           </>
