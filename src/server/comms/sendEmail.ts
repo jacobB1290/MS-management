@@ -230,7 +230,12 @@ async function sendPlainEmailOrMock(args: {
 
     const payload = {
       from: { email: fromEmail, name: fromName },
-      ...(args.replyTo ? { reply_to: { email: args.replyTo } } : {}),
+      // Give the tokenized Reply-To a friendly display name so mail clients
+      // label it "Morning Star Church" rather than exposing the raw routing
+      // token (reply+<contactId>@…). The token still lives in the address and
+      // routes the reply back to the right conversation; this only prettifies
+      // how it's shown.
+      ...(args.replyTo ? { reply_to: { email: args.replyTo, name: fromName } } : {}),
       personalizations: [{ to: [{ email: args.to }] }],
       subject: args.subject,
       content,
