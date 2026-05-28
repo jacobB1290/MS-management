@@ -269,10 +269,21 @@ function signatureHtml(senderName: string | null, lang: string): string {
  *  ("Morning Star" in display serif over tracked small-caps "CHRISTIAN CHURCH"),
  *  a centered hairline, and a dated dateline — bespoke stationery written today,
  *  not a logo banner. */
+function heroStarHtml(): string {
+  // Bespoke morning-star illustration, hosted so it renders in Gmail/Outlook too
+  // (inline SVG is stripped by both). Decorative (alt="") — the wordmark carries
+  // identity if images are blocked. Falls back to the text glyph with no base.
+  const base = process.env.APP_BASE_URL?.replace(/\/$/, "")
+  if (!base) {
+    return `<div style="font-family:${STAR_FONT};font-size:20px;line-height:1;color:${GOLD};margin-bottom:14px;">${STAR}</div>`
+  }
+  return `<img src="${base}/email/morning-star.png" width="92" height="92" alt="" style="display:block;margin:0 auto 10px auto;border:0;outline:none;text-decoration:none;width:92px;height:92px;">`
+}
+
 function letterheadHtml(dateLabel: string): string {
   return `<tr>
-<td align="center" style="padding:38px 40px 0 40px;">
-<div style="font-family:${STAR_FONT};font-size:17px;line-height:1;color:${GOLD};margin-bottom:16px;">${STAR}</div>
+<td align="center" style="padding:34px 40px 0 40px;">
+${heroStarHtml()}
 <div class="ms-display" style="font-family:${DISPLAY_FONT};font-size:31px;font-weight:700;letter-spacing:0;line-height:1.05;color:${GOLD};white-space:nowrap;">Morning Star</div>
 <div style="margin-top:7px;font-family:${BODY_FONT};font-size:11px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:${GOLD_DARK};">Christian Church</div>
 <div style="margin-top:18px;">${shortRule(46, GOLD_FRAME, "center")}</div>
