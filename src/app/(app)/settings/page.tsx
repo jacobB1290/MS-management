@@ -11,6 +11,8 @@ import {
   type AiSpendSummary,
 } from "@/server/billing/anthropic"
 import { getAiConfig } from "@/server/ai/config"
+import { getModelFamilies } from "@/server/ai/models"
+import { modelChoicesFrom } from "@/lib/ai-models"
 import { listMmsMedia } from "@/server/media/storage"
 import { PageHeader } from "@/components/ui/page-header"
 import { PageInfo } from "@/components/ui/page-info"
@@ -38,6 +40,8 @@ export default async function SettingsPage() {
     listMmsMedia(),
     supabase.rpc("database_size" as never),
   ])
+  // Live picker options — one (the latest) per class, discovered from the Models API.
+  const aiModelChoices = modelChoicesFrom(await getModelFamilies())
   const team = teamRes.data
   const heartbeat = heartbeatRes.data
   const dbBytes = Number((dbRpc.data as number | null) ?? 0)
@@ -89,7 +93,7 @@ export default async function SettingsPage() {
           >
             AI models
           </SectionTitle>
-          <AiModelsPanel config={aiConfig} />
+          <AiModelsPanel config={aiConfig} choices={aiModelChoices} />
         </section>
       )}
 

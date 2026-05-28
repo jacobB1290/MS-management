@@ -70,7 +70,11 @@ export default async function AuditPage() {
                     className="border-b border-ink-hairline last:border-b-0 hover:bg-surface transition-colors"
                   >
                     <td className="px-4 py-3 text-ink-muted whitespace-nowrap w-44" data-dynamic>
-                      {format(new Date(r.created_at), "MMM d, p")}
+                      {/* Zero-padded, fixed-width ("MMM dd, hh:mm a") so the column
+                          width never changes as the time rolls over — the cell is
+                          masked in the visual harness, and a varying width would
+                          otherwise shift every column after it and flake the snapshot. */}
+                      {format(new Date(r.created_at), "MMM dd, hh:mm a")}
                     </td>
                     <td className="px-4 py-3">
                       <Badge variant={ACTION_VARIANT[r.action] ?? "muted"}>
