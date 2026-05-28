@@ -346,6 +346,13 @@ export function ThreadPane({
       if (typeof json?.subject === "string" && json.subject.trim() && !subject.trim()) {
         setSubject(json.subject as string)
       }
+      // Seed the plain-text body from the draft's text rendering. This is the
+      // text/plain part that gets sent, and it's what un-gates the Send button
+      // (which requires a non-empty body) for a fresh draft, not just a
+      // beautified one where the operator already typed something.
+      if (typeof json?.text === "string" && json.text.trim()) {
+        setBody(json.text as string)
+      }
       setEmailHtml(json.html as string)
     } catch (err) {
       toast.error(`Network error: ${err instanceof Error ? err.message : String(err)}`)
