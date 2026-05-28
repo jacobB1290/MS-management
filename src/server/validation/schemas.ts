@@ -94,10 +94,23 @@ export const sendSmsSchema = z
     path: ["body"],
   })
 
+/** One uploaded email attachment, threaded from the upload route → send. */
+export const emailAttachmentSchema = z.object({
+  path: z.string().trim().min(1).max(120),
+  filename: z.string().trim().min(1).max(255),
+  type: z.string().trim().min(1).max(120),
+  size: z.number().int().nonnegative(),
+})
+
 export const sendEmailSchema = z.object({
   contact_id: z.string().uuid(),
   subject: z.string().trim().min(1, "Add a subject.").max(200),
   body: z.string().trim().min(1, "Write a message.").max(20000),
+  // Optional beautified HTML content fragment (no <html>/<body>). When present,
+  // the send path sanitizes it, wraps it in the branded template, and sends a
+  // multipart text+html email; otherwise plain text only.
+  html: z.string().max(60000).optional().nullable(),
+  attachments: z.array(emailAttachmentSchema).max(10).optional().default([]),
 })
 
 export const voiceTokenSchema = z.object({
@@ -140,6 +153,11 @@ export const aiSuggestTagsSchema = z.object({
 export const aiDraftReplySchema = z.object({
   contact_id: z.string().uuid(),
   draft: z.string().max(1600).optional().default(""),
+})
+
+export const aiDraftEmailSchema = z.object({
+  contact_id: z.string().uuid(),
+  draft: z.string().max(20000).optional().default(""),
 })
 
 export const publicFormSubmissionSchema = z.object({

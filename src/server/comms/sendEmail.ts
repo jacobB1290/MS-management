@@ -3,6 +3,14 @@ import { assertCanSendEmail } from "./optOut"
 import { logAudit } from "@/server/audit"
 import { createSupabaseAdminClient } from "@/lib/supabase/server"
 import { replyToAddress, unsubscribeHeaders } from "./emailAddress"
+import { sanitizeEmailContent, wrapBrandedEmail } from "./emailHtml"
+import {
+  resolveEmailAttachments,
+  type SendGridAttachment,
+  type StoredAttachmentMeta,
+} from "@/server/media/emailAttachments"
+import type { EmailAttachment } from "@/lib/email-attachments"
+import type { Json } from "@/lib/database.types"
 
 /**
  * Canonical email send path. Uses SendGrid Dynamic Templates by ID; we
@@ -78,24 +86,46 @@ export async function sendDirectEmail(args: {
   subject: string
   body: string
   sentByUserId?: string | null
+  /** Optional beautified content HTML fragment (no <html>/<body>). When given,
+   *  it is sanitized + wrapped in the branded template and sent as the HTML
+   *  part alongside the plain-text `body`. */
+  html?: string | null
+  /** Optional file attachments, already uploaded to the private bucket. */
+  attachments?: EmailAttachment[]
 }): Promise<SendDirectEmailResult> {
   const check = await assertCanSendEmail(args.contactId)
   if (!check.ok) return { ok: false, reason: check.reason }
 
+  // Build the branded HTML part from the (re-)sanitized content fragment.
+  // Defense in depth: the AI endpoint already sanitized, we sanitize again here
+  // before it ever reaches a recipient's inbox.
+  const contentHtml = args.html ? sanitizeEmailContent(args.html) : null
+  const wrappedHtml = contentHtml
+    ? wrapBrandedEmail({ contentHtml, contactId: args.contactId })
+    : null
+
+  // Resolve + validate attachments (download from the private bucket, base64).
+  const resolved = await resolveEmailAttachments(args.attachments ?? [])
+  if (!resolved.ok) {
+    return { ok: false, reason: "attachment_failed", detail: resolved.reason }
+  }
+
   const admin = createSupabaseAdminClient()
   const replyTo = replyToAddress(args.contactId)
+  const emailMeta = buildEmailMeta(replyTo, resolved.meta)
   const { data: inserted, error: insertErr } = await admin
     .from("messages")
     .insert({
       contact_id: args.contactId,
       direction: "out",
       body: args.body,
+      body_html: wrappedHtml,
       subject: args.subject,
       channel: "email",
       status: "queued",
       context: "conversational_reply",
       sent_by: args.sentByUserId ?? null,
-      email_meta: replyTo ? { reply_to: replyTo } : null,
+      email_meta: emailMeta,
     })
     .select("id")
     .single()
@@ -108,8 +138,10 @@ export async function sendDirectEmail(args: {
     to: check.email,
     subject: args.subject,
     body: args.body,
+    html: wrappedHtml,
     replyTo,
     headers: unsubscribeHeaders(args.contactId),
+    attachments: resolved.sendgrid,
   })
 
   await admin
@@ -144,16 +176,42 @@ export type SendDirectEmailResult =
   | { ok: true; messageId: string; providerId: string | null; mock: boolean }
   | {
       ok: false
-      reason: "not_found" | "no_channel" | "unsubscribed" | "db_insert_failed" | "provider_failed"
+      reason:
+        | "not_found"
+        | "no_channel"
+        | "unsubscribed"
+        | "db_insert_failed"
+        | "provider_failed"
+        | "attachment_failed"
       detail?: string
     }
+
+/** Assemble the `email_meta` JSON for the message row: reply_to + attachments. */
+function buildEmailMeta(
+  replyTo: string | null,
+  attachments: StoredAttachmentMeta[],
+): Json | null {
+  const meta: Record<string, Json> = {}
+  if (replyTo) meta.reply_to = replyTo
+  if (attachments.length > 0) {
+    meta.attachments = attachments.map((a) => ({
+      filename: a.filename,
+      type: a.type,
+      size: a.size,
+      path: a.path,
+    }))
+  }
+  return Object.keys(meta).length > 0 ? meta : null
+}
 
 async function sendPlainEmailOrMock(args: {
   to: string
   subject: string
   body: string
+  html: string | null
   replyTo: string | null
   headers: Record<string, string> | null
+  attachments: SendGridAttachment[]
 }): Promise<ProviderResult> {
   const apiKey = process.env.SENDGRID_API_KEY
   const fromEmail = process.env.SENDGRID_FROM_EMAIL
@@ -164,12 +222,19 @@ async function sendPlainEmailOrMock(args: {
   }
 
   try {
+    // SendGrid requires content parts ordered text/plain before text/html.
+    const content: { type: string; value: string }[] = [
+      { type: "text/plain", value: args.body },
+    ]
+    if (args.html) content.push({ type: "text/html", value: args.html })
+
     const payload = {
       from: { email: fromEmail, name: fromName },
       ...(args.replyTo ? { reply_to: { email: args.replyTo } } : {}),
       personalizations: [{ to: [{ email: args.to }] }],
       subject: args.subject,
-      content: [{ type: "text/plain", value: args.body }],
+      content,
+      ...(args.attachments.length > 0 ? { attachments: args.attachments } : {}),
       ...(args.headers ? { headers: args.headers } : {}),
     }
 
