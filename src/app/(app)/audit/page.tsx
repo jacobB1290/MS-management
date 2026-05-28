@@ -56,7 +56,7 @@ export default async function AuditPage() {
             <table className="w-full text-small">
               <thead>
                 <tr className="text-left text-ink-faint border-b border-ink-hairline">
-                  <th className="font-medium px-4 py-3" data-dynamic>When</th>
+                  <th className="font-medium px-4 py-3 w-44" data-dynamic>When</th>
                   <th className="font-medium px-4 py-3">Action</th>
                   <th className="font-medium px-4 py-3 hidden md:table-cell">Actor</th>
                   <th className="font-medium px-4 py-3 hidden md:table-cell">Target</th>
@@ -69,7 +69,7 @@ export default async function AuditPage() {
                     key={r.id}
                     className="border-b border-ink-hairline last:border-b-0 hover:bg-surface transition-colors"
                   >
-                    <td className="px-4 py-3 text-ink-muted whitespace-nowrap" data-dynamic>
+                    <td className="px-4 py-3 text-ink-muted whitespace-nowrap w-44" data-dynamic>
                       {format(new Date(r.created_at), "MMM d, p")}
                     </td>
                     <td className="px-4 py-3">
