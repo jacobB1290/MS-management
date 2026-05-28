@@ -145,6 +145,8 @@ export function plainTextToContentHtml(text: string): string {
 // site's rgba() text scale). Matched to the canonical ms.church values.
 const GOLD = "#9d7853"
 const GOLD_DARK = "#6e5239"
+const GOLD_DEEP = "#4d3826"
+const GOLD_LIGHT = "#c9a86f"
 const INK = "#1f1a14"
 const INK_SOFT = "#3a342b"
 const FAINT = "#8a8174"
@@ -153,14 +155,23 @@ const CARD_BG = "#fbf7f1"
 const HAIRLINE = "#e7ddca"
 
 const GOLD_FRAME = "#dac7a4" // delicate gold for the inset stationery frame + rules
-const STAR = "&#10022;" // ✦ the morning-star motif, used as the recurring ornament
+// The morning-star motif. Used ONCE, as the letterhead crown — a rare mark reads
+// bespoke; a repeated glyph reads like filler. U+2726 followed by U+FE0E (the
+// text variation selector) so emoji-capable clients render the monochrome gold
+// glyph instead of substituting a multicolor emoji.
+const STAR = "&#10022;&#65038;"
+// Symbol-first stack so the star resolves to a real text glyph, never an emoji
+// font and never tofu.
+const STAR_FONT = "'Apple Symbols','Segoe UI Symbol','Noto Sans Symbols2',Georgia,serif"
 
 const CHURCH_NAME = "Morning Star Christian Church"
 const CHURCH_LOCALE = "Boise, Idaho"
 
 /** Display face for the letterhead, greeting, and sign-off. Playfair loads on
  *  Apple Mail / iOS (where most of our staff + recipients read) via the head
- *  @import; everywhere else it degrades to Georgia — still editorial serif. */
+ *  @import; everywhere else it degrades to Georgia — still editorial serif.
+ *  Elements also carry class="ms-display" so an [if mso] block can pin Outlook
+ *  to Georgia (Word's font resolution on nested-table divs is otherwise flaky). */
 const DISPLAY_FONT = "'Playfair Display',Georgia,'Times New Roman',serif"
 /** Body face: the recipient's native UI sans, so the prose reads warm and
  *  legible, in deliberate contrast to the serif display accents. */
@@ -175,38 +186,47 @@ function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;")
 }
 
+/** Localized warm closer ("Warmly," etc.) for the sign-off. */
+function closerWord(lang: string): string {
+  return lang === "ru" ? "С теплом," : "Warmly,"
+}
+
+/** Localized fallback signer when no staff display name is known. */
+function teamSigner(lang: string): string {
+  return lang === "ru" ? "Команда Morning Star" : "The Morning Star team"
+}
+
 /**
  * Inline email-safe styling onto the bare allowed tags. The sanitizer strips
  * every attribute (except href on <a>), so each opening tag is bare and a
  * targeted replace is safe — consistent rhythm and on-brand gold links even in
- * clients (Gmail) that ignore <style> blocks. The FIRST paragraph is set in the
- * display serif as an editorial lead/greeting — the single highest-impact
- * "someone crafted this" detail.
+ * clients (Gmail) that ignore <style> blocks. The FIRST paragraph (the AI/staff
+ * greeting, e.g. "Hi Jacob,") is set in the display serif as an editorial lead.
  */
 function styleContentForEmail(html: string): string {
   let firstPara = true
   const withParas = html.replace(/<p>/gi, () => {
     if (firstPara) {
       firstPara = false
-      return `<p style="margin:0 0 18px;font-family:${DISPLAY_FONT};font-size:20px;line-height:1.45;color:${INK};">`
+      return `<p class="ms-display" style="margin:0 0 18px;font-family:${DISPLAY_FONT};font-size:20px;line-height:1.45;color:${INK};">`
     }
     return `<p style="margin:0 0 16px;color:${INK_SOFT};">`
   })
   return withParas
     .replace(
       /<h2>/gi,
-      `<h2 style="margin:26px 0 8px;font-family:${DISPLAY_FONT};font-size:21px;font-weight:600;color:${INK};line-height:1.3;">`,
+      `<h2 class="ms-display" style="margin:26px 0 8px;font-family:${DISPLAY_FONT};font-size:21px;font-weight:600;color:${INK};line-height:1.3;">`,
     )
     .replace(
       /<h3>/gi,
-      `<h3 style="margin:22px 0 6px;font-family:${DISPLAY_FONT};font-size:17px;font-weight:600;color:${INK};line-height:1.4;">`,
+      `<h3 class="ms-display" style="margin:22px 0 6px;font-family:${DISPLAY_FONT};font-size:17px;font-weight:600;color:${INK};line-height:1.4;">`,
     )
-    .replace(/<ul>/gi, `<ul style="margin:0 0 16px;padding-left:22px;color:${INK_SOFT};">`)
-    .replace(/<ol>/gi, `<ol style="margin:0 0 16px;padding-left:22px;color:${INK_SOFT};">`)
+    .replace(/<ul>/gi, `<ul style="margin:0 0 16px 22px;padding:0;color:${INK_SOFT};">`)
+    .replace(/<ol>/gi, `<ol style="margin:0 0 16px 22px;padding:0;color:${INK_SOFT};">`)
     .replace(/<li>/gi, `<li style="margin:0 0 7px;">`)
     .replace(
       /<blockquote>/gi,
-      `<blockquote style="margin:4px 0 18px;padding:2px 0 2px 18px;border-left:3px solid ${GOLD};font-family:${DISPLAY_FONT};font-style:italic;font-size:18px;line-height:1.5;color:${GOLD_DARK};">`,
+      `<blockquote class="ms-display" style="margin:4px 0 18px;padding:2px 0 2px 18px;border-left:3px solid ${GOLD};font-family:${DISPLAY_FONT};font-style:italic;font-size:18px;line-height:1.5;color:${GOLD_DARK};">`,
     )
     .replace(
       /<a /gi,
@@ -218,45 +238,45 @@ function styleContentForEmail(html: string): string {
  * The warm human sign-off (plain-text part). The HTML shell styles it; the
  * text/plain version keeps the church name since it has no letterhead.
  */
-export function personalSignatureText(senderName: string | null): string {
-  const closer = senderName?.trim() || "The Morning Star team"
-  return `Warmly,\n${closer}\n${CHURCH_NAME}`
+export function personalSignatureText(senderName: string | null, lang = "en"): string {
+  const closer = senderName?.trim() || teamSigner(lang)
+  return `${closerWord(lang)}\n${closer}\n${CHURCH_NAME}`
 }
 
-/** An ornamental divider: a centered gold star flanked by fine rules — the
- *  recurring "morning star" motif. `rule` sets the flanking rule width (0 hides
- *  them, for a bare star). Built with valign-middle cells so the 1px rules sit
- *  on the star's midline across clients. */
-function ornament(rule = 48): string {
-  const ruleCell =
-    rule > 0
-      ? `<td valign="middle" width="${rule}" style="font-size:0;line-height:0;"><div style="height:1px;background-color:${GOLD_FRAME};font-size:0;line-height:0;">&nbsp;</div></td>`
-      : ""
-  return `<table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0"><tr>${ruleCell}<td valign="middle" style="padding:0 14px;font-family:${DISPLAY_FONT};font-size:13px;line-height:1;color:${GOLD};">${STAR}</td>${ruleCell}</tr></table>`
+/** A short, left-anchored gold rule — the divider used to set off the sign-off,
+ *  built as a bordered cell so Outlook renders the hairline reliably. */
+function shortRule(width = 44, color = GOLD_FRAME, align: "left" | "center" = "left"): string {
+  // Only center emits an `align` attr; `align="left"` would make the table FLOAT
+  // and the next line (e.g. "Warmly,") would wrap up beside the rule. A bare
+  // block table left-aligns without floating.
+  const alignAttr = align === "center" ? ` align="center"` : ""
+  return `<table role="presentation"${alignAttr} cellpadding="0" cellspacing="0" border="0"><tr><td width="${width}" height="1" style="font-size:0;line-height:0;mso-line-height-rule:exactly;border-top:1px solid ${color};">&#8202;</td></tr></table>`
 }
 
-/** Sign-off as a handwritten close: the star ornament, an italic serif
- *  "Warmly," then the sender's name. Personal (a person, not an org) — the
- *  church identity lives in the letterhead. */
-function signatureHtml(senderName: string | null): string {
-  const closer = senderName?.trim() || "The Morning Star team"
-  return `<div style="margin-top:30px;text-align:center;">${ornament(56)}</div>
-<div style="margin-top:24px;">
-<div style="font-family:${DISPLAY_FONT};font-style:italic;font-size:20px;line-height:1.3;color:${GOLD_DARK};">Warmly,</div>
-<div style="margin-top:6px;font-family:${BODY_FONT};font-size:15px;font-weight:600;letter-spacing:0.2px;color:${INK};">${escapeHtml(closer)}</div>
+/** Sign-off as a handwritten close: a left rule, an italic serif "Warmly," then
+ *  the sender's name — left-aligned, the way a real letter trails off. Personal
+ *  (a person, not an org); the church identity lives in the letterhead. */
+function signatureHtml(senderName: string | null, lang: string): string {
+  const closer = senderName?.trim() || teamSigner(lang)
+  return `<div style="margin-top:30px;">${shortRule(44, GOLD)}</div>
+<div style="margin-top:18px;">
+<div class="ms-display" style="font-family:${DISPLAY_FONT};font-style:italic;font-size:20px;line-height:1.3;color:${GOLD_DARK};">${closerWord(lang)}</div>
+<div style="margin-top:7px;font-family:${BODY_FONT};font-size:15px;font-weight:600;letter-spacing:0.2px;color:${INK};">${escapeHtml(closer)}</div>
 </div>`
 }
 
-/** The letterhead: a designed wordmark lockup — "Morning Star" in the display
- *  serif over a tracked small-caps "CHRISTIAN CHURCH" — crowned and closed by
- *  the star ornament. Bespoke stationery, not a logo banner. */
-function letterheadHtml(): string {
+/** The letterhead: the morning-star crown, a designed wordmark lockup
+ *  ("Morning Star" in display serif over tracked small-caps "CHRISTIAN CHURCH"),
+ *  a centered hairline, and a dated dateline — bespoke stationery written today,
+ *  not a logo banner. */
+function letterheadHtml(dateLabel: string): string {
   return `<tr>
-<td align="center" style="padding:36px 40px 0 40px;">
-<div style="margin-bottom:18px;">${ornament(0)}</div>
-<div style="font-family:${DISPLAY_FONT};font-size:30px;font-weight:700;letter-spacing:0.5px;line-height:1.1;color:${GOLD};">Morning Star</div>
-<div style="margin-top:9px;font-family:${BODY_FONT};font-size:11px;font-weight:600;letter-spacing:0.32em;text-transform:uppercase;color:${GOLD_DARK};">Christian Church</div>
-<div style="margin-top:20px;">${ornament(48)}</div>
+<td align="center" style="padding:38px 40px 0 40px;">
+<div style="font-family:${STAR_FONT};font-size:17px;line-height:1;color:${GOLD};margin-bottom:16px;">${STAR}</div>
+<div class="ms-display" style="font-family:${DISPLAY_FONT};font-size:31px;font-weight:700;letter-spacing:0;line-height:1.05;color:${GOLD};white-space:nowrap;">Morning Star</div>
+<div style="margin-top:7px;font-family:${BODY_FONT};font-size:11px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:${GOLD_DARK};">Christian Church</div>
+<div style="margin-top:18px;">${shortRule(46, GOLD_FRAME, "center")}</div>
+<div style="margin-top:14px;font-family:${BODY_FONT};font-size:10px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:${FAINT};">${escapeHtml(dateLabel)}</div>
 </td>
 </tr>`
 }
@@ -286,10 +306,15 @@ export function wrapPersonalEmail(args: {
   lang?: string
 }): string {
   const lang = args.lang === "ru" ? "ru" : "en"
+  const dateLabel = new Date().toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  })
   const content = styleContentForEmail(args.contentHtml)
-  const signature = signatureHtml(args.senderName)
+  const signature = signatureHtml(args.senderName, lang)
   const preheader = preheaderBlock(args.preheader)
-  const letterhead = letterheadHtml()
+  const letterhead = letterheadHtml(dateLabel)
 
   return `<!doctype html>
 <html lang="${lang}" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
@@ -301,6 +326,7 @@ export function wrapPersonalEmail(args: {
 <meta name="supported-color-schemes" content="light">
 <title>${CHURCH_NAME}</title>
 <!--[if mso]><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml><![endif]-->
+<!--[if mso]><style>.ms-display{font-family:Georgia,'Times New Roman',serif !important;}</style><![endif]-->
 <!--[if !mso]><!-->
 <style>@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&display=swap');</style>
 <!--<![endif]-->
@@ -319,14 +345,17 @@ ${preheader}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${PAGE_BG}" style="background-color:${PAGE_BG};mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;">
 <tr>
 <td align="center" style="padding:40px 18px;">
-<!--[if mso]><table role="presentation" align="center" width="600" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
-<table role="presentation" align="center" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${CARD_BG}" style="max-width:600px;width:100%;background-color:${CARD_BG};border:1px solid ${HAIRLINE};border-top:3px solid ${GOLD};border-radius:16px;box-shadow:0 16px 40px rgba(77,56,38,0.14);overflow:hidden;">
+<!--[if mso]><table role="presentation" align="center" width="560" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+<table role="presentation" align="center" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${CARD_BG}" style="max-width:560px;width:100%;background-color:${CARD_BG};border:1px solid ${HAIRLINE};border-radius:16px;box-shadow:0 16px 40px rgba(77,56,38,0.14);overflow:hidden;border-collapse:collapse;">
 <tr>
-<td style="padding:13px;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid ${GOLD_FRAME};border-radius:8px;">
+<td style="height:3px;line-height:3px;font-size:0;background-color:${GOLD};background:linear-gradient(90deg,${GOLD_DEEP} 0%,${GOLD_LIGHT} 30%,${GOLD} 52%,${GOLD_LIGHT} 72%,${GOLD_DEEP} 100%);">&#8203;</td>
+</tr>
+<tr>
+<td bgcolor="${CARD_BG}" style="padding:13px;background-color:${CARD_BG};mso-padding-alt:13px 13px 13px 13px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid ${GOLD_FRAME};border-radius:8px;border-collapse:separate;">
 ${letterhead}
 <tr>
-<td style="padding:18px 36px 36px 36px;font-family:${BODY_FONT};font-size:16px;line-height:1.65;color:${INK_SOFT};">
+<td bgcolor="${CARD_BG}" style="padding:14px 38px 36px 38px;background-color:${CARD_BG};font-family:${BODY_FONT};font-size:16px;line-height:1.65;color:${INK_SOFT};">
 ${content}
 ${signature}
 </td>
@@ -335,7 +364,7 @@ ${signature}
 </td>
 </tr>
 </table>
-<div style="font-family:${BODY_FONT};font-size:11px;letter-spacing:0.4px;color:${FAINT};text-align:center;padding:22px 0 0 0;">${STAR}&nbsp;&nbsp;${CHURCH_LOCALE}&nbsp;&nbsp;${STAR}</div>
+<div style="font-family:${BODY_FONT};font-size:11px;letter-spacing:0.4px;color:${FAINT};text-align:center;padding:20px 0 0 0;">${CHURCH_LOCALE}</div>
 <!--[if mso]></td></tr></table><![endif]-->
 </td>
 </tr>

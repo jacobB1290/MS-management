@@ -107,7 +107,7 @@ export async function composePersonalEmail(args: {
   ])
 
   const cleanBody = toSmartQuotes(args.body)
-  const outgoingText = `${cleanBody}\n\n${personalSignatureText(senderName)}`
+  const outgoingText = `${cleanBody}\n\n${personalSignatureText(senderName, contactLang)}`
 
   // Defense in depth: the AI endpoint already sanitized; sanitize again before
   // it ever reaches an inbox.
