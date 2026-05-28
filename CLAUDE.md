@@ -114,13 +114,60 @@ Enforce these in `src/server/comms/*`, not just behind a disabled button.
 - **Email unsubscribe (CAN-SPAM).** Every bulk email includes a working
   unsubscribe link (SendGrid unsubscribe group) and our physical mailing
   address (`PHYSICAL_MAILING_ADDRESS` env). The SendGrid Event Webhook
-  mirrors unsubscribes back to `contacts.email_unsubscribed_at`.
+  mirrors unsubscribes back to `contacts.email_unsubscribed_at`. 1:1 inbox
+  email also carries a one-click List-Unsubscribe header (`sendDirectEmail`
+  → `unsubscribeHeaders`, served by `/api/email/unsubscribe`), and the inbound
+  webhook honors a plain-language STOP/unsubscribe reply.
 - **Consent capture.** Every contact has `consent_method` and `consent_at`.
   Form submissions are the canonical proof; CSV imports must explicitly
   record `consent_method = 'csv_import_<batch>'` and a real `consent_at`.
 - **Rate discipline.** SMS sends go through the Twilio Messaging Service so
   metering and 10DLC throughput are automatic. Never call the raw send
   endpoint directly in batch contexts.
+
+### 6.1 Email consent model — how it legally works + who owns what
+
+SMS and email are governed by **different laws**, so they behave differently.
+Do not copy the SMS mental model onto email.
+
+- **SMS = TCPA (opt-IN).** Need prior express consent before marketing. Twilio
+  Advanced Opt-Out answers STOP **at the carrier** automatically.
+- **Email = CAN-SPAM (opt-OUT).** You may email first; you MUST honor opt-outs
+  and, for **commercial/bulk** mail, include a working unsubscribe + physical
+  postal address. There is **no carrier STOP for email** — opt-out is the
+  unsubscribe link / List-Unsubscribe header / a recipient reply.
+
+**Transactional vs commercial is the hinge.** CAN-SPAM's strict rules
+(unsubscribe link, postal address) apply to **commercial** mail only.
+- **1:1 inbox email** (`sendDirectEmail`) is treated as **transactional** —
+  plain text, no SendGrid footer — so it reads like a real personal reply. We
+  still attach a one-click List-Unsubscribe header and still respect
+  `email_unsubscribed_at`, i.e. **stricter than required**, so we're covered
+  even if a 1:1 drifts commercial.
+- **Campaign/bulk email** is **commercial** → the unsubscribe group
+  (`SENDGRID_UNSUBSCRIBE_GROUP_ID`) + postal address are **required**, and the
+  send path refuses without the group.
+
+**Responsibility split:**
+
+| Concern | CRM | SendGrid (the email pipe) |
+|---|---|---|
+| Source of truth for opt-out | `contacts.email_unsubscribed_at` (`NULL` = subscribed); `assertCanSendEmail` is the wall | Suppression / unsubscribe **group** — drops a send even if our flag is stale |
+| Consent record | `consent_method` / `consent_at` | — |
+| Catch a reply that says "stop" | inbound webhook (`detectOptOutKeyword` on body + subject) | — (no auto reply-keyword handler) |
+| Unsubscribe link / one-click | `/api/email/unsubscribe` (signed), `List-Unsubscribe` header | hosts the group's unsubscribe page for bulk |
+| Bounce / spam / unsub events | `email_events` trigger mirrors back to the flag | Event Webhook posts the events |
+
+Re-enabling email in the CRM only clears the **local** flag; a contact who used
+a SendGrid unsubscribe link stays suppressed in the group until removed there
+(the next send drops and the `dropped` event self-heals the flag).
+
+**External setup needed:** domain auth (SPF/DKIM/DMARC) for deliverability;
+unsubscribe group; postal address; Event Webhook; and for two-way, the Inbound
+Parse + MX + token (see §13.1 and `docs/email-setup-runbook.md`). Heads-up: this
+is the US/CAN-SPAM model — **CASL (Canada) / GDPR (EU) are opt-IN**; if the
+church emails international contacts, revisit. Not legal advice — confirm with
+counsel.
 
 ## 7. Design language — carried from ms.church `website-V2`
 
@@ -232,7 +279,8 @@ harness can run without provisioning a real Twilio number first.
 3. Inbound SMS webhook + outbound 1:1 send (the MVP)
 4. Contacts UI + public website form receiver
 5. Batch SMS via Messaging Service + central opt-out enforcement
-6. Email via SendGrid (template by ID, Event Webhook)
+6. Email via SendGrid (campaigns: template by ID + Event Webhook; two-way 1:1
+   inbox email: `sendDirectEmail` + Inbound Parse webhook)
 7. Polish: search, reporting, CSV import/export
 
 ## 13.1 Live provider setup — done and remaining
@@ -269,6 +317,24 @@ opt-in via `detectMarketingJoin`). Inbound + status webhooks point at
   local flag; a contact who used an email unsubscribe link stays suppressed in
   SendGrid until removed from the suppression group (the next send is dropped and
   the `dropped` event self-heals `email_unsubscribed_at`).
+- **Two-way email (inbox).** Outbound 1:1 email sends from the inbox composer
+  (channel toggle) via `sendDirectEmail` (`src/server/comms/sendEmail.ts`); it
+  works as soon as `SENDGRID_API_KEY` + `SENDGRID_FROM_EMAIL` are set (otherwise
+  mock-logged, like SMS). To RECEIVE replies into the inbox:
+  1. Pick an inbound subdomain and set `INBOUND_EMAIL_DOMAIN` (e.g.
+     `reply.ms.church`). Outbound mail then carries
+     `Reply-To: reply+<contactId>@<that domain>`.
+  2. In Vercel DNS, add an `MX` record on that subdomain pointing to
+     `mx.sendgrid.net` (priority 10).
+  3. In SendGrid, add the subdomain under **Settings → Inbound Parse** with the
+     destination URL `<APP_BASE_URL>/api/webhook/sendgrid-inbound?token=<SENDGRID_INBOUND_TOKEN>`.
+  4. Set `SENDGRID_INBOUND_TOKEN` to a long random secret (the webhook is
+     unsigned, so this URL token is its auth — `src/server/webhooks/verify.ts`).
+  Replies thread back by the `reply+<contactId>` token, falling back to the
+  sender's email (auto-creating a contact, exactly like inbound SMS). Until DNS +
+  Parse are live, sending works and receiving stays dormant. Inbound HTML is
+  stored in `messages.body_html` but the inbox renders the plain-text `body`
+  only (no sanitizer yet — sanitize before ever rendering the HTML).
 
 ## 14. Future phases (do NOT build yet)
 

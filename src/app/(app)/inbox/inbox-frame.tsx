@@ -11,7 +11,7 @@ type Conversation = Pick<
   "sms_opted_out_at" | "email_unsubscribed_at" | "is_member" |
   "inbox_category" | "inbox_status" |
   "last_message_at" | "last_message_body" | "last_message_direction" |
-  "message_count"
+  "last_message_channel" | "message_count"
 >
 
 interface InboxFrameProps {

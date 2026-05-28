@@ -3,7 +3,7 @@ import { useContext, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { InboxNavContext } from "./inbox-frame"
-import { ArrowLeft, AlertTriangle, Plus, Loader2, X, ChevronRight, RotateCcw, Sparkles, Clock, Info, ArrowUp, Image as ImageIcon } from "lucide-react"
+import { ArrowLeft, AlertTriangle, Plus, Loader2, X, ChevronRight, RotateCcw, Sparkles, Clock, Info, ArrowUp, Image as ImageIcon, Mail, MessageSquare, MailX } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -13,6 +13,7 @@ import {
 import { format, formatRelative } from "date-fns"
 import { toast } from "sonner"
 import { Textarea } from "@/components/ui/textarea"
+import { Input } from "@/components/ui/input"
 import { Avatar } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser"
@@ -52,6 +53,22 @@ interface ThreadPaneProps {
  *  status='pending'; once the server returns the real row id, we swap. */
 type OptimisticMessage = Message & { _optimistic?: boolean }
 
+type Channel = "sms" | "email"
+
+/** Prefill the email subject with "Re: <last subject>" so a reply threads
+ *  naturally; collapses any existing "Re:" prefixes and returns "" when the
+ *  thread has no prior email to reply to. */
+function deriveReplySubject(messages: Message[]): string {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]
+    if (m.channel === "email" && m.subject) {
+      const base = m.subject.replace(/^(re:\s*)+/i, "").trim()
+      return base ? `Re: ${base}` : ""
+    }
+  }
+  return ""
+}
+
 export function ThreadPane({
   contact: contactProp,
   initialMessages,
@@ -68,6 +85,13 @@ export function ThreadPane({
   const [contact, setContact] = useState<Contact>(contactProp)
   const [messages, setMessages] = useState<OptimisticMessage[]>(initialMessages)
   const [body, setBody] = useState("")
+  const [subject, setSubject] = useState(() => deriveReplySubject(initialMessages))
+  // Active compose channel. Default to SMS when a phone is on file (the primary
+  // channel), otherwise fall back to email so an email-only contact composes an
+  // email straight away.
+  const [channel, setChannel] = useState<Channel>(() =>
+    contactProp.phone ? "sms" : contactProp.email ? "email" : "sms",
+  )
   const [sending, setSending] = useState(false)
   const [media, setMedia] = useState<{ url: string; isVideo: boolean } | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -109,6 +133,18 @@ export function ThreadPane({
   const conversationLapsed = impliedExpired && !optedOut && !noPhone && !sawInbound
   const locked = lockedBy !== null
 
+  // Email channel availability + compliance, mirroring the SMS gates above.
+  const smsAvailable = Boolean(contact.phone)
+  const emailAvailable = Boolean(contact.email)
+  const emailUnsub = Boolean(contact.email_unsubscribed_at)
+  // The toggle only appears when a contact can be reached BOTH ways; with a
+  // single channel the composer just uses it (and its own gate banners show).
+  const channelToggleVisible = smsAvailable && emailAvailable
+  // What blocks sending on the *active* channel (drives which banner shows).
+  const smsBlocker = optedOut ? "sms_opt_out" : noPhone ? "no_phone" : conversationLapsed ? "lapsed" : null
+  const emailBlocker = !emailAvailable ? "no_email" : emailUnsub ? "unsub" : null
+  const activeBlocker = channel === "email" ? emailBlocker : smsBlocker
+
   // Sync local state when the parent feeds a fresh thread (URL `?c=` change).
   const [lastContactId, setLastContactId] = useState(contactProp.id)
   if (lastContactId !== contactProp.id) {
@@ -116,6 +152,8 @@ export function ThreadPane({
     setContact(contactProp)
     setMessages(initialMessages)
     setBody("")
+    setSubject(deriveReplySubject(initialMessages))
+    setChannel(contactProp.phone ? "sms" : contactProp.email ? "email" : "sms")
     setMedia(null)
     setLockedBy(null)
     setSawInbound(false)
@@ -153,6 +191,7 @@ export function ThreadPane({
                 (m) =>
                   m._optimistic &&
                   m.direction === "out" &&
+                  m.channel === incoming.channel &&
                   m.body === incoming.body &&
                   m.media_url === incoming.media_url,
               )
@@ -320,9 +359,13 @@ export function ThreadPane({
       contact_id: contact.id,
       direction: "out",
       body: text,
+      body_html: null,
+      subject: null,
       media_url: mediaUrl,
       channel: mediaUrl ? "mms" : "sms",
       twilio_sid: null,
+      provider_message_id: null,
+      email_meta: null,
       status: "sending",
       error: null,
       context: "conversational_reply",
@@ -387,8 +430,87 @@ export function ThreadPane({
   }
 
   async function handleRetry(msg: OptimisticMessage) {
-    if (sending || optedOut || noPhone || conversationLapsed) return
+    if (sending || locked) return
+    if (msg.channel === "email") {
+      if (emailBlocker || !msg.subject?.trim() || !msg.body?.trim()) return
+      await dispatchEmail(msg.subject, msg.body, false)
+      return
+    }
+    if (optedOut || noPhone || conversationLapsed) return
     await dispatchSend(msg.body ?? "", msg.media_url, isVideoUrl(msg.media_url ?? ""), false)
+  }
+
+  // Email send core. Separate from dispatchSend: a different endpoint, a
+  // subject, and no media/segments. Optimistic insert + realtime swap mirror
+  // the SMS path. `restoreComposerOnFail` hands the draft back on a fresh send;
+  // a retry of an already-failed bubble has no draft to restore.
+  async function dispatchEmail(subj: string, text: string, restoreComposerOnFail: boolean) {
+    setSending(true)
+    const tempId = `tmp_${crypto.randomUUID()}`
+    const optimistic: OptimisticMessage = {
+      id: tempId,
+      contact_id: contact.id,
+      direction: "out",
+      body: text,
+      body_html: null,
+      subject: subj,
+      media_url: null,
+      channel: "email",
+      twilio_sid: null,
+      provider_message_id: null,
+      email_meta: null,
+      status: "sending",
+      error: null,
+      context: "conversational_reply",
+      campaign_id: null,
+      sent_by: currentUserId,
+      num_segments: null,
+      price: null,
+      price_unit: null,
+      created_at: new Date().toISOString(),
+      _optimistic: true,
+    }
+    setMessages((cur) => [...cur, optimistic])
+    try {
+      const res = await fetch("/api/messages/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contact_id: contact.id, subject: subj, body: text }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        setMessages((cur) => cur.filter((m) => m.id !== tempId))
+        if (restoreComposerOnFail) setBody(text)
+        toast.error(
+          json.error === "unsubscribed"
+            ? "Contact has unsubscribed from email"
+            : json.error === "no_channel"
+              ? "No email address on file"
+              : `Send failed: ${json.error}`,
+        )
+      } else if (json.mock) {
+        setMessages((cur) =>
+          cur.map((m) => (m.id === tempId ? { ...m, status: "mocked" } : m)),
+        )
+        toast.message("Recorded without sending. SendGrid isn’t configured yet")
+      }
+    } catch (err) {
+      setMessages((cur) => cur.filter((m) => m.id !== tempId))
+      if (restoreComposerOnFail) setBody(text)
+      toast.error(`Network error: ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setSending(false)
+    }
+  }
+
+  async function handleSendEmail(e: React.FormEvent) {
+    e.preventDefault()
+    const subj = subject.trim()
+    const text = body.trim()
+    if (!subj || !text || sending || locked || emailBlocker) return
+    stopTyping()
+    setBody("")
+    await dispatchEmail(subj, text, true)
   }
 
   return (
@@ -464,7 +586,40 @@ export function ThreadPane({
       </div>
 
       <footer className="shrink-0 border-t border-ink-hairline bg-bg/95 backdrop-blur px-4 md:px-6 py-3 md:py-4">
-        {optedOut ? (
+        {channelToggleVisible && (
+          <div className="mb-2.5 flex items-center">
+            <div
+              role="radiogroup"
+              aria-label="Reply channel"
+              className="inline-flex items-center gap-0.5 rounded-pill border border-ink-hairline bg-white p-0.5"
+            >
+              {(["sms", "email"] as const).map((ch) => {
+                const active = channel === ch
+                const Icon = ch === "sms" ? MessageSquare : Mail
+                return (
+                  <button
+                    key={ch}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() => setChannel(ch)}
+                    className={cn(
+                      "inline-flex min-h-[40px] items-center gap-1.5 rounded-pill px-4 py-2 text-small font-medium transition-colors",
+                      active
+                        ? "bg-gold text-white shadow-sm"
+                        : "text-ink-muted hover:text-ink",
+                    )}
+                  >
+                    <Icon size={15} strokeWidth={2.25} />
+                    {ch === "sms" ? "Text" : "Email"}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {activeBlocker === "sms_opt_out" ? (
           <div className="flex items-start gap-2 rounded-md border border-[color-mix(in_oklab,var(--color-warning)_40%,white)] bg-[color-mix(in_oklab,var(--color-warning)_8%,white)] px-3 py-3 text-small text-ink">
             <AlertTriangle size={16} className="text-warning shrink-0 mt-0.5" />
             <p>
@@ -473,7 +628,7 @@ export function ThreadPane({
               <span className="font-mono font-semibold">START</span> to your number.
             </p>
           </div>
-        ) : noPhone ? (
+        ) : activeBlocker === "no_phone" ? (
           <div className="flex items-start gap-2 rounded-md border border-ink-hairline bg-white px-3 py-3 text-small text-ink-muted">
             <AlertTriangle size={16} className="text-ink-faint shrink-0 mt-0.5" />
             <p>
@@ -488,7 +643,7 @@ export function ThreadPane({
               to send SMS.
             </p>
           </div>
-        ) : conversationLapsed ? (
+        ) : activeBlocker === "lapsed" ? (
           <div className="flex items-start gap-2 rounded-md border border-[color-mix(in_oklab,var(--color-warning)_40%,white)] bg-[color-mix(in_oklab,var(--color-warning)_8%,white)] px-3 py-3 text-small text-ink">
             <Clock size={16} className="text-warning shrink-0 mt-0.5" />
             <p>
@@ -502,9 +657,94 @@ export function ThreadPane({
               >
                 contact page
               </Link>
-              .
+              {channelToggleVisible ? ", or switch to email above." : "."}
             </p>
           </div>
+        ) : activeBlocker === "no_email" ? (
+          <div className="flex items-start gap-2 rounded-md border border-ink-hairline bg-white px-3 py-3 text-small text-ink-muted">
+            <AlertTriangle size={16} className="text-ink-faint shrink-0 mt-0.5" />
+            <p>
+              No email address on file.{" "}
+              <Link
+                href={`/contacts/${contact.id}/edit?from=inbox`}
+                prefetch
+                className="text-gold underline underline-offset-2"
+              >
+                Add one
+              </Link>{" "}
+              to send email.
+            </p>
+          </div>
+        ) : activeBlocker === "unsub" ? (
+          <div className="flex items-start gap-2 rounded-md border border-[color-mix(in_oklab,var(--color-warning)_40%,white)] bg-[color-mix(in_oklab,var(--color-warning)_8%,white)] px-3 py-3 text-small text-ink">
+            <MailX size={16} className="text-warning shrink-0 mt-0.5" />
+            <p>
+              This contact has unsubscribed from email. Re-enable email on their{" "}
+              <Link
+                href={`/contacts/${contact.id}?from=inbox`}
+                prefetch
+                className="text-gold underline underline-offset-2"
+              >
+                contact page
+              </Link>{" "}
+              before sending again.
+            </p>
+          </div>
+        ) : channel === "email" ? (
+          <>
+            {locked && (
+              <div className="mb-2 flex items-center gap-2 text-small text-gold-dark" data-dynamic>
+                <span className="h-2 w-2 rounded-pill bg-gold animate-pulse shrink-0" />
+                {lockedBy} is typing. Sending is paused to avoid a double message.
+              </div>
+            )}
+            <form onSubmit={handleSendEmail} className="space-y-2">
+              <Input
+                value={subject}
+                onChange={(e) => {
+                  setSubject(e.target.value)
+                  onComposeInput()
+                }}
+                onBlur={stopTyping}
+                disabled={locked}
+                placeholder="Subject"
+                aria-label="Email subject"
+                className="rounded-2xl text-small disabled:opacity-60"
+              />
+              <div className="flex items-end gap-2">
+                <Textarea
+                  value={body}
+                  onChange={(e) => {
+                    setBody(e.target.value)
+                    onComposeInput()
+                  }}
+                  onBlur={stopTyping}
+                  disabled={locked}
+                  placeholder="Write an email…"
+                  rows={2}
+                  autoGrow
+                  className="flex-1 min-h-[60px] max-h-60 resize-none overflow-y-auto rounded-3xl px-4 py-2.5 disabled:opacity-60"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                      e.preventDefault()
+                      void handleSendEmail(e)
+                    }
+                  }}
+                />
+                <button
+                  type="submit"
+                  disabled={!subject.trim() || !body.trim() || locked || sending}
+                  aria-label="Send email"
+                  className="btn-icon-action shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {sending ? <Loader2 size={18} className="animate-spin" /> : <Mail size={18} strokeWidth={2.25} />}
+                </button>
+              </div>
+              <p className="text-micro text-ink-faint">
+                Sends from the church email · Press <span className="font-mono">⌘↵</span> to send
+              </p>
+            </form>
+          </>
         ) : (
           <>
             {locked && (
@@ -644,13 +884,20 @@ function MessageBubble({
   senderName: string | null
 }) {
   const isOut = message.direction === "out"
+  const isEmail = message.channel === "email"
   const time = useMemo(() => {
     return formatRelative(new Date(message.created_at), new Date())
   }, [message.created_at])
   const pending = message.status === "sending" || message._optimistic
   const failed =
     isOut && (message.status === "failed" || message.status === "undelivered")
-  const failureReason = failed ? explainTwilioError(message.error, message.status) : null
+  // SMS failures map to Twilio error codes; email failures carry a SendGrid
+  // string, so don't run them through the Twilio explainer.
+  const failureReason = !failed
+    ? null
+    : isEmail
+      ? { title: "Email failed", detail: message.error ?? "The email could not be sent.", action: null }
+      : explainTwilioError(message.error, message.status)
 
   return (
     <div className={cn("flex flex-col", isOut ? "items-end" : "items-start")}>
@@ -686,15 +933,21 @@ function MessageBubble({
               />
             </a>
           ))}
+        {isEmail && message.subject && (
+          <p className={cn("font-semibold leading-snug mb-1 break-words", isOut ? "text-white" : "text-ink")}>
+            {message.subject}
+          </p>
+        )}
         {message.body && <p className="whitespace-pre-wrap">{message.body}</p>}
         <p
           data-dynamic
           className={cn(
-            "mt-1 text-micro",
+            "mt-1 text-micro flex items-center gap-1",
             isOut ? "text-white/85" : "text-ink-muted",
           )}
           title={format(new Date(message.created_at), "PPpp")}
         >
+          {isEmail && <Mail size={11} className="shrink-0 opacity-80" aria-label="Email" />}
           {isOut && senderName ? `${senderName} · ` : ""}
           {!isOut && message.channel === "form" ? "Web form · " : ""}
           {pending ? "Sending…" : time}

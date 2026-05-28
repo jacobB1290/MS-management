@@ -22,6 +22,7 @@ export type AuditAction =
   | "media.delete"
   | "webhook.twilio.inbound"
   | "webhook.sendgrid.event"
+  | "webhook.sendgrid.inbound"
   | "user.invite"
   | "user.role_change"
   | "settings.ai_update"

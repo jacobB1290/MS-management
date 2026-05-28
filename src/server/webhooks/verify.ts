@@ -78,6 +78,27 @@ export function verifySendGridRequest(
 }
 
 /**
+ * SendGrid Inbound Parse does NOT sign its requests the way the Event Webhook
+ * does, so we gate it on a shared secret carried in the URL query string
+ * (`?token=…`). Configure the Inbound Parse destination as
+ * `<APP_BASE_URL>/api/webhook/sendgrid-inbound?token=<SENDGRID_INBOUND_TOKEN>`.
+ * Constant-time compare; unset secret means the feature is off (503).
+ */
+export function verifySendGridInboundToken(token: string | null): VerifyResult {
+  const expected = process.env.SENDGRID_INBOUND_TOKEN
+  if (!expected) {
+    return { ok: false, status: 503, reason: "Inbound email not configured" }
+  }
+  if (!token) return { ok: false, status: 403, reason: "Missing token" }
+  const a = Buffer.from(token)
+  const b = Buffer.from(expected)
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+    return { ok: false, status: 403, reason: "Invalid token" }
+  }
+  return { ok: true }
+}
+
+/**
  * HMAC verification for the public-website form receiver. Now requires a
  * timestamp + nonce inside the signed body to block replay.
  */

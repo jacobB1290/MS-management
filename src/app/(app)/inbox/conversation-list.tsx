@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { formatDistanceToNow } from "date-fns"
-import { Search, ListFilter, Check } from "lucide-react"
+import { Search, ListFilter, Check, Mail } from "lucide-react"
 import { Avatar } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -26,7 +26,7 @@ type Conversation = Pick<
   "sms_opted_out_at" | "email_unsubscribed_at" | "is_member" |
   "inbox_category" | "inbox_status" |
   "last_message_at" | "last_message_body" | "last_message_direction" |
-  "message_count"
+  "last_message_channel" | "message_count"
 >
 
 /** A conversation needs a reply when their message is the last one AND we can
@@ -102,6 +102,7 @@ export function ConversationList({
               last_message_at: m.created_at,
               last_message_body: m.body,
               last_message_direction: m.direction,
+              last_message_channel: m.channel,
               message_count: (cur[idx].message_count ?? 0) + 1,
             }
             const next = cur.slice()
@@ -309,6 +310,9 @@ export function ConversationList({
                       same height (avatar + two lines). STOP/UNSUB stay inline. */}
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <p className={cn("text-small truncate min-w-0 flex-1", awaitingReply ? "text-ink" : "text-ink-muted")}>
+                      {c.last_message_channel === "email" && (
+                        <Mail size={12} className="inline-block mr-1 -mt-0.5 text-ink-faint" aria-label="Email" />
+                      )}
                       {c.last_message_body ? (
                         <>
                           {c.last_message_direction === "out" && (
