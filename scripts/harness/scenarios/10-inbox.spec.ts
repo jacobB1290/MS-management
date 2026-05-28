@@ -40,6 +40,19 @@ test("inbox email composer", async ({ authed }) => {
   await screenshotPage(authed, "inbox-email-composer")
 })
 
+test("inbox email plus menu", async ({ authed }) => {
+  // The email composer's "+" menu mirrors the SMS one: attach files + AI.
+  // Demo advertises the AI affordance (the endpoint itself stays disabled),
+  // so the menu shows both items deterministically without any network call.
+  await gotoAndSettle(authed, "/inbox?c=C05")
+  await authed.waitForTimeout(400)
+  await authed.getByRole("radio", { name: /email/i }).click()
+  await authed.getByRole("button", { name: /add to email/i }).click()
+  await expect(authed.getByRole("menuitem", { name: /attach files/i })).toBeVisible()
+  await authed.waitForTimeout(200)
+  await screenshotPage(authed, "inbox-email-plus-menu")
+})
+
 test("new message dialog", async ({ authed }) => {
   // The compose flow for texting a number that isn't a contact yet.
   await gotoAndSettle(authed, "/inbox")

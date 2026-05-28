@@ -31,6 +31,8 @@ export async function POST(request: NextRequest) {
     contactId: parsed.data.contact_id,
     subject: parsed.data.subject,
     body: parsed.data.body,
+    html: parsed.data.html ?? null,
+    attachments: parsed.data.attachments,
     sentByUserId: user.id,
   })
 

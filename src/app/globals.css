@@ -447,3 +447,17 @@ button,
 /* Hide scrollbar but keep scroll (used in inbox conversation list) */
 .no-scrollbar { scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Readable spacing for the AI-formatted email preview (the only HTML the
+ * operator UI renders, and only after the server has sanitized it). The
+ * branded template owns the real email styling; this is just a sane preview. */
+.email-ai-preview > :first-child { margin-top: 0; }
+.email-ai-preview > :last-child { margin-bottom: 0; }
+.email-ai-preview p { margin: 0 0 var(--space-sm); }
+.email-ai-preview h2 { font-size: var(--text-h4); margin: var(--space-md) 0 var(--space-xs); }
+.email-ai-preview h3 { font-size: var(--text-body-lg); margin: var(--space-md) 0 var(--space-xs); }
+.email-ai-preview ul,
+.email-ai-preview ol { margin: 0 0 var(--space-sm); padding-left: 1.4em; }
+.email-ai-preview li { margin: 0 0 var(--space-2xs); }
+.email-ai-preview a { color: var(--color-gold-dark); text-decoration: underline; }
+.email-ai-preview strong { font-weight: 600; }
