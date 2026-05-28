@@ -11,6 +11,7 @@ import {
   modelSupportsEffort,
   type AiFeature,
   type AiFeatureConfig,
+  type AiModelChoice,
 } from "@/lib/ai-models"
 
 const SELECT_CLASS =
@@ -18,8 +19,11 @@ const SELECT_CLASS =
 
 export function AiModelsPanel({
   config,
+  choices = AI_MODEL_CHOICES,
 }: {
   config: Record<AiFeature, AiFeatureConfig>
+  /** Live picker options (latest per class) from the Models API; falls back offline. */
+  choices?: readonly AiModelChoice[]
 }) {
   const router = useRouter()
   const [draft, setDraft] = useState(config)
@@ -77,7 +81,7 @@ export function AiModelsPanel({
                 value={fc.model}
                 onChange={(e) => update(feature, { model: e.target.value })}
               >
-                {AI_MODEL_CHOICES.map((m) => (
+                {choices.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.label}
                   </option>

@@ -12,23 +12,25 @@ export type AiEffort = "low" | "medium" | "high"
 export type AiModelClass = "opus" | "sonnet" | "haiku"
 export type AiFeatureConfig = { model: string; effort: AiEffort }
 export type AiModelChoice = { id: string; label: string; blurb: string }
+/** The latest id (+ display blurb) for each model class. */
+export type AiModelFamilies = Record<AiModelClass, { latest: string; blurb: string }>
 
 /**
- * One entry per model class — the picker offers a class, not a pinned version.
- * To adopt a new release, bump ONLY the `latest` id here: the picker then shows
- * just that version, and every stored config + default auto-upgrades on the next
- * read, because resolution maps any pinned id of the same class to this `latest`
- * (see `resolveModel`). So when Opus 4.7 supersedes 4.6, a contact whose config
- * still says `claude-opus-4-6` is silently served `claude-opus-4-7` — no
- * migration, no redeploy of the call sites. Ordered best/most-expensive first.
+ * FALLBACK families, used only when live discovery is unavailable (no
+ * `ANTHROPIC_API_KEY`, demo mode, or the Models API is unreachable). The real
+ * source of truth is `getModelFamilies()` in `@/server/ai/models`, which queries
+ * the Anthropic Models API at runtime and picks the newest version per class —
+ * so a new release (e.g. Opus 4.8) is adopted automatically with no code change.
+ * These values only matter offline; keep them reasonable, not necessarily current.
+ * Ordered best/most-expensive first.
  */
-export const AI_MODEL_FAMILIES: Record<AiModelClass, { latest: string; blurb: string }> = {
+export const AI_MODEL_FAMILIES: AiModelFamilies = {
   opus: { latest: "claude-opus-4-7", blurb: "Highest quality, highest cost" },
   sonnet: { latest: "claude-sonnet-4-6", blurb: "Balanced quality and cost" },
   haiku: { latest: "claude-haiku-4-5-20251001", blurb: "Fastest and cheapest" },
 }
 
-const MODEL_CLASS_ORDER: readonly AiModelClass[] = ["opus", "sonnet", "haiku"]
+export const MODEL_CLASS_ORDER: readonly AiModelClass[] = ["opus", "sonnet", "haiku"]
 
 /** Map any Claude model id to its class by family prefix; null if unrecognized. */
 export function modelClass(model: string): AiModelClass | null {
@@ -39,29 +41,40 @@ export function modelClass(model: string): AiModelClass | null {
 }
 
 /**
- * Forward-resolve any model id to the current latest of its class. A config
- * pinned to an older version (e.g. `claude-opus-4-6`) resolves to the latest
- * (`claude-opus-4-7`); an unrecognized id returns null so callers fall back to a
- * default. This is the single mechanism behind "always run the newest version".
+ * Forward-resolve any model id to the current latest of its class, given a
+ * families map. A config pinned to an older version (e.g. `claude-opus-4-6`)
+ * resolves to whatever that map says is latest (`claude-opus-4-8` once the live
+ * Models API reports it); an unrecognized id returns null so callers fall back
+ * to a default. This is the single mechanism behind "always run the newest".
  */
-export function resolveModel(model: string): string | null {
+export function resolveModelIn(model: string, families: AiModelFamilies): string | null {
   const cls = modelClass(model)
-  return cls ? AI_MODEL_FAMILIES[cls].latest : null
+  return cls ? families[cls].latest : null
 }
 
-/** Derive a friendly version label ("Opus 4.7") from a model id. */
-function deriveModelLabel(model: string): string {
+/** Resolve against the offline FALLBACK families (client-safe, no network). */
+export function resolveModel(model: string): string | null {
+  return resolveModelIn(model, AI_MODEL_FAMILIES)
+}
+
+/** Derive a friendly version label ("Opus 4.8") from a model id. */
+export function deriveModelLabel(model: string): string {
   const m = model.match(/^claude-(opus|sonnet|haiku)-(\d+)-(\d+)/)
   if (!m) return model
   return `${m[1][0].toUpperCase()}${m[1].slice(1)} ${m[2]}.${m[3]}`
 }
 
-/** Models offered in the picker — exactly one (the latest) per class. */
-export const AI_MODEL_CHOICES: readonly AiModelChoice[] = MODEL_CLASS_ORDER.map((cls) => ({
-  id: AI_MODEL_FAMILIES[cls].latest,
-  label: deriveModelLabel(AI_MODEL_FAMILIES[cls].latest),
-  blurb: AI_MODEL_FAMILIES[cls].blurb,
-}))
+/** One picker option (the latest) per class, from a families map. */
+export function modelChoicesFrom(families: AiModelFamilies): AiModelChoice[] {
+  return MODEL_CLASS_ORDER.map((cls) => ({
+    id: families[cls].latest,
+    label: deriveModelLabel(families[cls].latest),
+    blurb: families[cls].blurb,
+  }))
+}
+
+/** Picker options from the offline FALLBACK families. */
+export const AI_MODEL_CHOICES: readonly AiModelChoice[] = modelChoicesFrom(AI_MODEL_FAMILIES)
 
 export const AI_EFFORT_CHOICES: readonly { id: AiEffort; label: string }[] = [
   { id: "low", label: "Low" },
