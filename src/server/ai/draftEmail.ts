@@ -2,7 +2,7 @@ import "server-only"
 import { createSupabaseAdminClient } from "@/lib/supabase/server"
 import { createAnthropicClient, isAiEnabled } from "./client"
 import { getFeatureConfig, modelSupportsEffort } from "./config"
-import { sanitizeEmailContent } from "@/server/comms/emailHtml"
+import { sanitizeEmailContent, htmlFragmentToText } from "@/server/comms/emailHtml"
 
 /** Recent thread depth handed to the model for context. */
 const THREAD_LIMIT = 20
@@ -10,7 +10,7 @@ const THREAD_LIMIT = 20
 const MAX_DRAFT_CHARS = 20000
 
 export type DraftEmailResult =
-  | { ok: true; subject: string; html: string; mode: "fresh" | "beautify" }
+  | { ok: true; subject: string; html: string; text: string; mode: "fresh" | "beautify" }
   | {
       ok: false
       reason: "disabled" | "not_found" | "no_context" | "provider_failed"
@@ -139,10 +139,15 @@ export async function draftEmail(args: {
     // Defense in depth: sanitize the model's HTML before it ever reaches the
     // client preview. The send path sanitizes again before wrapping.
     const html = sanitizeEmailContent(parsed.html)
+    // Plain-text rendering of the sanitized HTML. This becomes the composer's
+    // editable body AND the email's text/plain part, so the Send button (gated
+    // on a non-empty body) works for a fresh AI draft, not just a beautified one.
+    const bodyText = htmlFragmentToText(html)
 
-    if (!subject || !html) return { ok: false, reason: "provider_failed", detail: "empty" }
+    if (!subject || !html || !bodyText)
+      return { ok: false, reason: "provider_failed", detail: "empty" }
 
-    return { ok: true, subject, html, mode }
+    return { ok: true, subject, html, text: bodyText, mode }
   } catch (err) {
     console.error(
       "[ai.draftEmail] provider error:",

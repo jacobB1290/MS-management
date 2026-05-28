@@ -34,6 +34,7 @@ export async function POST(request: NextRequest) {
     ok: true,
     subject: result.subject,
     html: result.html,
+    text: result.text,
     mode: result.mode,
   })
 }

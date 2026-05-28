@@ -74,6 +74,32 @@ export function sanitizeEmailContent(html: string): string {
   }).trim()
 }
 
+/**
+ * Render a sanitized email content fragment down to readable plain text. Used
+ * to seed the composer's plain-text body after an AI draft so the multipart
+ * email's `text/plain` part stays in sync with the rich `text/html` part. Block
+ * tags become line breaks, list items get a bullet, the rest is stripped and
+ * entity-decoded. Input is expected to already be allowlist-sanitized.
+ */
+export function htmlFragmentToText(html: string): string {
+  const withBreaks = html
+    .replace(/<\s*br\s*\/?\s*>/gi, "\n")
+    .replace(/<\s*li[^>]*>/gi, "\n• ")
+    .replace(/<\s*\/\s*(p|h2|h3|blockquote|ul|ol|li)\s*>/gi, "\n\n")
+  const noTags = withBreaks.replace(/<[^>]+>/g, "")
+  const decoded = noTags
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+  return decoded
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+}
+
 // --- Branded template --------------------------------------------------------
 
 const GOLD = "#9d7853"
