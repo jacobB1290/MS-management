@@ -134,7 +134,9 @@ export async function POST(request: NextRequest) {
   // here (the AI soft opt-out in organizeConversation is best-effort and off
   // when AI is disabled). Mirrors the SMS inbound STOP/START handling, but
   // toggles the EMAIL flag.
-  const keyword = detectOptOutKeyword(body)
+  // Check the subject too: a mailto: List-Unsubscribe sends an empty body with
+  // subject "unsubscribe", and clients often title an opt-out that way.
+  const keyword = detectOptOutKeyword(body) ?? detectOptOutKeyword(subject)
   const nowIso = new Date().toISOString()
   if (keyword === "stop") {
     await admin

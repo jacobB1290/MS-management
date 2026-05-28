@@ -2,7 +2,7 @@ import "server-only"
 import { assertCanSendEmail } from "./optOut"
 import { logAudit } from "@/server/audit"
 import { createSupabaseAdminClient } from "@/lib/supabase/server"
-import { replyToAddress } from "./emailAddress"
+import { replyToAddress, unsubscribeHeaders } from "./emailAddress"
 
 /**
  * Canonical email send path. Uses SendGrid Dynamic Templates by ID; we
@@ -109,6 +109,7 @@ export async function sendDirectEmail(args: {
     subject: args.subject,
     body: args.body,
     replyTo,
+    headers: unsubscribeHeaders(args.contactId),
   })
 
   await admin
@@ -152,6 +153,7 @@ async function sendPlainEmailOrMock(args: {
   subject: string
   body: string
   replyTo: string | null
+  headers: Record<string, string> | null
 }): Promise<ProviderResult> {
   const apiKey = process.env.SENDGRID_API_KEY
   const fromEmail = process.env.SENDGRID_FROM_EMAIL
@@ -168,6 +170,7 @@ async function sendPlainEmailOrMock(args: {
       personalizations: [{ to: [{ email: args.to }] }],
       subject: args.subject,
       content: [{ type: "text/plain", value: args.body }],
+      ...(args.headers ? { headers: args.headers } : {}),
     }
 
     const res = await fetch("https://api.sendgrid.com/v3/mail/send", {
