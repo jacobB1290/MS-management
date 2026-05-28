@@ -5,6 +5,7 @@ import {
   AI_MODEL_FAMILIES,
   MODEL_CLASS_ORDER,
   modelClass,
+  parseModelVersion,
   type AiModelClass,
   type AiModelFamilies,
 } from "@/lib/ai-models"
@@ -97,12 +98,9 @@ async function discover(): Promise<AiModelFamilies> {
 
 /** [major, minor, dateSuffix, createdAtMs] — higher tuple = newer. */
 function rankModel(m: ApiModel): readonly number[] {
-  const v = m.id.match(/^claude-(?:opus|sonnet|haiku)-(\d+)-(\d+)(?:-(\d+))?/)
-  const major = v ? Number(v[1]) : 0
-  const minor = v ? Number(v[2]) : 0
-  const date = v && v[3] ? Number(v[3]) : 0
+  const v = parseModelVersion(m.id)
   const created = m.created_at ? Date.parse(m.created_at) || 0 : 0
-  return [major, minor, date, created]
+  return v ? [v.major, v.minor, v.date, created] : [0, 0, 0, created]
 }
 
 function compareRank(a: readonly number[], b: readonly number[]): number {

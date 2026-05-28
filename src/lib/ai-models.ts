@@ -57,11 +57,40 @@ export function resolveModel(model: string): string | null {
   return resolveModelIn(model, AI_MODEL_FAMILIES)
 }
 
+/**
+ * Parse a Claude model id into its class + version. Model ids come in a few
+ * shapes — `claude-opus-4-8` (alias), `claude-haiku-4-5-20251001` (dated), and
+ * the older `claude-opus-4-20250514` where the version is just the major and the
+ * trailing 8-digit block is a release DATE, not a minor version. A numeric
+ * segment of 6+ digits is treated as the date; the rest are version parts. This
+ * is what lets ranking pick 4.8 over the deprecated 4.0 dated id.
+ */
+export function parseModelVersion(
+  model: string,
+): { cls: AiModelClass; major: number; minor: number; date: number } | null {
+  const m = model.match(/^claude-(opus|sonnet|haiku)-(.+)$/)
+  if (!m) return null
+  const segs = m[2].split("-").filter((s) => /^\d+$/.test(s))
+  if (segs.length === 0) return null
+  let date = 0
+  let version = segs
+  if (segs[segs.length - 1].length >= 6) {
+    date = Number(segs[segs.length - 1])
+    version = segs.slice(0, -1)
+  }
+  return {
+    cls: m[1] as AiModelClass,
+    major: Number(version[0] ?? 0),
+    minor: Number(version[1] ?? 0),
+    date,
+  }
+}
+
 /** Derive a friendly version label ("Opus 4.8") from a model id. */
 export function deriveModelLabel(model: string): string {
-  const m = model.match(/^claude-(opus|sonnet|haiku)-(\d+)-(\d+)/)
-  if (!m) return model
-  return `${m[1][0].toUpperCase()}${m[1].slice(1)} ${m[2]}.${m[3]}`
+  const v = parseModelVersion(model)
+  if (!v) return model
+  return `${v.cls[0].toUpperCase()}${v.cls.slice(1)} ${v.major}.${v.minor}`
 }
 
 /** One picker option (the latest) per class, from a families map. */
