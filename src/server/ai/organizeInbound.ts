@@ -27,7 +27,7 @@ const THREAD_LIMIT = 30
  */
 export async function organizeConversation(
   contactId: string,
-  opts: { source: string; messageSid?: string } = { source: "inbound" },
+  opts: { source: string; messageSid?: string; channel?: "sms" | "email" } = { source: "inbound" },
 ): Promise<void> {
   if (!isAiEnabled()) return
 
@@ -36,7 +36,7 @@ export async function organizeConversation(
     const [{ data: contact }, { data: threadRows }, { data: allTagRows }, config] = await Promise.all([
       admin
         .from("contacts")
-        .select("id, tags, ai_tags, notes, inbox_category, inbox_status, sms_opted_out_at")
+        .select("id, tags, ai_tags, notes, inbox_category, inbox_status, sms_opted_out_at, email_unsubscribed_at")
         .eq("id", contactId)
         .maybeSingle(),
       admin
@@ -76,25 +76,36 @@ export async function organizeConversation(
     const nowIso = new Date().toISOString()
 
     // --- Opt-out: natural-language stop the keyword filter missed. ----------
-    // Mirrors the manual button + carrier STOP: sets the universal sms hard stop.
-    // Only fires above the confidence floor and only when not already opted out.
-    if (
-      optOut?.optOut &&
-      optOut.confidence >= OPTOUT_CONFIDENCE_FLOOR &&
-      !contact.sms_opted_out_at
-    ) {
+    // Mirrors the manual button + carrier STOP / email unsubscribe. The opt-out
+    // is applied to the SAME channel the message arrived on: an email reply of
+    // "stop emailing me" must unsubscribe email, not block SMS. Only fires above
+    // the confidence floor and only when not already opted out on that channel.
+    const onEmail = opts.channel === "email"
+    const alreadyOut = onEmail
+      ? Boolean((contact as { email_unsubscribed_at?: string | null }).email_unsubscribed_at)
+      : Boolean(contact.sms_opted_out_at)
+    if (optOut?.optOut && optOut.confidence >= OPTOUT_CONFIDENCE_FLOOR && !alreadyOut) {
       try {
-        await admin
-          .from("contacts")
-          .update({ sms_opted_out_at: nowIso })
-          .eq("id", contactId)
-          .is("sms_opted_out_at", null)
+        if (onEmail) {
+          await admin
+            .from("contacts")
+            .update({ email_unsubscribed_at: nowIso })
+            .eq("id", contactId)
+            .is("email_unsubscribed_at", null)
+        } else {
+          await admin
+            .from("contacts")
+            .update({ sms_opted_out_at: nowIso })
+            .eq("id", contactId)
+            .is("sms_opted_out_at", null)
+        }
         await logAudit({
-          action: "contact.opt_out_sms",
+          action: onEmail ? "contact.unsubscribe_email" : "contact.opt_out_sms",
           targetTable: "contacts",
           targetId: contactId,
           diff: {
             source: "inbound_soft_optout",
+            channel: opts.channel ?? "sms",
             confidence: optOut.confidence,
             message_sid: opts.messageSid,
           },

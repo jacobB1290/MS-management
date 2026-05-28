@@ -402,56 +402,68 @@ export type Database = {
       messages: {
         Row: {
           body: string | null
+          body_html: string | null
           campaign_id: string | null
           channel: string
           contact_id: string
           context: string | null
           created_at: string
           direction: string
+          email_meta: Json | null
           error: string | null
           id: string
           media_url: string | null
           num_segments: number | null
           price: number | null
           price_unit: string | null
+          provider_message_id: string | null
           sent_by: string | null
           status: string | null
+          subject: string | null
           twilio_sid: string | null
         }
         Insert: {
           body?: string | null
+          body_html?: string | null
           campaign_id?: string | null
           channel: string
           contact_id: string
           context?: string | null
           created_at?: string
           direction: string
+          email_meta?: Json | null
           error?: string | null
           id?: string
           media_url?: string | null
           num_segments?: number | null
           price?: number | null
           price_unit?: string | null
+          provider_message_id?: string | null
           sent_by?: string | null
           status?: string | null
+          subject?: string | null
           twilio_sid?: string | null
         }
         Update: {
           body?: string | null
+          body_html?: string | null
           campaign_id?: string | null
           channel?: string
           contact_id?: string
           context?: string | null
           created_at?: string
           direction?: string
+          email_meta?: Json | null
           error?: string | null
           id?: string
           media_url?: string | null
           num_segments?: number | null
           price?: number | null
           price_unit?: string | null
+          provider_message_id?: string | null
           sent_by?: string | null
           status?: string | null
+          subject?: string | null
           twilio_sid?: string | null
         }
         Relationships: [
@@ -525,7 +537,9 @@ export type Database = {
           language: string | null
           last_message_at: string | null
           last_message_body: string | null
+          last_message_channel: string | null
           last_message_direction: string | null
+          last_message_subject: string | null
           message_count: number | null
           name: string | null
           phone: string | null

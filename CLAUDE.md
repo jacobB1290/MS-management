@@ -232,7 +232,8 @@ harness can run without provisioning a real Twilio number first.
 3. Inbound SMS webhook + outbound 1:1 send (the MVP)
 4. Contacts UI + public website form receiver
 5. Batch SMS via Messaging Service + central opt-out enforcement
-6. Email via SendGrid (template by ID, Event Webhook)
+6. Email via SendGrid (campaigns: template by ID + Event Webhook; two-way 1:1
+   inbox email: `sendDirectEmail` + Inbound Parse webhook)
 7. Polish: search, reporting, CSV import/export
 
 ## 13.1 Live provider setup — done and remaining
@@ -269,6 +270,24 @@ opt-in via `detectMarketingJoin`). Inbound + status webhooks point at
   local flag; a contact who used an email unsubscribe link stays suppressed in
   SendGrid until removed from the suppression group (the next send is dropped and
   the `dropped` event self-heals `email_unsubscribed_at`).
+- **Two-way email (inbox).** Outbound 1:1 email sends from the inbox composer
+  (channel toggle) via `sendDirectEmail` (`src/server/comms/sendEmail.ts`); it
+  works as soon as `SENDGRID_API_KEY` + `SENDGRID_FROM_EMAIL` are set (otherwise
+  mock-logged, like SMS). To RECEIVE replies into the inbox:
+  1. Pick an inbound subdomain and set `INBOUND_EMAIL_DOMAIN` (e.g.
+     `reply.ms.church`). Outbound mail then carries
+     `Reply-To: reply+<contactId>@<that domain>`.
+  2. In Vercel DNS, add an `MX` record on that subdomain pointing to
+     `mx.sendgrid.net` (priority 10).
+  3. In SendGrid, add the subdomain under **Settings → Inbound Parse** with the
+     destination URL `<APP_BASE_URL>/api/webhook/sendgrid-inbound?token=<SENDGRID_INBOUND_TOKEN>`.
+  4. Set `SENDGRID_INBOUND_TOKEN` to a long random secret (the webhook is
+     unsigned, so this URL token is its auth — `src/server/webhooks/verify.ts`).
+  Replies thread back by the `reply+<contactId>` token, falling back to the
+  sender's email (auto-creating a contact, exactly like inbound SMS). Until DNS +
+  Parse are live, sending works and receiving stays dormant. Inbound HTML is
+  stored in `messages.body_html` but the inbox renders the plain-text `body`
+  only (no sanitizer yet — sanitize before ever rendering the HTML).
 
 ## 14. Future phases (do NOT build yet)
 

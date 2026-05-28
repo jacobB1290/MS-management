@@ -94,6 +94,12 @@ export const sendSmsSchema = z
     path: ["body"],
   })
 
+export const sendEmailSchema = z.object({
+  contact_id: z.string().uuid(),
+  subject: z.string().trim().min(1, "Add a subject.").max(200),
+  body: z.string().trim().min(1, "Write a message.").max(20000),
+})
+
 export const voiceTokenSchema = z.object({
   contact_id: z.string().uuid(),
 })
