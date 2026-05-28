@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { createPortal } from "react-dom"
 import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -120,6 +121,14 @@ export const SheetContent = React.forwardRef<HTMLDivElement, SheetContentProps>(
     const { open, setOpen, side, titleId, descriptionId } =
       useSheetContext("SheetContent")
     const [mounted, setMounted] = React.useState(open)
+    // Portal target. The Sheet must escape the inbox's sliding pane: that track
+    // uses `transform` inside an `overflow-hidden` wrapper, and a position:fixed
+    // element inside a transformed ancestor is positioned relative to THAT
+    // ancestor (and clipped by it) — so without a portal the slide-over renders
+    // off-screen. Rendering into <body> makes `fixed` truly viewport-relative.
+    const [portalEl] = React.useState<HTMLElement | null>(() =>
+      typeof document === "undefined" ? null : document.body,
+    )
 
     // Sync mount visibility with open prop; setState on open transition is
     // intentional (it's the controlled-exit-animation pattern).
@@ -150,9 +159,9 @@ export const SheetContent = React.forwardRef<HTMLDivElement, SheetContentProps>(
       }
     }, [mounted])
 
-    if (!mounted) return null
+    if (!mounted || !portalEl) return null
 
-    return (
+    return createPortal(
       <div className="fixed inset-0 z-50" role="presentation">
         <div
           aria-hidden="true"
@@ -200,7 +209,8 @@ export const SheetContent = React.forwardRef<HTMLDivElement, SheetContentProps>(
           )}
           {children}
         </div>
-      </div>
+      </div>,
+      portalEl,
     )
   },
 )
