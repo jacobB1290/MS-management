@@ -107,10 +107,18 @@ export const sendEmailSchema = z.object({
   subject: z.string().trim().min(1, "Add a subject.").max(200),
   body: z.string().trim().min(1, "Write a message.").max(20000),
   // Optional beautified HTML content fragment (no <html>/<body>). When present,
-  // the send path sanitizes it, wraps it in the branded template, and sends a
-  // multipart text+html email; otherwise plain text only.
+  // the send path sanitizes it, wraps it in the personal email shell, and sends
+  // a multipart text+html email; otherwise plain text only.
   html: z.string().max(60000).optional().nullable(),
   attachments: z.array(emailAttachmentSchema).max(10).optional().default([]),
+})
+
+// Render a full preview of a 1:1 email (same pipeline as the send path) so
+// staff can see exactly what the recipient receives before sending.
+export const previewEmailSchema = z.object({
+  contact_id: z.string().uuid(),
+  body: z.string().trim().min(1, "Write a message.").max(20000),
+  html: z.string().max(60000).optional().nullable(),
 })
 
 export const voiceTokenSchema = z.object({

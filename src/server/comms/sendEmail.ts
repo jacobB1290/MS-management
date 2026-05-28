@@ -2,8 +2,15 @@ import "server-only"
 import { assertCanSendEmail } from "./optOut"
 import { logAudit } from "@/server/audit"
 import { createSupabaseAdminClient } from "@/lib/supabase/server"
-import { replyToAddress, unsubscribeHeaders } from "./emailAddress"
-import { sanitizeEmailContent, wrapBrandedEmail } from "./emailHtml"
+import { replyToAddress } from "./emailAddress"
+import {
+  sanitizeEmailContent,
+  wrapPersonalEmail,
+  toSmartQuotes,
+  personalSignatureText,
+  htmlFragmentToText,
+  plainTextToContentHtml,
+} from "./emailHtml"
 import {
   resolveEmailAttachments,
   type SendGridAttachment,
@@ -73,6 +80,57 @@ export type SendEmailResult =
   | { ok: false; reason: "not_found" | "no_channel" | "unsubscribed" | "provider_failed"; detail?: string }
 
 /**
+ * Build the personalized parts of a 1:1 email from an operator's draft: the
+ * smart-quoted plain body, the text/plain part with a warm human sign-off, the
+ * HTML part (only when the operator beautified — a plain reply sends as
+ * text/plain, which reads the most personal), and a full rendered HTML document
+ * for PREVIEW (always present, so staff can see the message + sign-off even for
+ * a plain reply). Single source of truth shared by the send path and the
+ * preview endpoint, so the preview is faithful to what actually sends.
+ */
+export async function composePersonalEmail(args: {
+  contactId: string
+  body: string
+  html?: string | null
+  sentByUserId?: string | null
+}): Promise<{
+  cleanBody: string
+  outgoingText: string
+  wrappedHtml: string | null
+  previewHtml: string
+  senderName: string | null
+}> {
+  const admin = createSupabaseAdminClient()
+  const [senderName, contactLang] = await Promise.all([
+    lookupSenderName(admin, args.sentByUserId),
+    lookupContactLanguage(admin, args.contactId),
+  ])
+
+  const cleanBody = toSmartQuotes(args.body)
+  const outgoingText = `${cleanBody}\n\n${personalSignatureText(senderName)}`
+
+  // Defense in depth: the AI endpoint already sanitized; sanitize again before
+  // it ever reaches an inbox.
+  const sanitizedFragment = args.html ? sanitizeEmailContent(args.html) : null
+  // The fragment actually sent as the HTML part (null for a plain reply) vs the
+  // fragment used to render the preview (a plain reply is shown as paragraphs).
+  const previewFragment = sanitizedFragment ?? plainTextToContentHtml(cleanBody)
+  const preheader = htmlFragmentToText(previewFragment).replace(/\s+/g, " ").trim()
+
+  const wrappedHtml = sanitizedFragment
+    ? wrapPersonalEmail({ contentHtml: sanitizedFragment, preheader, senderName, lang: contactLang })
+    : null
+  const previewHtml = wrapPersonalEmail({
+    contentHtml: previewFragment,
+    preheader,
+    senderName,
+    lang: contactLang,
+  })
+
+  return { cleanBody, outgoingText, wrappedHtml, previewHtml, senderName }
+}
+
+/**
  * Canonical 1:1 conversational email send. Mirrors `sendSms`: enforces opt-out
  * at the function level, logs the outbound row into the SAME `messages` thread
  * (channel 'email'), then calls SendGrid — or records a mock when keys are
@@ -87,7 +145,7 @@ export async function sendDirectEmail(args: {
   body: string
   sentByUserId?: string | null
   /** Optional beautified content HTML fragment (no <html>/<body>). When given,
-   *  it is sanitized + wrapped in the branded template and sent as the HTML
+   *  it is sanitized + wrapped in the personal email shell and sent as the HTML
    *  part alongside the plain-text `body`. */
   html?: string | null
   /** Optional file attachments, already uploaded to the private bucket. */
@@ -96,13 +154,16 @@ export async function sendDirectEmail(args: {
   const check = await assertCanSendEmail(args.contactId)
   if (!check.ok) return { ok: false, reason: check.reason }
 
-  // Build the branded HTML part from the (re-)sanitized content fragment.
-  // Defense in depth: the AI endpoint already sanitized, we sanitize again here
-  // before it ever reaches a recipient's inbox.
-  const contentHtml = args.html ? sanitizeEmailContent(args.html) : null
-  const wrappedHtml = contentHtml
-    ? wrapBrandedEmail({ contentHtml, contactId: args.contactId })
-    : null
+  const admin = createSupabaseAdminClient()
+
+  // Personalize (sign-off, language, smart quotes, HTML shell). Shared with the
+  // preview endpoint so what staff preview is exactly what sends.
+  const { cleanBody, outgoingText, wrappedHtml } = await composePersonalEmail({
+    contactId: args.contactId,
+    body: args.body,
+    html: args.html,
+    sentByUserId: args.sentByUserId,
+  })
 
   // Resolve + validate attachments (download from the private bucket, base64).
   const resolved = await resolveEmailAttachments(args.attachments ?? [])
@@ -110,7 +171,6 @@ export async function sendDirectEmail(args: {
     return { ok: false, reason: "attachment_failed", detail: resolved.reason }
   }
 
-  const admin = createSupabaseAdminClient()
   const replyTo = replyToAddress(args.contactId)
   const emailMeta = buildEmailMeta(replyTo, resolved.meta)
   const { data: inserted, error: insertErr } = await admin
@@ -118,7 +178,7 @@ export async function sendDirectEmail(args: {
     .insert({
       contact_id: args.contactId,
       direction: "out",
-      body: args.body,
+      body: cleanBody,
       body_html: wrappedHtml,
       subject: args.subject,
       channel: "email",
@@ -137,10 +197,17 @@ export async function sendDirectEmail(args: {
   const provider = await sendPlainEmailOrMock({
     to: check.email,
     subject: args.subject,
-    body: args.body,
+    body: outgoingText,
     html: wrappedHtml,
     replyTo,
-    headers: unsubscribeHeaders(args.contactId),
+    // A true 1:1 relationship email carries NO List-Unsubscribe header — that
+    // header is what makes Apple Mail/Gmail brand it as a mailing list, which
+    // is wrong for a personal reply and hurts the relationship. CAN-SPAM
+    // exempts transactional 1:1 mail; opt-out is still enforced by
+    // assertCanSendEmail (the wall), the inbound STOP-keyword webhook, and the
+    // in-CRM email_unsubscribed_at toggle. Bulk/campaign mail keeps its
+    // unsubscribe group on the `sendEmail` path.
+    headers: null,
     attachments: resolved.sendgrid,
   })
 
@@ -186,6 +253,35 @@ export type SendDirectEmailResult =
       detail?: string
     }
 
+type AdminClient = ReturnType<typeof createSupabaseAdminClient>
+
+/** The sending staff member's display name, for the email sign-off. */
+async function lookupSenderName(
+  admin: AdminClient,
+  userId: string | null | undefined,
+): Promise<string | null> {
+  if (!userId) return null
+  const { data } = await admin
+    .from("app_users")
+    .select("display_name")
+    .eq("user_id", userId)
+    .maybeSingle()
+  return data?.display_name?.trim() || null
+}
+
+/** The contact's language (en/ru) for the email's `lang` attribute. */
+async function lookupContactLanguage(
+  admin: AdminClient,
+  contactId: string,
+): Promise<string> {
+  const { data } = await admin
+    .from("contacts")
+    .select("language")
+    .eq("id", contactId)
+    .maybeSingle()
+  return data?.language === "ru" ? "ru" : "en"
+}
+
 /** Assemble the `email_meta` JSON for the message row: reply_to + attachments. */
 function buildEmailMeta(
   replyTo: string | null,
@@ -215,7 +311,7 @@ async function sendPlainEmailOrMock(args: {
 }): Promise<ProviderResult> {
   const apiKey = process.env.SENDGRID_API_KEY
   const fromEmail = process.env.SENDGRID_FROM_EMAIL
-  const fromName = process.env.SENDGRID_FROM_NAME || "Morning Star Church"
+  const fromName = process.env.SENDGRID_FROM_NAME || "Morning Star Christian Church"
 
   if (!apiKey || !fromEmail) {
     return { id: `MOCK_${crypto.randomUUID()}`, error: null, mock: true }
@@ -280,7 +376,7 @@ async function callSendGridOrMock(args: {
 }): Promise<ProviderResult> {
   const apiKey = process.env.SENDGRID_API_KEY
   const fromEmail = process.env.SENDGRID_FROM_EMAIL
-  const fromName = process.env.SENDGRID_FROM_NAME || "Morning Star Church"
+  const fromName = process.env.SENDGRID_FROM_NAME || "Morning Star Christian Church"
   const unsubGroupId = process.env.SENDGRID_UNSUBSCRIBE_GROUP_ID
 
   if (!apiKey || !fromEmail) {

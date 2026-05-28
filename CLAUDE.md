@@ -115,9 +115,13 @@ Enforce these in `src/server/comms/*`, not just behind a disabled button.
   unsubscribe link (SendGrid unsubscribe group) and our physical mailing
   address (`PHYSICAL_MAILING_ADDRESS` env). The SendGrid Event Webhook
   mirrors unsubscribes back to `contacts.email_unsubscribed_at`. 1:1 inbox
-  email also carries a one-click List-Unsubscribe header (`sendDirectEmail`
-  → `unsubscribeHeaders`, served by `/api/email/unsubscribe`), and the inbound
-  webhook honors a plain-language STOP/unsubscribe reply.
+  email (`sendDirectEmail`) is a true personal reply and deliberately carries
+  NO List-Unsubscribe header — that header is what makes mail clients brand a
+  message as a mailing list, which is wrong for a 1:1 and hurts the
+  relationship. Opt-out is still enforced three ways: `assertCanSendEmail` (the
+  wall), the inbound webhook's plain-language STOP/unsubscribe reply, and the
+  in-CRM `email_unsubscribed_at` toggle. (`unsubscribeHeaders` /
+  `/api/email/unsubscribe` remain available for any future bulk-via-app path.)
 - **Consent capture.** Every contact has `consent_method` and `consent_at`.
   Form submissions are the canonical proof; CSV imports must explicitly
   record `consent_method = 'csv_import_<batch>'` and a real `consent_at`.
@@ -139,11 +143,14 @@ Do not copy the SMS mental model onto email.
 
 **Transactional vs commercial is the hinge.** CAN-SPAM's strict rules
 (unsubscribe link, postal address) apply to **commercial** mail only.
-- **1:1 inbox email** (`sendDirectEmail`) is treated as **transactional** —
-  plain text, no SendGrid footer — so it reads like a real personal reply. We
-  still attach a one-click List-Unsubscribe header and still respect
-  `email_unsubscribed_at`, i.e. **stricter than required**, so we're covered
-  even if a 1:1 drifts commercial.
+- **1:1 inbox email** (`sendDirectEmail`) is treated as **transactional** — it
+  reads like a real personal reply (clean single column, a warm human sign-off
+  with the sender's name, no masthead/footer, no List-Unsubscribe header). The
+  goal is that a recipient feels a person wrote to *them*, not that they got a
+  nice template. CAN-SPAM exempts transactional 1:1 mail from the unsubscribe +
+  postal-address requirements, and we still respect `email_unsubscribed_at` and
+  honor a plain-language "stop" reply, so we're covered even if a 1:1 drifts
+  commercial.
 - **Campaign/bulk email** is **commercial** → the unsubscribe group
   (`SENDGRID_UNSUBSCRIBE_GROUP_ID`) + postal address are **required**, and the
   send path refuses without the group.
@@ -155,7 +162,7 @@ Do not copy the SMS mental model onto email.
 | Source of truth for opt-out | `contacts.email_unsubscribed_at` (`NULL` = subscribed); `assertCanSendEmail` is the wall | Suppression / unsubscribe **group** — drops a send even if our flag is stale |
 | Consent record | `consent_method` / `consent_at` | — |
 | Catch a reply that says "stop" | inbound webhook (`detectOptOutKeyword` on body + subject) | — (no auto reply-keyword handler) |
-| Unsubscribe link / one-click | `/api/email/unsubscribe` (signed), `List-Unsubscribe` header | hosts the group's unsubscribe page for bulk |
+| Unsubscribe link / one-click | bulk only: `/api/email/unsubscribe` (signed) + `List-Unsubscribe` header. 1:1 sends none (personal reply); opt-out via the wall + STOP reply + CRM toggle | hosts the group's unsubscribe page for bulk |
 | Bounce / spam / unsub events | `email_events` trigger mirrors back to the flag | Event Webhook posts the events |
 
 Re-enabling email in the CRM only clears the **local** flag; a contact who used
