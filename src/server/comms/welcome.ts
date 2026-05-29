@@ -11,15 +11,25 @@ export type WelcomeSource = "sms_inbound" | "public_form"
 // per-segment limit from 160 to 70 chars and silently inflates send cost. Each
 // message reads like a person wrote it and greets the contact by first name
 // when we have one; the name is charset-guarded in greeting.ts so it can't
-// break the 7-bit rule. The carrier-/CTIA-required disclosures still ride
-// along: program name, "Msg & data rates may apply", message frequency on the
-// opt-in confirmation, and HELP/STOP instructions.
+// break the 7-bit rule. The carrier-/CTIA-required disclosures ride along where
+// they're actually needed: the JOIN invite and confirmation (which reach people
+// who never saw the website form) carry program name, "Msg & data rates may
+// apply", frequency on the confirmation, and HELP/STOP. The consented ack omits
+// them on purpose -- see consentedWelcome.
 
-/** Already-consented arrival (e.g. form opt-in box): warm ack, no opt-in ask. */
+/**
+ * Already-consented arrival: a warm, purely transactional ack -- no opt-in ask
+ * and deliberately no STOP/HELP line. This branch only reaches someone who
+ * opted in at a disclosed CTA (the website form already shows "Msg & data rates
+ * may apply; reply STOP to opt out, HELP for help") or who has declined
+ * marketing (so this 1:1 reply is transactional, not marketing). Either way the
+ * in-message disclosure isn't required here, and STOP/HELP still work at the
+ * carrier via Twilio Advanced Opt-Out. The invite + confirmation, which DO reach
+ * people who never saw the form, keep the full disclosure set.
+ */
 const consentedWelcome = (name: string | null) =>
   (name ? `Hi ${name}, thanks` : "Thanks") +
-  " for reaching out to Morning Star Christian Church! Someone will get back " +
-  "to you soon. Reply STOP anytime to opt out of texts."
+  " for reaching out to Morning Star Christian Church! Someone will get back to you soon."
 
 /** No marketing consent yet (e.g. texted the number): welcome + JOIN invite. */
 const inviteWelcome = (name: string | null) =>
