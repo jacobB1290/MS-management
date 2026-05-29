@@ -227,6 +227,11 @@ export function ThreadPane({
       })}
     </div>
   )
+  // The + and the selector sit in a row above the composer bar when there's an
+  // active composer; otherwise the selector falls back to a standalone row
+  // (blocker banner / email AI preview) so it never disappears.
+  const composerControlsInline =
+    channelToggleVisible && !activeBlocker && !(channel === "email" && emailHtml !== null)
 
   // Sync local state when the parent feeds a fresh thread (URL `?c=` change).
   const [lastContactId, setLastContactId] = useState(contactProp.id)
@@ -761,6 +766,77 @@ export function ThreadPane({
     await dispatchEmail(subj, text, sentHtml, sentFiles, true)
   }
 
+  // The attach/AI "+" menus, extracted so they can sit either inline with the
+  // bar (single channel) or in the controls row above it (when the Text/Email
+  // selector is shown).
+  const emailPlusMenu = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          disabled={attachUploading || beautifying || locked}
+          aria-label="Add to email"
+          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-pill border border-ink-hairline bg-white text-ink-muted transition-colors hover:text-ink disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {attachUploading || beautifying ? (
+            <Loader2 size={18} className="animate-spin" />
+          ) : (
+            <Plus size={20} />
+          )}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" sideOffset={0} className="bottom-full top-auto mb-2 min-w-[200px]">
+        <DropdownMenuItem onClick={() => attachInputRef.current?.click()}>
+          <Paperclip size={16} /> Attach files
+        </DropdownMenuItem>
+        {aiEnabled && (
+          <DropdownMenuItem onClick={handleBeautify} disabled={beautifying}>
+            <Sparkles size={16} /> {body.trim() ? "Improve with AI" : "Draft with AI"}
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem onClick={handlePreview} disabled={!body.trim() || previewing}>
+          <Eye size={16} /> Preview email
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+  const smsPlusMenu = aiEnabled ? (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          disabled={uploading || drafting || locked}
+          aria-label="Add to message"
+          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-pill border border-ink-hairline bg-white text-ink-muted transition-colors hover:text-ink disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {uploading || drafting ? (
+            <Loader2 size={18} className="animate-spin" />
+          ) : (
+            <Plus size={20} />
+          )}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" sideOffset={0} className="bottom-full top-auto mb-2 min-w-[200px]">
+        <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
+          <ImageIcon size={16} /> Photo or video
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={handleDraft} disabled={drafting}>
+          <Sparkles size={16} /> {body.trim() ? "Improve with AI" : "Draft with AI"}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  ) : (
+    <button
+      type="button"
+      onClick={() => fileInputRef.current?.click()}
+      disabled={uploading || locked}
+      aria-label="Attach photo or video"
+      className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-pill border border-ink-hairline bg-white text-ink-muted transition-colors hover:text-ink disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      {uploading ? <Loader2 size={18} className="animate-spin" /> : <Plus size={20} />}
+    </button>
+  )
+
   return (
     <>
       <header className="shrink-0 flex flex-wrap items-center gap-x-3 gap-y-2 px-4 md:px-6 py-3 border-b border-ink-hairline bg-bg/95 backdrop-blur">
@@ -849,10 +925,10 @@ export function ThreadPane({
             </div>
           </div>
         )}
-        {/* Above the composer, left-aligned with the text box (indented past the
-            + button: w-11 = 44px + gap-2 = 8px). */}
-        {channelToggleVisible && (
-          <div className="mb-2.5 flex items-center pl-[52px]">{channelToggle}</div>
+        {/* Standalone selector for the blocker / AI-preview states; an active
+            composer shows it in the controls row above the bar instead. */}
+        {channelToggleVisible && !composerControlsInline && (
+          <div className="mb-2.5 flex items-center justify-end">{channelToggle}</div>
         )}
 
         {activeBlocker === "sms_opt_out" ? (
@@ -1011,43 +1087,23 @@ export function ThreadPane({
                   </div>
                 </div>
               ) : (
-                <div className="flex items-end gap-2">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        disabled={attachUploading || beautifying || locked}
-                        aria-label="Add to email"
-                        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-pill border border-ink-hairline bg-white text-ink-muted transition-colors hover:text-ink disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {attachUploading || beautifying ? (
-                          <Loader2 size={18} className="animate-spin" />
-                        ) : (
-                          <Plus size={20} />
-                        )}
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align="start"
-                      sideOffset={0}
-                      className="bottom-full top-auto mb-2 min-w-[200px]"
-                    >
-                      <DropdownMenuItem onClick={() => attachInputRef.current?.click()}>
-                        <Paperclip size={16} /> Attach files
-                      </DropdownMenuItem>
-                      {aiEnabled && (
-                        <DropdownMenuItem onClick={handleBeautify} disabled={beautifying}>
-                          <Sparkles size={16} /> {body.trim() ? "Improve with AI" : "Draft with AI"}
-                        </DropdownMenuItem>
+                <>
+                  {composerControlsInline && (
+                    <div className="mb-2 flex items-center justify-between">
+                      {emailPlusMenu}
+                      {channelToggle}
+                    </div>
+                  )}
+                  <div className="flex items-end gap-2">
+                    {!composerControlsInline && emailPlusMenu}
+                    {/* Subject, divider, body — send anchored bottom-right inside.
+                        Full-width when the + sits above; shares the row otherwise. */}
+                    <div
+                      className={cn(
+                        "relative rounded-3xl border border-ink-hairline bg-white transition-colors focus-within:border-gold",
+                        composerControlsInline ? "w-full" : "flex-1 min-w-0",
                       )}
-                      <DropdownMenuItem onClick={handlePreview} disabled={!body.trim() || previewing}>
-                        <Eye size={16} /> Preview email
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                  {/* One field: subject, a divider, then the body — with the send
-                      button anchored at the bottom-right inside the box, iOS-style. */}
-                  <div className="relative flex-1 min-w-0 rounded-3xl border border-ink-hairline bg-white transition-colors focus-within:border-gold">
+                    >
                     <input
                       value={subject}
                       onChange={(e) => {
@@ -1089,7 +1145,8 @@ export function ThreadPane({
                       {sending ? <Loader2 size={16} className="animate-spin" /> : <ArrowUp size={16} strokeWidth={2.5} />}
                     </button>
                   </div>
-                </div>
+                  </div>
+                </>
               )}
               <p className="text-micro text-ink-faint">
                 Sends from the church email · Press <span className="font-mono">⌘↵</span> to send · Tap + to attach files or use AI
@@ -1130,7 +1187,7 @@ export function ThreadPane({
                 </button>
               </div>
             )}
-            <form onSubmit={handleSend} className="flex items-end gap-2">
+            <form onSubmit={handleSend} className="space-y-2">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -1138,47 +1195,15 @@ export function ThreadPane({
                 className="hidden"
                 onChange={onPickFile}
               />
-              {aiEnabled ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
-                      disabled={uploading || drafting || locked}
-                      aria-label="Add to message"
-                      className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-pill border border-ink-hairline bg-white text-ink-muted transition-colors hover:text-ink disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {uploading || drafting ? (
-                        <Loader2 size={18} className="animate-spin" />
-                      ) : (
-                        <Plus size={20} />
-                      )}
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align="start"
-                    sideOffset={0}
-                    className="bottom-full top-auto mb-2 min-w-[200px]"
-                  >
-                    <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
-                      <ImageIcon size={16} /> Photo or video
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleDraft} disabled={drafting}>
-                      <Sparkles size={16} /> {body.trim() ? "Improve with AI" : "Draft with AI"}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading || locked}
-                  aria-label="Attach photo or video"
-                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-pill border border-ink-hairline bg-white text-ink-muted transition-colors hover:text-ink disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {uploading ? <Loader2 size={18} className="animate-spin" /> : <Plus size={20} />}
-                </button>
+              {composerControlsInline && (
+                <div className="flex items-center justify-between">
+                  {smsPlusMenu}
+                  {channelToggle}
+                </div>
               )}
-              <div className="relative flex-1 min-w-0">
+              <div className="flex items-end gap-2">
+                {!composerControlsInline && smsPlusMenu}
+                <div className={cn("relative", composerControlsInline ? "w-full" : "flex-1 min-w-0")}>
                 <Textarea
                   value={body}
                   onChange={(e) => {
@@ -1207,6 +1232,7 @@ export function ThreadPane({
                 >
                   <ArrowUp size={16} strokeWidth={2.5} />
                 </button>
+                </div>
               </div>
             </form>
             <p className="mt-2 text-micro text-ink-faint">
