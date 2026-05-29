@@ -155,17 +155,13 @@ const CARD_BG = "#fbf7f1"
 const HAIRLINE = "#e7ddca"
 
 const GOLD_FRAME = "#dac7a4" // delicate gold for the inset stationery frame + rules
-// The morning-star motif. Used ONCE, as the letterhead crown — a rare mark reads
-// bespoke; a repeated glyph reads like filler. U+2726 followed by U+FE0E (the
-// text variation selector) so emoji-capable clients render the monochrome gold
-// glyph instead of substituting a multicolor emoji.
-const STAR = "&#10022;&#65038;"
-// Symbol-first stack so the star resolves to a real text glyph, never an emoji
-// font and never tofu.
-const STAR_FONT = "'Apple Symbols','Segoe UI Symbol','Noto Sans Symbols2',Georgia,serif"
+// Typographic ornament: a gold middot used as a fleuron in the masthead flourish
+// and the rule dividers. Rendered in a serif so it's a clean centered dot, never
+// an emoji or tofu — ornament built from type, not an illustration.
+const MIDDOT = "&middot;"
+const ORNAMENT_FONT = "Georgia,'Times New Roman',serif"
 
 const CHURCH_NAME = "Morning Star Christian Church"
-const CHURCH_LOCALE = "Boise, Idaho"
 
 /** Display face for the letterhead, greeting, and sign-off. Playfair loads on
  *  Apple Mail / iOS (where most of our staff + recipients read) via the head
@@ -196,12 +192,38 @@ function teamSigner(lang: string): string {
   return lang === "ru" ? "Команда Morning Star" : "The Morning Star team"
 }
 
+/** Editorial drop cap: float a large serif initial on the email's opening BODY
+ *  paragraph (the 2nd <p>; the 1st is the greeting). Float is honored by Apple
+ *  Mail + Gmail; Outlook ignores it and simply shows a large initial inline —
+ *  graceful either way. Only applied when that paragraph starts with a plain
+ *  letter (never a tag/entity), so it can't corrupt the markup. */
+function applyDropCap(html: string): string {
+  const re = /<p\b[^>]*>/gi
+  let m: RegExpExecArray | null
+  let count = 0
+  let pos = -1
+  while ((m = re.exec(html))) {
+    count++
+    if (count === 2) {
+      pos = m.index + m[0].length
+      break
+    }
+  }
+  if (pos < 0) return html
+  while (html[pos] === " ") pos++
+  const ch = html[pos]
+  if (!ch || !/\p{L}/u.test(ch)) return html
+  const cap = `<span class="ms-display" style="float:left;font-family:${DISPLAY_FONT};font-weight:700;font-size:50px;line-height:38px;color:${GOLD};padding:5px 9px 0 0;">${ch}</span>`
+  return html.slice(0, pos) + cap + html.slice(pos + 1)
+}
+
 /**
  * Inline email-safe styling onto the bare allowed tags. The sanitizer strips
  * every attribute (except href on <a>), so each opening tag is bare and a
  * targeted replace is safe — consistent rhythm and on-brand gold links even in
  * clients (Gmail) that ignore <style> blocks. The FIRST paragraph (the AI/staff
- * greeting, e.g. "Hi Jacob,") is set in the display serif as an editorial lead.
+ * greeting, e.g. "Hi Jacob,") is set in the display serif as an editorial lead;
+ * the opening BODY paragraph gets a drop cap.
  */
 function styleContentForEmail(html: string): string {
   let firstPara = true
@@ -212,7 +234,7 @@ function styleContentForEmail(html: string): string {
     }
     return `<p style="margin:0 0 16px;color:${INK_SOFT};">`
   })
-  return withParas
+  const styled = withParas
     .replace(
       /<h2>/gi,
       `<h2 class="ms-display" style="margin:26px 0 8px;font-family:${DISPLAY_FONT};font-size:21px;font-weight:600;color:${INK};line-height:1.3;">`,
@@ -232,6 +254,7 @@ function styleContentForEmail(html: string): string {
       /<a /gi,
       `<a style="color:${GOLD_DARK};text-decoration:underline;text-underline-offset:2px;" `,
     )
+  return applyDropCap(styled)
 }
 
 /**
@@ -265,29 +288,37 @@ function signatureHtml(senderName: string | null, lang: string): string {
 </div>`
 }
 
-/** The letterhead: the morning-star crown, a designed wordmark lockup
- *  ("Morning Star" in display serif over tracked small-caps "CHRISTIAN CHURCH"),
- *  a centered hairline, and a dated dateline — bespoke stationery written today,
- *  not a logo banner. */
-function heroStarHtml(): string {
-  // Bespoke morning-star illustration, hosted so it renders in Gmail/Outlook too
-  // (inline SVG is stripped by both). Decorative (alt="") — the wordmark carries
-  // identity if images are blocked. Falls back to the text glyph with no base.
-  const base = process.env.APP_BASE_URL?.replace(/\/$/, "")
-  if (!base) {
-    return `<div style="font-family:${STAR_FONT};font-size:20px;line-height:1;color:${GOLD};margin-bottom:14px;">${STAR}</div>`
-  }
-  return `<img src="${base}/email/morning-star.png" width="92" height="92" alt="" style="display:block;margin:0 auto 10px auto;border:0;outline:none;text-decoration:none;width:92px;height:92px;">`
+/** A trio of gold middots, letter-spaced apart — the masthead's typographic
+ *  flourish (a fleuron made of type, in place of an illustration). */
+function topFlourish(): string {
+  return `<div style="font-family:${ORNAMENT_FONT};font-size:13px;line-height:1;letter-spacing:11px;color:${GOLD};padding-left:11px;">${MIDDOT}${MIDDOT}${MIDDOT}</div>`
 }
 
+/** A centered hairline-rule divider with a single gold middot at its heart —
+ *  the typographic counterpart to a ruled fleuron. */
+function ruledDivider(rule = 46): string {
+  const ruleCell = `<td valign="middle" width="${rule}" style="font-size:0;line-height:0;"><div style="height:1px;background-color:${GOLD_FRAME};font-size:0;line-height:0;">&nbsp;</div></td>`
+  return `<table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0"><tr>${ruleCell}<td valign="middle" style="padding:0 13px;font-family:${ORNAMENT_FONT};font-size:15px;line-height:1;color:${GOLD};">${MIDDOT}</td>${ruleCell}</tr></table>`
+}
+
+/** A short tracked-caps band (eyebrow / dateline / footer locale) — type set as
+ *  ornament. `pad` offsets the trailing letter-spacing so it stays centered. */
+function trackedCaps(text: string, size: number, color: string): string {
+  return `<div style="font-family:${BODY_FONT};font-size:${size}px;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;color:${color};padding-left:2.5px;">${escapeHtml(text)}</div>`
+}
+
+/** The letterhead, built entirely from type: a middot flourish, the wordmark
+ *  lockup ("Morning Star" in display serif over tracked small-caps "CHRISTIAN
+ *  CHURCH"), a ruled-middot divider, and a tracked dateline — bespoke editorial
+ *  stationery written today, no illustration. */
 function letterheadHtml(dateLabel: string): string {
   return `<tr>
-<td align="center" style="padding:34px 40px 0 40px;">
-${heroStarHtml()}
-<div class="ms-display" style="font-family:${DISPLAY_FONT};font-size:31px;font-weight:700;letter-spacing:0;line-height:1.05;color:${GOLD};white-space:nowrap;">Morning Star</div>
-<div style="margin-top:7px;font-family:${BODY_FONT};font-size:11px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:${GOLD_DARK};">Christian Church</div>
-<div style="margin-top:18px;">${shortRule(46, GOLD_FRAME, "center")}</div>
-<div style="margin-top:14px;font-family:${BODY_FONT};font-size:10px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:${FAINT};">${escapeHtml(dateLabel)}</div>
+<td align="center" style="padding:38px 40px 0 40px;">
+<div style="margin-bottom:20px;">${topFlourish()}</div>
+<div class="ms-display" style="font-family:${DISPLAY_FONT};font-size:35px;font-weight:700;letter-spacing:0;line-height:1.04;color:${GOLD};white-space:nowrap;">Morning Star</div>
+<div style="margin-top:9px;">${trackedCaps("Christian Church", 11, GOLD_DARK)}</div>
+<div style="margin-top:20px;">${ruledDivider(46)}</div>
+<div style="margin-top:15px;">${trackedCaps(dateLabel, 10, FAINT)}</div>
 </td>
 </tr>`
 }
@@ -375,7 +406,7 @@ ${signature}
 </td>
 </tr>
 </table>
-<div style="font-family:${BODY_FONT};font-size:11px;letter-spacing:0.4px;color:${FAINT};text-align:center;padding:20px 0 0 0;">${CHURCH_LOCALE}</div>
+<div style="font-family:${BODY_FONT};font-size:10px;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;color:${FAINT};text-align:center;padding:20px 0 0 0;">Boise ${MIDDOT} Idaho</div>
 <!--[if mso]></td></tr></table><![endif]-->
 </td>
 </tr>
