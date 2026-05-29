@@ -438,13 +438,15 @@ h1, h2, h3, h4, h5, h6 {
  * coarse pointers only see :active feedback. Specific to interactive
  * containers — not a blanket `*` rule, which previously reverted link
  * colors to the browser default. */
-@media (hover: none) and (pointer: coarse) {
-  a:hover,
-  button:hover,
-  [role="button"]:hover,
-  [role="tab"]:hover,
-  [role="menuitem"]:hover {
-    background-color: transparent;
+@layer base {
+  @media (hover: none) and (pointer: coarse) {
+    a:hover,
+    button:hover,
+    [role="button"]:hover,
+    [role="tab"]:hover,
+    [role="menuitem"]:hover {
+      background-color: transparent;
+    }
   }
 }
 
