@@ -298,38 +298,22 @@ function trackedCaps(text: string, size: number, color: string): string {
   return `<div style="font-family:${BODY_FONT};font-size:${size}px;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;color:${color};padding-left:2.5px;">${escapeHtml(text)}</div>`
 }
 
-/** The layered editorial masthead: the crisp wordmark is LIVE TEXT, laid over a
- *  giant faded "MORNING STAR" ghost served as a CSS background. Panel-hardened —
- *  depth from type + opacity where it's honored (Apple Mail / iOS, our primary
- *  client), and a clean live wordmark everywhere the background is stripped
- *  (Gmail/Outlook), when images are blocked, and in forced dark mode (live text
- *  inverts; a baked image would go invisible). No top hero <img>, so a 1:1 reply
- *  doesn't read as a promo/bulk send. background-size crops the oversized word to
- *  a centered slice, per the reference. */
+/** The crisp wordmark — LIVE TEXT (renders everywhere, inverts cleanly in dark
+ *  mode, no broken-image state, no image-ratio spam signal). The faded ghost
+ *  behind it is a full-bleed CSS background applied to the masthead row in
+ *  `wrapPersonalEmail`, so it reaches the page edges. */
 function mastheadHtml(): string {
-  const wordmark = `<div class="ms-display" style="font-family:${DISPLAY_FONT};font-size:40px;font-weight:700;line-height:1.12;color:${GOLD_DEEP};white-space:nowrap;padding:16px 0 8px 0;">Morning Star</div>`
-  const base = process.env.APP_BASE_URL?.replace(/\/$/, "")
-  if (!base) return wordmark
-  const ghost = `${base}/email/masthead-ghost.png`
-  return `<table role="presentation" align="center" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-<td align="center" background="${ghost}" style="background-image:url('${ghost}');background-repeat:no-repeat;background-position:center center;background-size:760px auto;">
-${wordmark}
-</td>
-</tr></table>`
+  return `<div class="ms-display" style="font-family:${DISPLAY_FONT};font-size:40px;font-weight:700;line-height:1.12;color:${GOLD_DEEP};white-space:nowrap;">Morning Star</div>`
 }
 
-/** The letterhead: the layered masthead, tracked small-caps "CHRISTIAN CHURCH",
- *  a ruled-middot divider, and a tracked dateline — flat, editorial, the depth
- *  carried by the layered type rather than frames or shadow. */
-function letterheadHtml(dateLabel: string): string {
-  return `<tr>
-<td align="center" style="padding:32px 34px 0 34px;">
-${mastheadHtml()}
-<div style="margin-top:2px;">${trackedCaps("Christian Church", 11, GOLD_DARK)}</div>
+/** The letterhead's centered contents: the live wordmark, tracked small-caps
+ *  "CHRISTIAN CHURCH", a ruled-middot divider, and a tracked dateline. Sits in a
+ *  full-width row so the ghost behind it can bleed to the page edges. */
+function letterheadInner(dateLabel: string): string {
+  return `${mastheadHtml()}
+<div style="margin-top:6px;">${trackedCaps("Christian Church", 11, GOLD_DARK)}</div>
 <div style="margin-top:20px;">${ruledDivider(46)}</div>
-<div style="margin-top:15px;">${trackedCaps(dateLabel, 10, FAINT)}</div>
-</td>
-</tr>`
+<div style="margin-top:15px;">${trackedCaps(dateLabel, 10, FAINT)}</div>`
 }
 
 /** Hidden preheader: controls the inbox preview line so it's the warm opening
@@ -365,7 +349,14 @@ export function wrapPersonalEmail(args: {
   const content = styleContentForEmail(args.contentHtml)
   const signature = signatureHtml(args.senderName, lang)
   const preheader = preheaderBlock(args.preheader)
-  const letterhead = letterheadHtml(dateLabel)
+  const letterhead = letterheadInner(dateLabel)
+  // Full-bleed ghost: applied to the masthead ROW (full email width) so the
+  // faded oversized word reaches the page edges, cropped there. Honored by Apple
+  // Mail/iOS; stripped (cleanly) by Gmail/Outlook.
+  const base = process.env.APP_BASE_URL?.replace(/\/$/, "")
+  const ghostBg = base
+    ? ` background="${base}/email/masthead-ghost.png" style="background-image:url('${base}/email/masthead-ghost.png');background-repeat:no-repeat;background-position:center top;background-size:150% auto;padding:46px 0 4px 0;"`
+    : ` style="padding:46px 0 4px 0;"`
 
   return `<!doctype html>
 <html lang="${lang}" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
@@ -395,12 +386,16 @@ export function wrapPersonalEmail(args: {
 ${preheader}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${CARD_BG}" style="background-color:${CARD_BG};mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;">
 <tr>
-<td align="center" style="padding:44px 22px;">
+<td align="center"${ghostBg}>
+${letterhead}
+</td>
+</tr>
+<tr>
+<td align="center" style="padding:8px 22px 44px 22px;">
 <!--[if mso]><table role="presentation" align="center" width="560" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
 <table role="presentation" align="center" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;width:100%;border-collapse:collapse;">
-${letterhead}
 <tr>
-<td style="padding:16px 30px 40px 30px;font-family:${BODY_FONT};font-size:16px;line-height:1.65;color:${INK_SOFT};">
+<td style="padding:0 8px 0 8px;font-family:${BODY_FONT};font-size:16px;line-height:1.65;color:${INK_SOFT};">
 ${content}
 ${signature}
 </td>
