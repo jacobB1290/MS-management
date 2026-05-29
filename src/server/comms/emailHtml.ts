@@ -149,11 +149,9 @@ const GOLD_DEEP = "#4d3826"
 const INK = "#1f1a14"
 const INK_SOFT = "#3a342b"
 const FAINT = "#8a8174"
-const PAGE_BG = "#f1e9da" // warm cream page behind the card
-const CARD_BG = "#fbf7f1"
-const HAIRLINE = "#e7ddca"
+const CARD_BG = "#fbf7f1" // single warm-white ground; no card, type sits flat on it
 
-const GOLD_FRAME = "#dac7a4" // delicate gold for the inset stationery frame + rules
+const GOLD_FRAME = "#dac7a4" // delicate gold for the rule dividers
 // Typographic ornament: a gold middot used as a fleuron in the masthead flourish
 // and the rule dividers. Rendered in a serif so it's a clean centered dot, never
 // an emoji or tofu — ornament built from type, not an illustration.
@@ -393,22 +391,22 @@ export function wrapPersonalEmail(args: {
   }
 </style>
 </head>
-<body style="margin:0;padding:0;background-color:${PAGE_BG};">
+<body style="margin:0;padding:0;background-color:${CARD_BG};">
 ${preheader}
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${PAGE_BG}" style="background-color:${PAGE_BG};mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${CARD_BG}" style="background-color:${CARD_BG};mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;">
 <tr>
-<td align="center" style="padding:40px 18px;">
+<td align="center" style="padding:44px 22px;">
 <!--[if mso]><table role="presentation" align="center" width="560" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
-<table role="presentation" align="center" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${CARD_BG}" style="max-width:560px;width:100%;background-color:${CARD_BG};border:1px solid ${HAIRLINE};border-radius:14px;box-shadow:0 3px 16px rgba(77,56,38,0.07);overflow:hidden;border-collapse:collapse;">
+<table role="presentation" align="center" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;width:100%;border-collapse:collapse;">
 ${letterhead}
 <tr>
-<td bgcolor="${CARD_BG}" style="padding:18px 36px 36px 36px;background-color:${CARD_BG};font-family:${BODY_FONT};font-size:16px;line-height:1.65;color:${INK_SOFT};">
+<td style="padding:16px 30px 40px 30px;font-family:${BODY_FONT};font-size:16px;line-height:1.65;color:${INK_SOFT};">
 ${content}
 ${signature}
 </td>
 </tr>
 </table>
-<div style="font-family:${BODY_FONT};font-size:10px;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;color:${FAINT};text-align:center;padding:20px 0 0 0;">Boise ${MIDDOT} Idaho</div>
+<div style="font-family:${BODY_FONT};font-size:10px;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;color:${FAINT};text-align:center;padding:28px 0 0 0;">Boise ${MIDDOT} Idaho</div>
 <!--[if mso]></td></tr></table><![endif]-->
 </td>
 </tr>
