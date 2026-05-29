@@ -267,7 +267,7 @@ function signatureHtml(senderName: string | null, lang: string): string {
  *  navy serif caps over tracked muted "CHRISTIAN CHURCH". Live text. */
 function headerBlock(): string {
   return `<div class="ms-display" style="font-family:${DISPLAY_FONT};font-size:27px;font-weight:700;letter-spacing:0.08em;line-height:1.1;color:${INK};text-transform:uppercase;">Morning Star</div>
-<div style="margin-top:8px;">${trackedCaps("Christian Church", 11, MUTED, "0.2em")}</div>`
+<div style="margin-top:14px;">${trackedCaps("Christian Church", 11, MUTED, "0.2em")}</div>`
 }
 
 /** Hidden preheader: controls the inbox preview line so it's the warm opening
