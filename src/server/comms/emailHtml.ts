@@ -352,7 +352,6 @@ ${headerBlock()}
 <td align="center" style="padding:0 26px 44px 26px;">
 <!--[if mso]><table role="presentation" align="center" width="600" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
 <table role="presentation" align="center" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;border-collapse:collapse;">
-<tr><td style="padding-bottom:26px;">${fullRule()}</td></tr>
 <!-- The letter: gold dateline eyebrow, serif greeting, body, sign-off -->
 <tr><td style="font-family:${BODY_FONT};font-size:16px;line-height:1.66;color:${INK_SOFT};">
 <div style="margin-bottom:18px;">${eyebrow}</div>
