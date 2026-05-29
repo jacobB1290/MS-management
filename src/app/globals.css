@@ -380,11 +380,18 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Focus ring — accessible, on-brand. Keyboard users get the gold outline;
  * touch users do NOT (iOS Safari treats taps as focus events and the
- * outline lingers after every tap, which reads as a bug). */
-:where(button, a, input, textarea, select, [tabindex]):focus-visible {
-  outline: 2px solid var(--gold);
-  outline-offset: 2px;
-  border-radius: 4px;
+ * outline lingers after every tap, which reads as a bug).
+ *
+ * In @layer base so component utilities can override it: `focus-visible:outline-none`
+ * (tabs, the inbox composer whose box shows focus) and `aria-invalid:...outline-danger`
+ * now actually take effect. No forced border-radius — the outline follows each
+ * element's own radius (modern browsers round it), so pills stay pills and a
+ * rounded container's ring matches the container instead of becoming a rectangle. */
+@layer base {
+  :where(button, a, input, textarea, select, [tabindex]):focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+  }
 }
 @media (hover: none) and (pointer: coarse) {
   :where(button, a, [role="button"], [tabindex]):focus-visible {

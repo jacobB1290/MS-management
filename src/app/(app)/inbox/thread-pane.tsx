@@ -1052,7 +1052,7 @@ export function ThreadPane({
                       disabled={locked}
                       placeholder="Subject"
                       aria-label="Email subject"
-                      className="block w-full bg-transparent px-4 pt-2.5 pb-1.5 text-small font-medium text-ink placeholder:font-normal placeholder:text-ink-faint focus:outline-none disabled:opacity-60"
+                      className="block w-full bg-transparent px-4 pt-2.5 pb-1.5 text-small font-medium text-ink placeholder:font-normal placeholder:text-ink-faint focus-visible:outline-none disabled:opacity-60"
                     />
                     <div className="mx-4 h-px bg-ink-hairline" />
                     <Textarea
