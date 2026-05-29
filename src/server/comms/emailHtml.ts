@@ -146,7 +146,6 @@ export function plainTextToContentHtml(text: string): string {
 const GOLD = "#9d7853"
 const GOLD_DARK = "#6e5239"
 const GOLD_DEEP = "#4d3826"
-const GOLD_LIGHT = "#c9a86f"
 const INK = "#1f1a14"
 const INK_SOFT = "#3a342b"
 const FAINT = "#8a8174"
@@ -288,12 +287,6 @@ function signatureHtml(senderName: string | null, lang: string): string {
 </div>`
 }
 
-/** A trio of gold middots, letter-spaced apart — the masthead's typographic
- *  flourish (a fleuron made of type, in place of an illustration). */
-function topFlourish(): string {
-  return `<div style="font-family:${ORNAMENT_FONT};font-size:13px;line-height:1;letter-spacing:11px;color:${GOLD};padding-left:11px;">${MIDDOT}${MIDDOT}${MIDDOT}</div>`
-}
-
 /** A centered hairline-rule divider with a single gold middot at its heart —
  *  the typographic counterpart to a ruled fleuron. */
 function ruledDivider(rule = 46): string {
@@ -302,21 +295,32 @@ function ruledDivider(rule = 46): string {
 }
 
 /** A short tracked-caps band (eyebrow / dateline / footer locale) — type set as
- *  ornament. `pad` offsets the trailing letter-spacing so it stays centered. */
+ *  ornament. */
 function trackedCaps(text: string, size: number, color: string): string {
   return `<div style="font-family:${BODY_FONT};font-size:${size}px;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;color:${color};padding-left:2.5px;">${escapeHtml(text)}</div>`
 }
 
-/** The letterhead, built entirely from type: a middot flourish, the wordmark
- *  lockup ("Morning Star" in display serif over tracked small-caps "CHRISTIAN
- *  CHURCH"), a ruled-middot divider, and a tracked dateline — bespoke editorial
- *  stationery written today, no illustration. */
+/** The layered editorial masthead: a giant, faded "MORNING STAR" ghost cropped
+ *  behind the crisp wordmark — depth from type + opacity, flat (no shadow).
+ *  Composed type, rasterized so the overlap renders in every client (live
+ *  positioning is stripped by Gmail/Outlook). Falls back to a live wordmark when
+ *  images are blocked or no base URL is set. */
+function mastheadHtml(): string {
+  const base = process.env.APP_BASE_URL?.replace(/\/$/, "")
+  if (!base) {
+    return `<div class="ms-display" style="font-family:${DISPLAY_FONT};font-size:34px;font-weight:700;line-height:1.05;color:${GOLD_DEEP};white-space:nowrap;">Morning Star</div>`
+  }
+  return `<img src="${base}/email/masthead.png" alt="Morning Star" width="450" style="display:block;width:100%;max-width:450px;height:auto;margin:0 auto;border:0;outline:none;">`
+}
+
+/** The letterhead: the layered masthead, tracked small-caps "CHRISTIAN CHURCH",
+ *  a ruled-middot divider, and a tracked dateline — flat, editorial, the depth
+ *  carried by the layered type rather than frames or shadow. */
 function letterheadHtml(dateLabel: string): string {
   return `<tr>
-<td align="center" style="padding:38px 40px 0 40px;">
-<div style="margin-bottom:20px;">${topFlourish()}</div>
-<div class="ms-display" style="font-family:${DISPLAY_FONT};font-size:35px;font-weight:700;letter-spacing:0;line-height:1.04;color:${GOLD};white-space:nowrap;">Morning Star</div>
-<div style="margin-top:9px;">${trackedCaps("Christian Church", 11, GOLD_DARK)}</div>
+<td align="center" style="padding:32px 34px 0 34px;">
+${mastheadHtml()}
+<div style="margin-top:2px;">${trackedCaps("Christian Church", 11, GOLD_DARK)}</div>
 <div style="margin-top:20px;">${ruledDivider(46)}</div>
 <div style="margin-top:15px;">${trackedCaps(dateLabel, 10, FAINT)}</div>
 </td>
@@ -388,21 +392,12 @@ ${preheader}
 <tr>
 <td align="center" style="padding:40px 18px;">
 <!--[if mso]><table role="presentation" align="center" width="560" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
-<table role="presentation" align="center" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${CARD_BG}" style="max-width:560px;width:100%;background-color:${CARD_BG};border:1px solid ${HAIRLINE};border-radius:16px;box-shadow:0 16px 40px rgba(77,56,38,0.14);overflow:hidden;border-collapse:collapse;">
-<tr>
-<td style="height:3px;line-height:3px;font-size:0;background-color:${GOLD};background:linear-gradient(90deg,${GOLD_DEEP} 0%,${GOLD_LIGHT} 30%,${GOLD} 52%,${GOLD_LIGHT} 72%,${GOLD_DEEP} 100%);">&#8203;</td>
-</tr>
-<tr>
-<td bgcolor="${CARD_BG}" style="padding:13px;background-color:${CARD_BG};mso-padding-alt:13px 13px 13px 13px;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid ${GOLD_FRAME};border-radius:8px;border-collapse:separate;">
+<table role="presentation" align="center" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${CARD_BG}" style="max-width:560px;width:100%;background-color:${CARD_BG};border:1px solid ${HAIRLINE};border-radius:14px;box-shadow:0 3px 16px rgba(77,56,38,0.07);overflow:hidden;border-collapse:collapse;">
 ${letterhead}
 <tr>
-<td bgcolor="${CARD_BG}" style="padding:14px 38px 36px 38px;background-color:${CARD_BG};font-family:${BODY_FONT};font-size:16px;line-height:1.65;color:${INK_SOFT};">
+<td bgcolor="${CARD_BG}" style="padding:18px 36px 36px 36px;background-color:${CARD_BG};font-family:${BODY_FONT};font-size:16px;line-height:1.65;color:${INK_SOFT};">
 ${content}
 ${signature}
-</td>
-</tr>
-</table>
 </td>
 </tr>
 </table>
