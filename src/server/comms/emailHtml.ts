@@ -189,49 +189,31 @@ function teamSigner(lang: string): string {
   return lang === "ru" ? "Команда Morning Star" : "The Morning Star team"
 }
 
-/** Editorial drop cap: float a large serif initial on the email's opening BODY
- *  paragraph (the 2nd <p>; the 1st is the greeting). Float is honored by Apple
- *  Mail + Gmail; Outlook ignores it and simply shows a large initial inline —
- *  graceful either way. Only applied when that paragraph starts with a plain
- *  letter (never a tag/entity), so it can't corrupt the markup. */
-function applyDropCap(html: string): string {
-  const re = /<p\b[^>]*>/gi
-  let m: RegExpExecArray | null
-  let count = 0
-  let pos = -1
-  while ((m = re.exec(html))) {
-    count++
-    if (count === 2) {
-      pos = m.index + m[0].length
-      break
-    }
-  }
-  if (pos < 0) return html
-  while (html[pos] === " ") pos++
-  const ch = html[pos]
-  if (!ch || !/\p{L}/u.test(ch)) return html
-  const cap = `<span class="ms-display" style="float:left;font-family:${DISPLAY_FONT};font-weight:700;font-size:50px;line-height:38px;color:${GOLD};padding:5px 9px 0 0;">${ch}</span>`
-  return html.slice(0, pos) + cap + html.slice(pos + 1)
-}
-
 /**
  * Inline email-safe styling onto the bare allowed tags. The sanitizer strips
  * every attribute (except href on <a>), so each opening tag is bare and a
  * targeted replace is safe — consistent rhythm and on-brand gold links even in
  * clients (Gmail) that ignore <style> blocks. The FIRST paragraph (the AI/staff
  * greeting, e.g. "Hi Jacob,") is set in the display serif as an editorial lead;
- * the opening BODY paragraph gets a drop cap.
+ * the opening BODY paragraph reads as a slightly larger lede for editorial
+ * texture (no drop cap).
  */
 function styleContentForEmail(html: string): string {
-  let firstPara = true
+  let para = 0
   const withParas = html.replace(/<p>/gi, () => {
-    if (firstPara) {
-      firstPara = false
-      return `<p class="ms-display" style="margin:0 0 18px;font-family:${DISPLAY_FONT};font-size:20px;line-height:1.45;color:${INK};">`
+    para++
+    if (para === 1) {
+      // The greeting: display serif lead.
+      return `<p class="ms-display" style="margin:0 0 16px;font-family:${DISPLAY_FONT};font-size:21px;line-height:1.4;color:${INK};">`
+    }
+    if (para === 2) {
+      // The opening line: a quiet lede — a touch larger and inked, so the letter
+      // opens with editorial weight rather than a hard drop cap.
+      return `<p style="margin:0 0 16px;font-size:17px;line-height:1.62;color:${INK};">`
     }
     return `<p style="margin:0 0 16px;color:${INK_SOFT};">`
   })
-  const styled = withParas
+  return withParas
     .replace(
       /<h2>/gi,
       `<h2 class="ms-display" style="margin:26px 0 8px;font-family:${DISPLAY_FONT};font-size:21px;font-weight:600;color:${INK};line-height:1.3;">`,
@@ -251,7 +233,6 @@ function styleContentForEmail(html: string): string {
       /<a /gi,
       `<a style="color:${GOLD_DARK};text-decoration:underline;text-underline-offset:2px;" `,
     )
-  return applyDropCap(styled)
 }
 
 /**
@@ -357,6 +338,12 @@ export function wrapPersonalEmail(args: {
   const ghostBg = base
     ? ` background="${base}/email/masthead-ghost.png" style="background-image:url('${base}/email/masthead-ghost.png');background-repeat:no-repeat;background-position:center top;background-size:150% auto;padding:46px 0 4px 0;"`
     : ` style="padding:46px 0 4px 0;"`
+  // Bottom bookend: the same ghost behind the footer, showing a different slice
+  // (right edge) so it echoes the masthead without repeating it — the layered
+  // technique framing the letter top and bottom.
+  const footerGhostBg = base
+    ? ` background="${base}/email/masthead-ghost.png" style="background-image:url('${base}/email/masthead-ghost.png');background-repeat:no-repeat;background-position:right center;background-size:170% auto;padding:30px 0 46px 0;"`
+    : ` style="padding:30px 0 46px 0;"`
 
   return `<!doctype html>
 <html lang="${lang}" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
@@ -391,7 +378,7 @@ ${letterhead}
 </td>
 </tr>
 <tr>
-<td align="center" style="padding:8px 22px 44px 22px;">
+<td align="center" style="padding:6px 22px 22px 22px;">
 <!--[if mso]><table role="presentation" align="center" width="560" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
 <table role="presentation" align="center" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;width:100%;border-collapse:collapse;">
 <tr>
@@ -401,8 +388,12 @@ ${signature}
 </td>
 </tr>
 </table>
-<div style="font-family:${BODY_FONT};font-size:10px;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;color:${FAINT};text-align:center;padding:28px 0 0 0;">Boise ${MIDDOT} Idaho</div>
 <!--[if mso]></td></tr></table><![endif]-->
+</td>
+</tr>
+<tr>
+<td align="center"${footerGhostBg}>
+<div style="font-family:${BODY_FONT};font-size:10px;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;color:${FAINT};text-align:center;">Boise ${MIDDOT} Idaho</div>
 </td>
 </tr>
 </table>
