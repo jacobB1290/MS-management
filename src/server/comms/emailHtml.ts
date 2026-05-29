@@ -300,17 +300,24 @@ function trackedCaps(text: string, size: number, color: string): string {
   return `<div style="font-family:${BODY_FONT};font-size:${size}px;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;color:${color};padding-left:2.5px;">${escapeHtml(text)}</div>`
 }
 
-/** The layered editorial masthead: a giant, faded "MORNING STAR" ghost cropped
- *  behind the crisp wordmark — depth from type + opacity, flat (no shadow).
- *  Composed type, rasterized so the overlap renders in every client (live
- *  positioning is stripped by Gmail/Outlook). Falls back to a live wordmark when
- *  images are blocked or no base URL is set. */
+/** The layered editorial masthead: the crisp wordmark is LIVE TEXT, laid over a
+ *  giant faded "MORNING STAR" ghost served as a CSS background. Panel-hardened —
+ *  depth from type + opacity where it's honored (Apple Mail / iOS, our primary
+ *  client), and a clean live wordmark everywhere the background is stripped
+ *  (Gmail/Outlook), when images are blocked, and in forced dark mode (live text
+ *  inverts; a baked image would go invisible). No top hero <img>, so a 1:1 reply
+ *  doesn't read as a promo/bulk send. background-size crops the oversized word to
+ *  a centered slice, per the reference. */
 function mastheadHtml(): string {
+  const wordmark = `<div class="ms-display" style="font-family:${DISPLAY_FONT};font-size:40px;font-weight:700;line-height:1.12;color:${GOLD_DEEP};white-space:nowrap;padding:16px 0 8px 0;">Morning Star</div>`
   const base = process.env.APP_BASE_URL?.replace(/\/$/, "")
-  if (!base) {
-    return `<div class="ms-display" style="font-family:${DISPLAY_FONT};font-size:34px;font-weight:700;line-height:1.05;color:${GOLD_DEEP};white-space:nowrap;">Morning Star</div>`
-  }
-  return `<img src="${base}/email/masthead.png" alt="Morning Star" width="450" style="display:block;width:100%;max-width:450px;height:auto;margin:0 auto;border:0;outline:none;">`
+  if (!base) return wordmark
+  const ghost = `${base}/email/masthead-ghost.png`
+  return `<table role="presentation" align="center" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td align="center" background="${ghost}" style="background-image:url('${ghost}');background-repeat:no-repeat;background-position:center center;background-size:760px auto;">
+${wordmark}
+</td>
+</tr></table>`
 }
 
 /** The letterhead: the layered masthead, tracked small-caps "CHRISTIAN CHURCH",
