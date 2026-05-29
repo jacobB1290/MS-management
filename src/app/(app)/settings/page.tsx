@@ -22,6 +22,8 @@ import { TeamPanel } from "./team-panel"
 import { StoragePanel } from "./storage-panel"
 import { NotificationsPanel } from "./notifications-panel"
 import { AiModelsPanel } from "./ai-models-panel"
+import { ChurchKnowledgePanel } from "./church-knowledge-panel"
+import { getLastKnowledgeSync } from "@/server/ai/knowledgeSync"
 
 export const metadata: Metadata = { title: "Settings" }
 
@@ -29,22 +31,38 @@ export default async function SettingsPage() {
   const user = await requireStaff()
   const supabase = await createSupabaseServerClient()
 
-  const [teamRes, heartbeatRes, spend, aiSpend, aiConfig, media, dbRpc] = await Promise.all([
-    user.role === "admin"
-      ? supabase.from("app_users").select("user_id, role, display_name, created_at").order("created_at")
-      : Promise.resolve({ data: null }),
-    supabase.from("heartbeat").select("last_run_at").eq("id", 1).maybeSingle(),
-    getSpendSummary(),
-    getAiSpendSummary(),
-    getAiConfig(),
-    listMmsMedia(),
-    supabase.rpc("database_size" as never),
-  ])
+  const [teamRes, heartbeatRes, spend, aiSpend, aiConfig, media, dbRpc, knowledgeRes, lastSync] =
+    await Promise.all([
+      user.role === "admin"
+        ? supabase.from("app_users").select("user_id, role, display_name, created_at").order("created_at")
+        : Promise.resolve({ data: null }),
+      supabase.from("heartbeat").select("last_run_at").eq("id", 1).maybeSingle(),
+      getSpendSummary(),
+      getAiSpendSummary(),
+      getAiConfig(),
+      listMmsMedia(),
+      supabase.rpc("database_size" as never),
+      supabase
+        .from("church_knowledge")
+        .select("id, title, body, source, source_url, updated_at")
+        .order("updated_at", { ascending: false }),
+      getLastKnowledgeSync(),
+    ])
   // Live picker options — one (the latest) per class, discovered from the Models API.
   const aiModelChoices = modelChoicesFrom(await getModelFamilies())
   const team = teamRes.data
   const heartbeat = heartbeatRes.data
   const dbBytes = Number((dbRpc.data as number | null) ?? 0)
+  const knowledge = knowledgeRes.data ?? []
+  const knowledgeSync = lastSync
+    ? {
+        ran_at: lastSync.ran_at,
+        pages: lastSync.pages,
+        inserted: lastSync.inserted,
+        updated: lastSync.updated,
+        ok: lastSync.ok,
+      }
+    : null
 
   const status = {
     twilio: Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN),
@@ -96,6 +114,20 @@ export default async function SettingsPage() {
           <AiModelsPanel config={aiConfig} choices={aiModelChoices} />
         </section>
       )}
+
+      <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
+        <SectionTitle
+          label="About church knowledge"
+          info="Facts the AI draft assistant can look up when replying to people (service times, Bible studies, ministries, beliefs, how to visit). Synced daily from ms.church; you can also add entries by hand. The assistant decides when to use them and never invents details it can't find."
+        >
+          Church knowledge
+        </SectionTitle>
+        <ChurchKnowledgePanel
+          entries={knowledge}
+          lastSync={knowledgeSync}
+          isAdmin={user.role === "admin"}
+        />
+      </section>
 
       <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
         <SectionTitle

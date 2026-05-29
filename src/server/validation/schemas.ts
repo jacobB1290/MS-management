@@ -197,3 +197,18 @@ export const inboxSegmentSchema = z
   .refine((v) => v.category !== undefined || v.status !== undefined, {
     message: "Provide a category and/or status to update.",
   })
+
+// Staff-authored church knowledge entry (the AI lookup tool reads these).
+export const knowledgeCreateSchema = z.object({
+  title: z.string().trim().min(1, "Add a title.").max(200),
+  body: z.string().trim().min(1, "Add some content.").max(8000),
+})
+
+export const knowledgeUpdateSchema = z
+  .object({
+    title: z.string().trim().min(1).max(200).optional(),
+    body: z.string().trim().min(1).max(8000).optional(),
+  })
+  .refine((v) => v.title !== undefined || v.body !== undefined, {
+    message: "Provide a title and/or body to update.",
+  })

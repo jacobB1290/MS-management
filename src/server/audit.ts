@@ -30,6 +30,10 @@ export type AuditAction =
   | "contact.inbox_update"
   | "contact.auto_tag"
   | "contact.auto_note"
+  | "knowledge.create"
+  | "knowledge.update"
+  | "knowledge.delete"
+  | "knowledge.sync"
 
 /**
  * Append an audit log entry. Reads aren't audited; the threat is unauthorized

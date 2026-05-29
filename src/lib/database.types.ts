@@ -198,6 +198,48 @@ export type Database = {
         }
         Relationships: []
       }
+      church_knowledge: {
+        Row: {
+          body: string
+          content_hash: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          search_tsv: unknown
+          source: string
+          source_url: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          content_hash?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          search_tsv?: unknown
+          source?: string
+          source_url?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          content_hash?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          search_tsv?: unknown
+          source?: string
+          source_url?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       contacts: {
         Row: {
           ai_tags: string[]
@@ -557,6 +599,28 @@ export type Database = {
         }[]
       }
       database_size: { Args: never; Returns: number }
+      search_church_knowledge: {
+        Args: { p_limit?: number; p_query: string }
+        Returns: {
+          body: string
+          content_hash: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          search_tsv: unknown
+          source: string
+          source_url: string | null
+          title: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "church_knowledge"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       upsert_contact_by_phone_or_email: {
         Args: {
           p_consent_at: string

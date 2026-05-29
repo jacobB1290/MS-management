@@ -2,28 +2,49 @@ import "server-only"
 import { createSupabaseAdminClient } from "@/lib/supabase/server"
 import { sendSms } from "./sendSms"
 import { sendOptInInvite } from "./optInInvite"
+import { smsGreetingName, fetchSmsGreetingName } from "./greeting"
 
 export type WelcomeSource = "sms_inbound" | "public_form"
 
 // All auto-reply copy is intentionally plain ASCII (straight quotes, no em
 // dash, "&" is fine). Curly punctuation forces UCS-2 encoding, which cuts the
-// per-segment limit from 160 to 70 chars and silently inflates send cost.
+// per-segment limit from 160 to 70 chars and silently inflates send cost. Each
+// message reads like a person wrote it and greets the contact by first name
+// when we have one; the name is charset-guarded in greeting.ts so it can't
+// break the 7-bit rule. The carrier-/CTIA-required disclosures ride along where
+// they're actually needed: the JOIN invite and confirmation (which reach people
+// who never saw the website form) carry program name, "Msg & data rates may
+// apply", frequency on the confirmation, and HELP/STOP. The consented ack omits
+// them on purpose -- see consentedWelcome.
 
-/** Already-consented arrival (e.g. form opt-in box): warm ack, no opt-in ask. */
-const CONSENTED_WELCOME =
-  "Thanks for contacting Morning Star Christian Church! We got your message " +
-  "and someone will reply soon. Reply STOP to opt out of texts."
+/**
+ * Already-consented arrival: a warm, purely transactional ack -- no opt-in ask
+ * and deliberately no STOP/HELP line. This branch only reaches someone who
+ * opted in at a disclosed CTA (the website form already shows "Msg & data rates
+ * may apply; reply STOP to opt out, HELP for help") or who has declined
+ * marketing (so this 1:1 reply is transactional, not marketing). Either way the
+ * in-message disclosure isn't required here, and STOP/HELP still work at the
+ * carrier via Twilio Advanced Opt-Out. The invite + confirmation, which DO reach
+ * people who never saw the form, keep the full disclosure set.
+ */
+const consentedWelcome = (name: string | null) =>
+  (name ? `Hi ${name}, thanks` : "Thanks") +
+  " for reaching out to Morning Star Christian Church! Someone will get back to you soon."
 
 /** No marketing consent yet (e.g. texted the number): welcome + JOIN invite. */
-const INVITE_WELCOME =
-  "Welcome to Morning Star Christian Church! Thanks for reaching out, someone " +
-  "will reply soon. To also get occasional church updates by text, reply JOIN. " +
+const inviteWelcome = (name: string | null) =>
+  (name ? `Hi ${name}, welcome` : "Welcome") +
+  " to Morning Star Christian Church! Thanks for reaching out, someone will " +
+  "reply soon. Want occasional church updates by text too? Just reply JOIN. " +
   "Msg & data rates may apply. Reply STOP to opt out."
 
-/** Acknowledge a fresh JOIN opt-in. */
-const JOIN_CONFIRMATION =
-  "You're subscribed to Morning Star Christian Church texts. Msg frequency " +
-  "varies. Msg & data rates may apply. Reply STOP to cancel."
+/** Acknowledge a fresh JOIN opt-in. The most-scrutinized message, so it keeps
+ *  the full disclosure set (program name, frequency, rates, HELP, STOP). */
+const joinConfirmation = (name: string | null) =>
+  (name ? `You're in, ${name}! You'll` : "You're in! You'll") +
+  " now get occasional updates from Morning Star Christian Church. Msg " +
+  "frequency varies, msg & data rates may apply. Reply HELP for help or " +
+  "STOP to cancel."
 
 /**
  * One-time automatic welcome on a contact's first touch. The caller fires this
@@ -32,10 +53,10 @@ const JOIN_CONFIRMATION =
  *
  * Branches on consent STATE, not the source string, so a form submitted without
  * the opt-in box is handled correctly too:
- *  - already opted in (or has explicitly declined) marketing -> CONSENTED_WELCOME,
+ *  - already opted in (or has explicitly declined) marketing -> consentedWelcome,
  *    sent as a transactional response to something they initiated, so it doesn't
  *    depend on the conversational window.
- *  - no marketing consent yet -> INVITE_WELCOME via sendOptInInvite, so it counts
+ *  - no marketing consent yet -> inviteWelcome via sendOptInInvite, so it counts
  *    as an opt-in request: marketing_opt_in_requested_at is stamped and the staff
  *    "Send opt-in request" affordance flips to "waiting for a JOIN reply". The
  *    opt_in_request gate still applies, so this no-ops safely when there is no
@@ -50,16 +71,18 @@ export async function sendWelcome(args: {
   const admin = createSupabaseAdminClient()
   const { data: contact } = await admin
     .from("contacts")
-    .select("phone, sms_opted_out_at, marketing_consent_at, marketing_opted_out_at")
+    .select("name, phone, sms_opted_out_at, marketing_consent_at, marketing_opted_out_at")
     .eq("id", args.contactId)
     .maybeSingle()
 
   if (!contact?.phone || contact.sms_opted_out_at) return
 
+  const greeting = smsGreetingName(contact.name)
+
   if (contact.marketing_consent_at || contact.marketing_opted_out_at) {
     await sendSms({
       contactId: args.contactId,
-      body: CONSENTED_WELCOME,
+      body: consentedWelcome(greeting),
       context: "transactional_event",
     })
     return
@@ -67,7 +90,7 @@ export async function sendWelcome(args: {
 
   await sendOptInInvite({
     contactId: args.contactId,
-    body: INVITE_WELCOME,
+    body: inviteWelcome(greeting),
   })
 }
 
@@ -77,9 +100,10 @@ export async function sendWelcome(args: {
  * sendSms still blocks a contact who is hard opted out.
  */
 export async function sendJoinConfirmation(contactId: string): Promise<void> {
+  const greeting = await fetchSmsGreetingName(contactId)
   await sendSms({
     contactId,
-    body: JOIN_CONFIRMATION,
+    body: joinConfirmation(greeting),
     context: "transactional_event",
   })
 }
