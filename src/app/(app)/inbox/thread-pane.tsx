@@ -837,6 +837,73 @@ export function ThreadPane({
     </button>
   )
 
+  // In the "controls above the bar" layout the + menu is split into separate
+  // icon buttons so each action is one tap (no dropdown). Single-channel keeps
+  // the + menu inline (above).
+  const composerIconButton = (opts: {
+    onClick: () => void
+    disabled: boolean
+    label: string
+    loading: boolean
+    icon: React.ReactNode
+  }) => (
+    <button
+      type="button"
+      onClick={opts.onClick}
+      disabled={opts.disabled}
+      aria-label={opts.label}
+      title={opts.label}
+      className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-pill border border-ink-hairline bg-white text-ink-muted transition-colors hover:text-ink disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      {opts.loading ? <Loader2 size={18} className="animate-spin" /> : opts.icon}
+    </button>
+  )
+  const smsActionButtons = (
+    <div className="flex items-center gap-2">
+      {composerIconButton({
+        onClick: () => fileInputRef.current?.click(),
+        disabled: uploading || locked,
+        label: "Photo or video",
+        loading: uploading,
+        icon: <ImageIcon size={20} />,
+      })}
+      {aiEnabled &&
+        composerIconButton({
+          onClick: handleDraft,
+          disabled: drafting || locked,
+          label: body.trim() ? "Improve with AI" : "Draft with AI",
+          loading: drafting,
+          icon: <Sparkles size={20} />,
+        })}
+    </div>
+  )
+  const emailActionButtons = (
+    <div className="flex items-center gap-2">
+      {composerIconButton({
+        onClick: () => attachInputRef.current?.click(),
+        disabled: attachUploading || beautifying || locked,
+        label: "Attach files",
+        loading: attachUploading,
+        icon: <Paperclip size={20} />,
+      })}
+      {aiEnabled &&
+        composerIconButton({
+          onClick: handleBeautify,
+          disabled: beautifying || locked,
+          label: body.trim() ? "Improve with AI" : "Draft with AI",
+          loading: beautifying,
+          icon: <Sparkles size={20} />,
+        })}
+      {composerIconButton({
+        onClick: handlePreview,
+        disabled: !body.trim() || previewing || locked,
+        label: "Preview email",
+        loading: previewing,
+        icon: <Eye size={20} />,
+      })}
+    </div>
+  )
+
   return (
     <>
       <header className="shrink-0 flex flex-wrap items-center gap-x-3 gap-y-2 px-4 md:px-6 py-3 border-b border-ink-hairline bg-bg/95 backdrop-blur">
@@ -1090,7 +1157,7 @@ export function ThreadPane({
                 <>
                   {composerControlsInline && (
                     <div className="mb-2 flex items-center justify-between">
-                      {emailPlusMenu}
+                      {emailActionButtons}
                       {channelToggle}
                     </div>
                   )}
@@ -1149,7 +1216,8 @@ export function ThreadPane({
                 </>
               )}
               <p className="text-micro text-ink-faint">
-                Sends from the church email · Press <span className="font-mono">⌘↵</span> to send · Tap + to attach files or use AI
+                Sends from the church email · Press <span className="font-mono">⌘↵</span> to send
+                {!composerControlsInline && " · Tap + to attach files or use AI"}
               </p>
             </form>
           </>
@@ -1197,7 +1265,7 @@ export function ThreadPane({
               />
               {composerControlsInline && (
                 <div className="flex items-center justify-between">
-                  {smsPlusMenu}
+                  {smsActionButtons}
                   {channelToggle}
                 </div>
               )}
@@ -1236,7 +1304,8 @@ export function ThreadPane({
               </div>
             </form>
             <p className="mt-2 text-micro text-ink-faint">
-              Press <span className="font-mono">⌘↵</span> to send · Tap + to attach a photo or short video
+              Press <span className="font-mono">⌘↵</span> to send
+              {!composerControlsInline && " · Tap + to attach a photo or short video"}
             </p>
           </>
         )}
