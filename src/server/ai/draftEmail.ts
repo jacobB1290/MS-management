@@ -11,7 +11,14 @@ const THREAD_LIMIT = 20
 const MAX_DRAFT_CHARS = 20000
 
 export type DraftEmailResult =
-  | { ok: true; subject: string; html: string; text: string; mode: "fresh" | "beautify" }
+  | {
+      ok: true
+      subject: string
+      html: string
+      text: string
+      note: string | null
+      mode: "fresh" | "beautify"
+    }
   | {
       ok: false
       reason: "disabled" | "not_found" | "no_context" | "provider_failed"
@@ -35,11 +42,12 @@ Voice:
 - Well-formed for email: short paragraphs, and a list only when the content is genuinely a list.
 
 Output format (STRICT):
-- Output a single JSON object and NOTHING else, of the exact shape: {"subject": "...", "html": "..."}.
+- Output a single JSON object and NOTHING else, of the exact shape: {"subject": "...", "html": "...", "note": "..."}.
 - "subject" is a concise, specific, lowercase-leaning editorial subject in plain text (no quotes, no "Subject:" prefix, no trailing period, never salesy). When replying within an existing thread, prefer keeping the person's own subject; only coin a fresh one for a genuinely new thread.
 - "html" is a SEMANTIC HTML fragment for the email body. Allowed tags ONLY: <p>, <strong>, <em>, <ul>, <ol>, <li>, <a href>, <h2>, <h3>, <br>. No styles, classes, ids, scripts, images, tables, or any <html>/<head>/<body> wrapper. The church template supplies all branding and styling.
 - OPEN with a warm greeting that addresses the person by their first name when one is given (for example, "<p>Hi Anna,</p>"); when no name is known, a warm general opener. Make the FIRST sentence after the greeting acknowledge something specific the person actually wrote (their question, their situation, the thing they named) so it reads as a real reply to them, never a generic form letter.
 - Do NOT include a sign-off/closing ("Warmly," etc.), your own name, the church name/address, or any unsubscribe text. The template adds the sign-off and identity. The greeting is the ONLY identity-adjacent line you write.
+- "note" is OPTIONAL and is shown ONLY to the staff member, never sent to the contact. Put any aside to the staff member here (a caveat, a fact you could not find, a suggestion); use an empty string when there is nothing to add. NEVER put these asides in "subject" or "html".
 
 Hard rules:
 - Never use em dashes. Restructure the sentence instead.
@@ -141,7 +149,7 @@ export async function draftEmail(args: {
     if (!subject || !html || !bodyText)
       return { ok: false, reason: "provider_failed", detail: "empty" }
 
-    return { ok: true, subject, html, text: bodyText, mode }
+    return { ok: true, subject, html, text: bodyText, note: parsed.note, mode }
   } catch (err) {
     console.error(
       "[ai.draftEmail] provider error:",
@@ -155,7 +163,9 @@ export async function draftEmail(args: {
  * Pull the {subject, html} object out of the model's text. Tolerates a stray
  * code fence or surrounding prose by extracting the first balanced JSON object.
  */
-function parseModelJson(text: string): { subject: string; html: string } | null {
+function parseModelJson(
+  text: string,
+): { subject: string; html: string; note: string | null } | null {
   const stripped = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim()
   const candidates = [stripped]
   const first = stripped.indexOf("{")
@@ -170,9 +180,11 @@ function parseModelJson(text: string): { subject: string; html: string } | null 
         typeof (obj as Record<string, unknown>).subject === "string" &&
         typeof (obj as Record<string, unknown>).html === "string"
       ) {
+        const rawNote = (obj as Record<string, unknown>).note
         return {
           subject: (obj as { subject: string }).subject,
           html: (obj as { html: string }).html,
+          note: typeof rawNote === "string" && rawNote.trim() ? rawNote.trim() : null,
         }
       }
     } catch {

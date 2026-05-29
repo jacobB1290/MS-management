@@ -108,6 +108,10 @@ export function ThreadPane({
   // when the integration is not configured. `drafting` drives its loading state.
   const [aiEnabled, setAiEnabled] = useState(false)
   const [drafting, setDrafting] = useState(false)
+  // Operator-only aside from a draft (e.g. "couldn't find that in the knowledge
+  // base"). It is NEVER put in the compose box — it surfaces as a small note that
+  // animates in above the composer and fades away on its own.
+  const [aiNote, setAiNote] = useState<string | null>(null)
   // Email-only composer state: file attachments, AI beautify preview, and the
   // beautify loading flag. The preview holds freshly-sanitized AI HTML; it is
   // the ONLY HTML the operator UI renders (thread bubbles stay plain text).
@@ -291,6 +295,15 @@ export function ThreadPane({
     }
   }, [])
 
+  // Auto-clear the operator note. The CSS fade is ~6s; this is the fallback that
+  // also covers reduced-motion (where the animation, and its onAnimationEnd,
+  // don't run). Re-runs whenever a new note arrives.
+  useEffect(() => {
+    if (!aiNote) return
+    const t = setTimeout(() => setAiNote(null), 6500)
+    return () => clearTimeout(t)
+  }, [aiNote])
+
   // Ask Claude to draft a fresh reply (empty composer) or improve the current
   // draft. The result lands in the textarea for the operator to edit — never
   // auto-sent.
@@ -314,7 +327,12 @@ export function ThreadPane({
         )
         return
       }
+      // Only the message text ever enters the compose box. Any operator-facing
+      // aside rides in `note` and surfaces as the temporary banner, never here.
       setBody(json.draft as string)
+      if (typeof json?.note === "string" && json.note.trim()) {
+        setAiNote(json.note.trim())
+      }
     } catch (err) {
       toast.error(`Network error: ${err instanceof Error ? err.message : String(err)}`)
     } finally {
@@ -358,6 +376,9 @@ export function ThreadPane({
         setBody(json.text as string)
       }
       setEmailHtml(json.html as string)
+      if (typeof json?.note === "string" && json.note.trim()) {
+        setAiNote(json.note.trim())
+      }
     } catch (err) {
       toast.error(`Network error: ${err instanceof Error ? err.message : String(err)}`)
     } finally {
@@ -754,7 +775,20 @@ export function ThreadPane({
         ))}
       </div>
 
-      <footer className="shrink-0 border-t border-ink-hairline bg-bg/95 backdrop-blur px-4 md:px-6 py-3 md:py-4">
+      <footer className="relative shrink-0 border-t border-ink-hairline bg-bg/95 backdrop-blur px-4 md:px-6 py-3 md:py-4">
+        {aiNote && (
+          <div
+            key={aiNote}
+            role="status"
+            onAnimationEnd={() => setAiNote(null)}
+            className="ai-note pointer-events-none absolute inset-x-3 md:inset-x-6 bottom-full z-10 mb-2"
+          >
+            <div className="pointer-events-auto flex items-start gap-2 rounded-lg border border-gold/40 bg-white px-3 py-2 shadow-md">
+              <Sparkles size={14} className="mt-0.5 shrink-0 text-gold-dark" />
+              <p className="text-small leading-prose text-ink-muted">{aiNote}</p>
+            </div>
+          </div>
+        )}
         {channelToggleVisible && (
           <div className="mb-2.5 flex items-center">
             <div
@@ -1070,11 +1104,15 @@ export function ThreadPane({
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
-                      disabled={uploading || locked}
+                      disabled={uploading || drafting || locked}
                       aria-label="Add to message"
                       className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-pill border border-ink-hairline bg-white text-ink-muted transition-colors hover:text-ink disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {uploading ? <Loader2 size={18} className="animate-spin" /> : <Plus size={20} />}
+                      {uploading || drafting ? (
+                        <Loader2 size={18} className="animate-spin" />
+                      ) : (
+                        <Plus size={20} />
+                      )}
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent

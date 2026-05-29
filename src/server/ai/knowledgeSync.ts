@@ -74,12 +74,13 @@ export async function syncChurchKnowledgeFromWebsite(): Promise<KnowledgeSyncSum
   for (const url of urls) {
     try {
       const html = await fetchText(url)
-      const body = extractReadableText(html).slice(0, MAX_BODY_CHARS)
+      const cleaned = stripNonContent(html)
+      const body = readableText(cleaned).slice(0, MAX_BODY_CHARS)
       if (body.length < 40) {
         errors.push(`thin content: ${url}`)
         continue
       }
-      const title = extractTitle(html, url)
+      const title = pageTitle(html, cleaned, url)
       const hash = sha256(`${title}\n${body}`)
       seenUrls.push(url)
 
@@ -210,41 +211,58 @@ async function fetchText(url: string): Promise<string> {
 }
 
 /**
- * Pull readable text out of a page. Prefers the <main> region, drops chrome
- * (nav/footer/script/style/svg) and their text, turns block boundaries into
- * newlines so the result keeps some shape, strips remaining tags, and decodes
- * the common HTML entities.
+ * Remove non-content regions (head, scripts, styles, svg, nav, footer, etc.)
+ * and their text BEFORE any tag-based slicing. Critical ordering: an inline
+ * <style>/<script> can contain the literal text "<main>" inside a CSS/JS comment
+ * (ms.church's animation CSS literally does), which would otherwise fool a naive
+ * <main> match into slicing from the middle of a stylesheet — that bug shipped
+ * raw CSS into the knowledge base.
  */
-function extractReadableText(html: string): string {
-  const main = html.match(/<main[\s\S]*?<\/main>/i)?.[0] ?? html
-  const cleaned = main
+function stripNonContent(html: string): string {
+  return html
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/<head[\s\S]*?<\/head>/gi, " ")
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
     .replace(/<style[\s\S]*?<\/style>/gi, " ")
     .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+    .replace(/<template[\s\S]*?<\/template>/gi, " ")
     .replace(/<svg[\s\S]*?<\/svg>/gi, " ")
     .replace(/<nav[\s\S]*?<\/nav>/gi, " ")
     .replace(/<footer[\s\S]*?<\/footer>/gi, " ")
-  const withBreaks = cleaned
+}
+
+/**
+ * Pull readable text from already-cleaned HTML. Prefers the <main> region (now
+ * safe — styles/scripts/comments are gone), turns block boundaries into newlines
+ * so the result keeps some shape, strips remaining tags, and decodes the common
+ * HTML entities.
+ */
+function readableText(cleaned: string): string {
+  const main = cleaned.match(/<main[\s\S]*?<\/main>/i)?.[0] ?? cleaned
+  const withBreaks = main
     .replace(/<\s*br\s*\/?\s*>/gi, "\n")
     .replace(/<\s*li[^>]*>/gi, "\n- ")
     .replace(/<\/\s*(p|h[1-6]|li|ul|ol|section|article|div|tr|blockquote)\s*>/gi, "\n")
   return decodeEntities(withBreaks.replace(/<[^>]+>/g, " "))
-    .replace(/[ \t ]+/g, " ")
+    .replace(/[ \t]+/g, " ")
     .replace(/ *\n */g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim()
 }
 
-function extractTitle(html: string, url: string): string {
-  const h1 = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i)?.[1]
-  const titleTag = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]
+/**
+ * Page title: prefer the <h1> from cleaned content, fall back to the <title> tag
+ * (site-name suffix trimmed), then a Title-Cased URL slug.
+ */
+function pageTitle(rawHtml: string, cleaned: string, url: string): string {
+  const h1 = cleaned.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i)?.[1]
+  const titleTag = rawHtml.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]
   const raw = decodeEntities((h1 ?? titleTag ?? "").replace(/<[^>]+>/g, " "))
     .replace(/\s+/g, " ")
     .trim()
-  // Drop a trailing " | Morning Star Christian Church" style site suffix.
-  const trimmed = raw.split(/\s[|–—]\s/)[0].trim()
+  // Drop a trailing " · Morning Star Christian Church" style site suffix.
+  const trimmed = raw.split(/\s[·|–—]\s/)[0].trim()
   if (trimmed) return trimmed.slice(0, 200)
-  // Fall back to a Title-Cased page slug.
   try {
     const slug = new URL(url).pathname.replace(/\/+$/, "").split("/").pop() || "Home"
     return slug.replace(/[-_]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
@@ -256,6 +274,8 @@ function extractTitle(html: string, url: string): string {
 function decodeEntities(s: string): string {
   return s
     .replace(/&nbsp;/gi, " ")
+    // Decode &amp; up front, before the generic catch-all below would otherwise
+    // eat it (turning "Msg & data" into "Msg data").
     .replace(/&amp;/gi, "&")
     .replace(/&lt;/gi, "<")
     .replace(/&gt;/gi, ">")
@@ -263,7 +283,25 @@ function decodeEntities(s: string): string {
     .replace(/&#39;|&apos;|&rsquo;|&lsquo;/gi, "'")
     .replace(/&ldquo;|&rdquo;/gi, '"')
     .replace(/&mdash;/gi, ", ")
-    .replace(/&ndash;/gi, "-")
+    .replace(/&ndash;|&minus;/gi, "-")
+    .replace(/&hellip;/gi, "...")
+    .replace(/&middot;/gi, "·")
+    .replace(/&times;/gi, "x")
+    // Decorative arrows/guillemets carry no meaning for the model — drop them.
+    .replace(/&[lr]arr;|&[lr]aquo;|&[lr]saquo;/gi, " ")
+    // Numeric entities (decimal + hex), then drop any leftover named entity.
+    .replace(/&#(\d+);/g, (_, d) => safeCodePoint(parseInt(d, 10)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => safeCodePoint(parseInt(h, 16)))
+    .replace(/&[a-z][a-z0-9]*;/gi, " ")
+}
+
+function safeCodePoint(n: number): string {
+  if (!Number.isFinite(n) || n <= 0 || n > 0x10ffff) return " "
+  try {
+    return String.fromCodePoint(n)
+  } catch {
+    return " "
+  }
 }
 
 function sha256(s: string): string {

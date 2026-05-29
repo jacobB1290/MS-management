@@ -444,6 +444,21 @@ button,
   }
 }
 
+/* AI operator-note: a transient aside that fades in above the composer, holds,
+ * then fades away. The element is also removed by a JS timeout, which is what
+ * handles reduced motion (the global rule above neutralizes the keyframes, so we
+ * keep the note visible and statically time it out instead of flashing it). */
+@keyframes ai-note-in-out {
+  0% { opacity: 0; transform: translateY(8px); }
+  8% { opacity: 1; transform: translateY(0); }
+  86% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-6px); }
+}
+.ai-note { animation: ai-note-in-out 6s ease-in-out both; }
+@media (prefers-reduced-motion: reduce) {
+  .ai-note { animation: none; }
+}
+
 /* Hide scrollbar but keep scroll (used in inbox conversation list) */
 .no-scrollbar { scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
