@@ -35,6 +35,7 @@ export async function POST(request: NextRequest) {
     subject: result.subject,
     html: result.html,
     text: result.text,
+    note: result.note,
     mode: result.mode,
   })
 }
