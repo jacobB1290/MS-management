@@ -189,38 +189,12 @@ function teamSigner(lang: string): string {
   return lang === "ru" ? "Команда Morning Star" : "The Morning Star team"
 }
 
-/** Editorial drop cap: float a large serif initial on the email's opening BODY
- *  paragraph (the 2nd <p>; the 1st is the greeting). Float is honored by Apple
- *  Mail + Gmail; Outlook ignores it and simply shows a large initial inline —
- *  graceful either way. Only applied when that paragraph starts with a plain
- *  letter (never a tag/entity), so it can't corrupt the markup. */
-function applyDropCap(html: string): string {
-  const re = /<p\b[^>]*>/gi
-  let m: RegExpExecArray | null
-  let count = 0
-  let pos = -1
-  while ((m = re.exec(html))) {
-    count++
-    if (count === 2) {
-      pos = m.index + m[0].length
-      break
-    }
-  }
-  if (pos < 0) return html
-  while (html[pos] === " ") pos++
-  const ch = html[pos]
-  if (!ch || !/\p{L}/u.test(ch)) return html
-  const cap = `<span class="ms-display" style="float:left;font-family:${DISPLAY_FONT};font-weight:700;font-size:50px;line-height:38px;color:${GOLD};padding:5px 9px 0 0;">${ch}</span>`
-  return html.slice(0, pos) + cap + html.slice(pos + 1)
-}
-
 /**
  * Inline email-safe styling onto the bare allowed tags. The sanitizer strips
  * every attribute (except href on <a>), so each opening tag is bare and a
  * targeted replace is safe — consistent rhythm and on-brand gold links even in
  * clients (Gmail) that ignore <style> blocks. The FIRST paragraph (the AI/staff
- * greeting, e.g. "Hi Jacob,") is set in the display serif as an editorial lead;
- * the opening BODY paragraph gets a drop cap.
+ * greeting, e.g. "Hi Jacob,") is set in the display serif as an editorial lead.
  */
 function styleContentForEmail(html: string): string {
   let firstPara = true
@@ -251,7 +225,7 @@ function styleContentForEmail(html: string): string {
       /<a /gi,
       `<a style="color:${GOLD_DARK};text-decoration:underline;text-underline-offset:2px;" `,
     )
-  return applyDropCap(styled)
+  return styled
 }
 
 /**
