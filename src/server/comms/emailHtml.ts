@@ -197,13 +197,21 @@ function teamSigner(lang: string): string {
  * greeting, e.g. "Hi Jacob,") is set in the display serif as an editorial lead.
  */
 function styleContentForEmail(html: string): string {
-  let firstPara = true
+  // The first paragraph becomes an editorial display-serif lead ONLY when it
+  // reads like a short greeting ("Hi Jacob,"). A plain typed email is often one
+  // long paragraph with no greeting; setting that whole block in the display
+  // face looks wrong, so it stays in the readable body face.
+  const firstInner = html.match(/<p\b[^>]*>([\s\S]*?)<\/p>/i)?.[1] ?? ""
+  const firstText = firstInner.replace(/<[^>]+>/g, "").trim()
+  const leadFirst = firstText.length > 0 && firstText.length <= 50 && /[,:]$/.test(firstText)
+
+  let isFirst = true
   const withParas = html.replace(/<p>/gi, () => {
-    if (firstPara) {
-      firstPara = false
-      return `<p class="ms-display" style="margin:0 0 18px;font-family:${DISPLAY_FONT};font-size:20px;line-height:1.45;color:${INK};">`
-    }
-    return `<p style="margin:0 0 16px;color:${INK_SOFT};">`
+    const lead = isFirst && leadFirst
+    isFirst = false
+    return lead
+      ? `<p class="ms-display" style="margin:0 0 18px;font-family:${DISPLAY_FONT};font-size:20px;line-height:1.45;color:${INK};">`
+      : `<p style="margin:0 0 16px;color:${INK_SOFT};">`
   })
   const styled = withParas
     .replace(

@@ -170,6 +170,13 @@ export function ThreadPane({
   const emailBlocker = !emailAvailable ? "no_email" : emailUnsub ? "unsub" : null
   const activeBlocker = channel === "email" ? emailBlocker : smsBlocker
 
+  // SMS and email are separate conversations. The thread shows only the active
+  // channel: email mode shows email; sms mode shows everything else (texts, MMS,
+  // and web-form messages, which start a text-able conversation).
+  const visibleMessages = messages.filter((m) =>
+    channel === "email" ? m.channel === "email" : m.channel !== "email",
+  )
+
   // Sync local state when the parent feeds a fresh thread (URL `?c=` change).
   const [lastContactId, setLastContactId] = useState(contactProp.id)
   if (lastContactId !== contactProp.id) {
@@ -757,15 +764,17 @@ export function ThreadPane({
         ref={scrollerRef}
         className="flex-1 overflow-y-auto overscroll-contain px-4 md:px-8 py-6 space-y-4"
       >
-        {messages.length === 0 && (
+        {visibleMessages.length === 0 && (
           <div className="text-center py-16">
             <p className="text-ink-faint text-small">
-              No messages yet. Start the conversation below.
+              {channel === "email"
+                ? "No emails in this conversation yet. Start one below."
+                : "No texts in this conversation yet. Start one below."}
             </p>
           </div>
         )}
 
-        {messages.map((m) => (
+        {visibleMessages.map((m) => (
           <MessageBubble
             key={m.id}
             message={m}
