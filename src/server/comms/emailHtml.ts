@@ -141,22 +141,20 @@ export function plainTextToContentHtml(text: string): string {
 
 // --- Personal email shell ----------------------------------------------------
 
-// Brand tokens, flattened to email-safe solid hex (email clients mishandle the
-// site's rgba() text scale). Matched to the canonical ms.church values.
-const GOLD = "#9d7853"
-const GOLD_DARK = "#6e5239"
-const GOLD_DEEP = "#4d3826"
-const INK = "#1f1a14"
-const INK_SOFT = "#3a342b"
-const FAINT = "#8a8174"
-const CARD_BG = "#fbf7f1" // single warm-white ground; no card, type sits flat on it
+// Palette taken from the public ms.church site: cool dark-navy ink for serif
+// headlines + the wordmark, warm gold for emphasis / eyebrows / links, on a warm
+// cream ground. (Email-safe solid hex; clients mishandle rgba.)
+const GOLD = "#9d7853" // eyebrows, links, italic emphasis
+const GOLD_DARK = "#6e5239" // link/emphasis on light, slightly deeper
+const INK = "#1c2230" // navy-charcoal: wordmark + serif headings (the site's H-ink)
+const INK_SOFT = "#343b46" // slate: body prose
+const MUTED = "#8d909a" // cool grey: wordmark subline, quiet labels
+const FAINT = "#9a9388" // warm grey: dateline / footer
+const BG = "#f5f2ec" // warm cream page
+const HAIRLINE = "#e4ddcf" // thin section rules
 
-const GOLD_FRAME = "#dac7a4" // delicate gold for the rule dividers
-// Typographic ornament: a gold middot used as a fleuron in the masthead flourish
-// and the rule dividers. Rendered in a serif so it's a clean centered dot, never
-// an emoji or tofu — ornament built from type, not an illustration.
+// Middot separator for tracked-caps lines (the site's "WORSHIP · KIDS ·" device).
 const MIDDOT = "&middot;"
-const ORNAMENT_FONT = "Georgia,'Times New Roman',serif"
 
 const CHURCH_NAME = "Morning Star Christian Church"
 
@@ -190,25 +188,20 @@ function teamSigner(lang: string): string {
 }
 
 /**
- * Inline email-safe styling onto the bare allowed tags. The sanitizer strips
- * every attribute (except href on <a>), so each opening tag is bare and a
- * targeted replace is safe — consistent rhythm and on-brand gold links even in
- * clients (Gmail) that ignore <style> blocks. The FIRST paragraph (the AI/staff
- * greeting, e.g. "Hi Jacob,") is set in the display serif as an editorial lead;
- * the opening BODY paragraph reads as a slightly larger lede for editorial
- * texture (no drop cap).
+ * Inline email-safe styling onto the bare allowed tags, in the public site's
+ * voice: serif navy headings, slate body, and — the site's signature move —
+ * ITALIC GOLD for emphasis (`<em>`), the same device as "Mending the Broken" in
+ * the site's headlines. The greeting (1st <p>) is a serif headline; the opening
+ * line (2nd <p>) is a quiet lede.
  */
 function styleContentForEmail(html: string): string {
   let para = 0
   const withParas = html.replace(/<p>/gi, () => {
     para++
     if (para === 1) {
-      // The greeting: display serif lead.
-      return `<p class="ms-display" style="margin:0 0 16px;font-family:${DISPLAY_FONT};font-size:21px;line-height:1.4;color:${INK};">`
+      return `<p class="ms-display" style="margin:0 0 18px;font-family:${DISPLAY_FONT};font-size:24px;line-height:1.3;letter-spacing:-0.01em;color:${INK};">`
     }
     if (para === 2) {
-      // The opening line: a quiet lede — a touch larger and inked, so the letter
-      // opens with editorial weight rather than a hard drop cap.
       return `<p style="margin:0 0 16px;font-size:17px;line-height:1.62;color:${INK};">`
     }
     return `<p style="margin:0 0 16px;color:${INK_SOFT};">`
@@ -216,18 +209,21 @@ function styleContentForEmail(html: string): string {
   return withParas
     .replace(
       /<h2>/gi,
-      `<h2 class="ms-display" style="margin:26px 0 8px;font-family:${DISPLAY_FONT};font-size:21px;font-weight:600;color:${INK};line-height:1.3;">`,
+      `<h2 class="ms-display" style="margin:28px 0 8px;font-family:${DISPLAY_FONT};font-size:22px;font-weight:700;color:${INK};line-height:1.25;letter-spacing:-0.01em;">`,
     )
     .replace(
       /<h3>/gi,
-      `<h3 class="ms-display" style="margin:22px 0 6px;font-family:${DISPLAY_FONT};font-size:17px;font-weight:600;color:${INK};line-height:1.4;">`,
+      `<h3 class="ms-display" style="margin:22px 0 6px;font-family:${DISPLAY_FONT};font-size:17px;font-weight:700;color:${INK};line-height:1.35;">`,
     )
     .replace(/<ul>/gi, `<ul style="margin:0 0 16px 22px;padding:0;color:${INK_SOFT};">`)
     .replace(/<ol>/gi, `<ol style="margin:0 0 16px 22px;padding:0;color:${INK_SOFT};">`)
     .replace(/<li>/gi, `<li style="margin:0 0 7px;">`)
+    // The site's emphasis device: italic gold.
+    .replace(/<em>/gi, `<em style="font-style:italic;color:${GOLD_DARK};">`)
+    .replace(/<strong>/gi, `<strong style="font-weight:700;color:${INK};">`)
     .replace(
       /<blockquote>/gi,
-      `<blockquote class="ms-display" style="margin:4px 0 18px;padding:2px 0 2px 18px;border-left:3px solid ${GOLD};font-family:${DISPLAY_FONT};font-style:italic;font-size:18px;line-height:1.5;color:${GOLD_DARK};">`,
+      `<blockquote class="ms-display" style="margin:6px 0 18px;padding:2px 0 2px 16px;border-left:2px solid ${GOLD};font-family:${DISPLAY_FONT};font-style:italic;font-size:19px;line-height:1.5;color:${INK};">`,
     )
     .replace(
       /<a /gi,
@@ -244,57 +240,34 @@ export function personalSignatureText(senderName: string | null, lang = "en"): s
   return `${closerWord(lang)}\n${closer}\n${CHURCH_NAME}`
 }
 
-/** A short, left-anchored gold rule — the divider used to set off the sign-off,
- *  built as a bordered cell so Outlook renders the hairline reliably. */
-function shortRule(width = 44, color = GOLD_FRAME, align: "left" | "center" = "left"): string {
-  // Only center emits an `align` attr; `align="left"` would make the table FLOAT
-  // and the next line (e.g. "Warmly,") would wrap up beside the rule. A bare
-  // block table left-aligns without floating.
-  const alignAttr = align === "center" ? ` align="center"` : ""
-  return `<table role="presentation"${alignAttr} cellpadding="0" cellspacing="0" border="0"><tr><td width="${width}" height="1" style="font-size:0;line-height:0;mso-line-height-rule:exactly;border-top:1px solid ${color};">&#8202;</td></tr></table>`
+/** A full-width thin hairline — the site's section rule. */
+function fullRule(): string {
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td height="1" style="font-size:0;line-height:0;mso-line-height-rule:exactly;border-top:1px solid ${HAIRLINE};">&#8202;</td></tr></table>`
 }
 
-/** Sign-off as a handwritten close: a left rule, an italic serif "Warmly," then
- *  the sender's name — left-aligned, the way a real letter trails off. Personal
- *  (a person, not an org); the church identity lives in the letterhead. */
+/** Tracked uppercase caps — the site's eyebrow/label device. `pad` offsets the
+ *  trailing letter-spacing so left-aligned eyebrows still line up. */
+function trackedCaps(text: string, size: number, color: string, spacing = "2.5px"): string {
+  return `<span style="font-family:${BODY_FONT};font-size:${size}px;font-weight:600;letter-spacing:${spacing};text-transform:uppercase;color:${color};">${escapeHtml(text)}</span>`
+}
+
+/** Sign-off: an italic-gold "Warmly," (the site's emphasis device) over the
+ *  sender's name in navy ink. Set off by a short gold rule. Left-aligned, the
+ *  way a real letter trails off. */
 function signatureHtml(senderName: string | null, lang: string): string {
   const closer = senderName?.trim() || teamSigner(lang)
-  return `<div style="margin-top:30px;">${shortRule(44, GOLD)}</div>
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:30px;"><tr><td width="40" height="1" style="font-size:0;line-height:0;mso-line-height-rule:exactly;border-top:2px solid ${GOLD};">&#8202;</td></tr></table>
 <div style="margin-top:18px;">
-<div class="ms-display" style="font-family:${DISPLAY_FONT};font-style:italic;font-size:20px;line-height:1.3;color:${GOLD_DARK};">${closerWord(lang)}</div>
-<div style="margin-top:7px;font-family:${BODY_FONT};font-size:15px;font-weight:600;letter-spacing:0.2px;color:${INK};">${escapeHtml(closer)}</div>
+<div class="ms-display" style="font-family:${DISPLAY_FONT};font-style:italic;font-size:21px;line-height:1.3;color:${GOLD_DARK};">${closerWord(lang)}</div>
+<div style="margin-top:7px;font-family:${BODY_FONT};font-size:15px;font-weight:700;letter-spacing:0.2px;color:${INK};">${escapeHtml(closer)}</div>
 </div>`
 }
 
-/** A centered hairline-rule divider with a single gold middot at its heart —
- *  the typographic counterpart to a ruled fleuron. */
-function ruledDivider(rule = 46): string {
-  const ruleCell = `<td valign="middle" width="${rule}" style="font-size:0;line-height:0;"><div style="height:1px;background-color:${GOLD_FRAME};font-size:0;line-height:0;">&nbsp;</div></td>`
-  return `<table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0"><tr>${ruleCell}<td valign="middle" style="padding:0 13px;font-family:${ORNAMENT_FONT};font-size:15px;line-height:1;color:${GOLD};">${MIDDOT}</td>${ruleCell}</tr></table>`
-}
-
-/** A short tracked-caps band (eyebrow / dateline / footer locale) — type set as
- *  ornament. */
-function trackedCaps(text: string, size: number, color: string): string {
-  return `<div style="font-family:${BODY_FONT};font-size:${size}px;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;color:${color};padding-left:2.5px;">${escapeHtml(text)}</div>`
-}
-
-/** The crisp wordmark — LIVE TEXT (renders everywhere, inverts cleanly in dark
- *  mode, no broken-image state, no image-ratio spam signal). The faded ghost
- *  behind it is a full-bleed CSS background applied to the masthead row in
- *  `wrapPersonalEmail`, so it reaches the page edges. */
-function mastheadHtml(): string {
-  return `<div class="ms-display" style="font-family:${DISPLAY_FONT};font-size:40px;font-weight:700;line-height:1.12;color:${GOLD_DEEP};white-space:nowrap;">Morning Star</div>`
-}
-
-/** The letterhead's centered contents: the live wordmark, tracked small-caps
- *  "CHRISTIAN CHURCH", a ruled-middot divider, and a tracked dateline. Sits in a
- *  full-width row so the ghost behind it can bleed to the page edges. */
-function letterheadInner(dateLabel: string): string {
-  return `${mastheadHtml()}
-<div style="margin-top:6px;">${trackedCaps("Christian Church", 11, GOLD_DARK)}</div>
-<div style="margin-top:20px;">${ruledDivider(46)}</div>
-<div style="margin-top:15px;">${trackedCaps(dateLabel, 10, FAINT)}</div>`
+/** The wordmark, matching the site header: "MORNING STAR" in letter-spaced
+ *  navy serif caps over tracked muted "CHRISTIAN CHURCH". Live text. */
+function headerBlock(): string {
+  return `<div class="ms-display" style="font-family:${DISPLAY_FONT};font-size:27px;font-weight:700;letter-spacing:0.08em;line-height:1.1;color:${INK};text-transform:uppercase;">Morning Star</div>
+<div style="margin-top:8px;">${trackedCaps("Christian Church", 11, MUTED, "0.2em")}</div>`
 }
 
 /** Hidden preheader: controls the inbox preview line so it's the warm opening
@@ -303,7 +276,7 @@ function letterheadInner(dateLabel: string): string {
 function preheaderBlock(preheader: string): string {
   const text = escapeHtml(preheader.trim()).slice(0, 140)
   const pad = "&#847;&zwnj;&nbsp;".repeat(20)
-  return `<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:${CARD_BG};opacity:0;">${text}${pad}</div>`
+  return `<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:${BG};opacity:0;">${text}${pad}</div>`
 }
 
 /**
@@ -330,20 +303,7 @@ export function wrapPersonalEmail(args: {
   const content = styleContentForEmail(args.contentHtml)
   const signature = signatureHtml(args.senderName, lang)
   const preheader = preheaderBlock(args.preheader)
-  const letterhead = letterheadInner(dateLabel)
-  // Full-bleed ghost: applied to the masthead ROW (full email width) so the
-  // faded oversized word reaches the page edges, cropped there. Honored by Apple
-  // Mail/iOS; stripped (cleanly) by Gmail/Outlook.
-  const base = process.env.APP_BASE_URL?.replace(/\/$/, "")
-  const ghostBg = base
-    ? ` background="${base}/email/masthead-ghost.png" style="background-image:url('${base}/email/masthead-ghost.png');background-repeat:no-repeat;background-position:center top;background-size:150% auto;padding:46px 0 4px 0;"`
-    : ` style="padding:46px 0 4px 0;"`
-  // Bottom bookend: the same ghost behind the footer, showing a different slice
-  // (right edge) so it echoes the masthead without repeating it — the layered
-  // technique framing the letter top and bottom.
-  const footerGhostBg = base
-    ? ` background="${base}/email/masthead-ghost.png" style="background-image:url('${base}/email/masthead-ghost.png');background-repeat:no-repeat;background-position:right center;background-size:170% auto;padding:30px 0 46px 0;"`
-    : ` style="padding:30px 0 46px 0;"`
+  const eyebrow = trackedCaps(dateLabel, 11, GOLD, "0.18em")
 
   return `<!doctype html>
 <html lang="${lang}" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
@@ -369,31 +329,31 @@ export function wrapPersonalEmail(args: {
   }
 </style>
 </head>
-<body style="margin:0;padding:0;background-color:${CARD_BG};">
+<body style="margin:0;padding:0;background-color:${BG};">
 ${preheader}
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${CARD_BG}" style="background-color:${CARD_BG};mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${BG}" style="background-color:${BG};mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;">
 <tr>
-<td align="center"${ghostBg}>
-${letterhead}
-</td>
-</tr>
-<tr>
-<td align="center" style="padding:6px 22px 22px 22px;">
-<!--[if mso]><table role="presentation" align="center" width="560" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
-<table role="presentation" align="center" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;width:100%;border-collapse:collapse;">
-<tr>
-<td style="padding:0 8px 0 8px;font-family:${BODY_FONT};font-size:16px;line-height:1.65;color:${INK_SOFT};">
+<td align="center" style="padding:40px 26px 44px 26px;">
+<!--[if mso]><table role="presentation" align="center" width="600" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+<table role="presentation" align="center" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;border-collapse:collapse;">
+<!-- Header: centered wordmark lockup, matching the site -->
+<tr><td align="center" style="padding-bottom:24px;">
+${headerBlock()}
+</td></tr>
+<tr><td style="padding-bottom:26px;">${fullRule()}</td></tr>
+<!-- The letter: gold dateline eyebrow, serif greeting, body, sign-off -->
+<tr><td style="font-family:${BODY_FONT};font-size:16px;line-height:1.66;color:${INK_SOFT};">
+<div style="margin-bottom:18px;">${eyebrow}</div>
 ${content}
 ${signature}
-</td>
-</tr>
+</td></tr>
+<!-- Footer -->
+<tr><td style="padding-top:32px;">${fullRule()}</td></tr>
+<tr><td align="center" style="padding-top:18px;">
+<span style="font-family:${BODY_FONT};font-size:10px;font-weight:600;letter-spacing:0.2em;text-transform:uppercase;color:${FAINT};">Boise ${MIDDOT} Idaho</span>
+</td></tr>
 </table>
 <!--[if mso]></td></tr></table><![endif]-->
-</td>
-</tr>
-<tr>
-<td align="center"${footerGhostBg}>
-<div style="font-family:${BODY_FONT};font-size:10px;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;color:${FAINT};text-align:center;">Boise ${MIDDOT} Idaho</div>
 </td>
 </tr>
 </table>

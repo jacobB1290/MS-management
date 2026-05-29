@@ -39,6 +39,7 @@ Output format (STRICT):
 - "html" is a SEMANTIC HTML fragment for the email body. Allowed tags ONLY: <p>, <strong>, <em>, <ul>, <ol>, <li>, <a href>, <h2>, <h3>, <br>. No styles, classes, ids, scripts, images, tables, or any <html>/<head>/<body> wrapper. The church template supplies all branding and styling.
 - OPEN with a warm greeting that addresses the person by their first name when one is given (for example, "<p>Hi Anna,</p>"); when no name is known, a warm general opener. Make the FIRST sentence after the greeting acknowledge something specific the person actually wrote (their question, their situation, the thing they named) so it reads as a real reply to them, never a generic form letter.
 - Do NOT include a sign-off/closing ("Warmly," etc.), your own name, the church name/address, or any unsubscribe text. The template adds the sign-off and identity. The greeting is the ONLY identity-adjacent line you write.
+- You MAY italicize one short, meaningful phrase with <em> for gentle emphasis (it renders in the church's signature italic gold). Use it at most once, and only when it genuinely adds warmth; never force it.
 
 Hard rules:
 - Never use em dashes. Restructure the sentence instead.
