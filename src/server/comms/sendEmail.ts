@@ -81,12 +81,12 @@ export type SendEmailResult =
 
 /**
  * Build the personalized parts of a 1:1 email from an operator's draft: the
- * smart-quoted plain body, the text/plain part with a warm human sign-off, the
- * HTML part (only when the operator beautified — a plain reply sends as
- * text/plain, which reads the most personal), and a full rendered HTML document
- * for PREVIEW (always present, so staff can see the message + sign-off even for
- * a plain reply). Single source of truth shared by the send path and the
- * preview endpoint, so the preview is faithful to what actually sends.
+ * smart-quoted plain body, the text/plain part with a warm human sign-off, and
+ * the wrapped HTML document. The HTML is ALWAYS produced now — a plain typed
+ * reply sends the same stylized personal email (letterhead + sign-off) as an
+ * AI-beautified one, with text/plain as the multipart fallback. `wrappedHtml`
+ * (what sends) and `previewHtml` (what staff preview) are identical, so the
+ * preview is faithful to what actually sends.
  */
 export async function composePersonalEmail(args: {
   contactId: string
@@ -112,22 +112,21 @@ export async function composePersonalEmail(args: {
   // Defense in depth: the AI endpoint already sanitized; sanitize again before
   // it ever reaches an inbox.
   const sanitizedFragment = args.html ? sanitizeEmailContent(args.html) : null
-  // The fragment actually sent as the HTML part (null for a plain reply) vs the
-  // fragment used to render the preview (a plain reply is shown as paragraphs).
-  const previewFragment = sanitizedFragment ?? plainTextToContentHtml(cleanBody)
-  const preheader = htmlFragmentToText(previewFragment).replace(/\s+/g, " ").trim()
-
-  const wrappedHtml = sanitizedFragment
-    ? wrapPersonalEmail({ contentHtml: sanitizedFragment, preheader, senderName, lang: contactLang })
-    : null
-  const previewHtml = wrapPersonalEmail({
-    contentHtml: previewFragment,
+  // A plain typed reply is rendered as paragraphs and sent as the SAME stylized
+  // personal email as an AI-beautified one — the warm personal shell (letterhead
+  // + sign-off), NOT the bulk marketing template. The text/plain part below
+  // rides along as the multipart fallback. Preview and send share this HTML, so
+  // what staff preview is exactly what sends.
+  const contentFragment = sanitizedFragment ?? plainTextToContentHtml(cleanBody)
+  const preheader = htmlFragmentToText(contentFragment).replace(/\s+/g, " ").trim()
+  const wrappedHtml = wrapPersonalEmail({
+    contentHtml: contentFragment,
     preheader,
     senderName,
     lang: contactLang,
   })
 
-  return { cleanBody, outgoingText, wrappedHtml, previewHtml, senderName }
+  return { cleanBody, outgoingText, wrappedHtml, previewHtml: wrappedHtml, senderName }
 }
 
 /**
