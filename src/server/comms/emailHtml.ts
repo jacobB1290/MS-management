@@ -304,6 +304,13 @@ export function wrapPersonalEmail(args: {
   const signature = signatureHtml(args.senderName, lang)
   const preheader = preheaderBlock(args.preheader)
   const eyebrow = trackedCaps(dateLabel, 11, GOLD, "0.18em")
+  // Hosted ghost wordmark, full-bleed behind the header — the faded gold
+  // "MORNING STAR" under the crisp navy lockup (the site's warm/cool layering).
+  // Honored on Apple Mail/iOS; cleanly stripped to a plain header elsewhere.
+  const base = process.env.APP_BASE_URL?.replace(/\/$/, "")
+  const headerGhost = base
+    ? ` background="${base}/email/masthead-ghost.png" style="background-image:url('${base}/email/masthead-ghost.png');background-repeat:no-repeat;background-position:center 38px;background-size:150% auto;"`
+    : ""
 
   return `<!doctype html>
 <html lang="${lang}" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
@@ -332,14 +339,19 @@ export function wrapPersonalEmail(args: {
 <body style="margin:0;padding:0;background-color:${BG};">
 ${preheader}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${BG}" style="background-color:${BG};mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;">
+<!-- Header: full-bleed faded ghost wordmark behind the crisp navy lockup -->
 <tr>
-<td align="center" style="padding:40px 26px 44px 26px;">
+<td align="center"${headerGhost}>
+<div style="padding:46px 24px 26px 24px;">
+${headerBlock()}
+</div>
+</td>
+</tr>
+<!-- Centered content column -->
+<tr>
+<td align="center" style="padding:0 26px 44px 26px;">
 <!--[if mso]><table role="presentation" align="center" width="600" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
 <table role="presentation" align="center" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;border-collapse:collapse;">
-<!-- Header: centered wordmark lockup, matching the site -->
-<tr><td align="center" style="padding-bottom:24px;">
-${headerBlock()}
-</td></tr>
 <tr><td style="padding-bottom:26px;">${fullRule()}</td></tr>
 <!-- The letter: gold dateline eyebrow, serif greeting, body, sign-off -->
 <tr><td style="font-family:${BODY_FONT};font-size:16px;line-height:1.66;color:${INK_SOFT};">
