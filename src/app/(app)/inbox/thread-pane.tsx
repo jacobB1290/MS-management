@@ -177,6 +177,57 @@ export function ThreadPane({
     channel === "email" ? m.channel === "email" : m.channel !== "email",
   )
 
+  // The email subject lives inside the compose box; this standalone field is
+  // only used in AI-preview mode (above the formatted-preview card).
+  const subjectField = (className?: string) => (
+    <Input
+      value={subject}
+      onChange={(e) => {
+        setSubject(e.target.value)
+        onComposeInput()
+      }}
+      onBlur={stopTyping}
+      disabled={locked}
+      placeholder="Subject"
+      aria-label="Email subject"
+      className={cn("rounded-2xl text-small disabled:opacity-60", className)}
+    />
+  )
+
+  // Text / Email channel selector. Rendered inline at the left of the compose
+  // row when composing; falls back to a standalone row when a blocker banner or
+  // the AI email preview takes the composer's place (so it never disappears).
+  const channelToggle = (
+    <div
+      role="radiogroup"
+      aria-label="Reply channel"
+      className="inline-flex shrink-0 items-center gap-0.5 rounded-pill border border-ink-hairline bg-white p-0.5"
+    >
+      {(["sms", "email"] as const).map((ch) => {
+        const active = channel === ch
+        const Icon = ch === "sms" ? MessageSquare : Mail
+        return (
+          <button
+            key={ch}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            onClick={() => setChannel(ch)}
+            className={cn(
+              "inline-flex min-h-9 items-center gap-1.5 rounded-pill px-3 py-1.5 text-small font-medium transition-colors",
+              active
+                ? "bg-[color-mix(in_oklab,var(--gold)_16%,transparent)] text-gold-dark"
+                : "text-ink-muted hover:text-ink",
+            )}
+          >
+            <Icon size={15} strokeWidth={2.25} />
+            {ch === "sms" ? "Text" : "Email"}
+          </button>
+        )
+      })}
+    </div>
+  )
+
   // Sync local state when the parent feeds a fresh thread (URL `?c=` change).
   const [lastContactId, setLastContactId] = useState(contactProp.id)
   if (lastContactId !== contactProp.id) {
@@ -798,37 +849,10 @@ export function ThreadPane({
             </div>
           </div>
         )}
+        {/* Above the composer, left-aligned with the text box (indented past the
+            + button: w-11 = 44px + gap-2 = 8px). */}
         {channelToggleVisible && (
-          <div className="mb-2.5 flex items-center">
-            <div
-              role="radiogroup"
-              aria-label="Reply channel"
-              className="inline-flex items-center gap-0.5 rounded-pill border border-ink-hairline bg-white p-0.5"
-            >
-              {(["sms", "email"] as const).map((ch) => {
-                const active = channel === ch
-                const Icon = ch === "sms" ? MessageSquare : Mail
-                return (
-                  <button
-                    key={ch}
-                    type="button"
-                    role="radio"
-                    aria-checked={active}
-                    onClick={() => setChannel(ch)}
-                    className={cn(
-                      "inline-flex min-h-[40px] items-center gap-1.5 rounded-pill px-4 py-2 text-small font-medium transition-colors",
-                      active
-                        ? "bg-gold text-white shadow-sm"
-                        : "text-ink-muted hover:text-ink",
-                    )}
-                  >
-                    <Icon size={15} strokeWidth={2.25} />
-                    {ch === "sms" ? "Text" : "Email"}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
+          <div className="mb-2.5 flex items-center pl-[52px]">{channelToggle}</div>
         )}
 
         {activeBlocker === "sms_opt_out" ? (
@@ -918,18 +942,6 @@ export function ThreadPane({
                 className="hidden"
                 onChange={onPickEmailFile}
               />
-              <Input
-                value={subject}
-                onChange={(e) => {
-                  setSubject(e.target.value)
-                  onComposeInput()
-                }}
-                onBlur={stopTyping}
-                disabled={locked}
-                placeholder="Subject"
-                aria-label="Email subject"
-                className="rounded-2xl text-small disabled:opacity-60"
-              />
               {attachments.length > 0 && (
                 <ul className="flex flex-wrap gap-1.5">
                   {attachments.map((a) => (
@@ -951,6 +963,7 @@ export function ThreadPane({
                   ))}
                 </ul>
               )}
+              {emailHtml !== null && subjectField()}
               {emailHtml !== null ? (
                 <div className="rounded-3xl border border-gold/40 bg-white">
                   <div className="flex items-center gap-1.5 border-b border-ink-hairline px-4 py-2 text-micro text-gold-dark">
@@ -1032,33 +1045,50 @@ export function ThreadPane({
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
-                  <Textarea
-                    value={body}
-                    onChange={(e) => {
-                      setBody(e.target.value)
-                      onComposeInput()
-                    }}
-                    onBlur={stopTyping}
-                    disabled={locked}
-                    placeholder="Write an email…"
-                    rows={2}
-                    autoGrow
-                    className="flex-1 min-h-[60px] max-h-60 resize-none overflow-y-auto rounded-3xl px-4 py-2.5 disabled:opacity-60"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                        e.preventDefault()
-                        void handleSendEmail(e)
-                      }
-                    }}
-                  />
-                  <button
-                    type="submit"
-                    disabled={!subject.trim() || !body.trim() || locked || sending || attachUploading}
-                    aria-label="Send email"
-                    className="btn-icon-action shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    {sending ? <Loader2 size={18} className="animate-spin" /> : <Mail size={18} strokeWidth={2.25} />}
-                  </button>
+                  {/* One field: subject, a divider, then the body — with the send
+                      button anchored at the bottom-right inside the box, iOS-style. */}
+                  <div className="relative flex-1 min-w-0 rounded-3xl border border-ink-hairline bg-white transition-colors focus-within:border-gold">
+                    <input
+                      value={subject}
+                      onChange={(e) => {
+                        setSubject(e.target.value)
+                        onComposeInput()
+                      }}
+                      onBlur={stopTyping}
+                      disabled={locked}
+                      placeholder="Subject"
+                      aria-label="Email subject"
+                      className="block w-full bg-transparent px-4 pt-2.5 pb-1.5 text-small font-medium text-ink placeholder:font-normal placeholder:text-ink-faint focus-visible:outline-none disabled:opacity-60"
+                    />
+                    <div className="mx-4 h-px bg-ink-hairline" />
+                    <Textarea
+                      value={body}
+                      onChange={(e) => {
+                        setBody(e.target.value)
+                        onComposeInput()
+                      }}
+                      onBlur={stopTyping}
+                      disabled={locked}
+                      placeholder="Write an email…"
+                      rows={2}
+                      autoGrow
+                      className="block w-full min-h-[56px] max-h-52 resize-none overflow-y-auto rounded-none border-0 bg-transparent px-4 py-2.5 pr-14 focus-visible:outline-none disabled:opacity-60"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                          e.preventDefault()
+                          void handleSendEmail(e)
+                        }
+                      }}
+                    />
+                    <button
+                      type="submit"
+                      disabled={!subject.trim() || !body.trim() || locked || sending || attachUploading}
+                      aria-label="Send email"
+                      className="absolute bottom-2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-pill bg-gold text-white shadow-sm transition-colors hover:bg-gold-dark disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {sending ? <Loader2 size={16} className="animate-spin" /> : <ArrowUp size={16} strokeWidth={2.5} />}
+                    </button>
+                  </div>
                 </div>
               )}
               <p className="text-micro text-ink-faint">
@@ -1148,33 +1178,36 @@ export function ThreadPane({
                   {uploading ? <Loader2 size={18} className="animate-spin" /> : <Plus size={20} />}
                 </button>
               )}
-              <Textarea
-                value={body}
-                onChange={(e) => {
-                  setBody(e.target.value)
-                  onComposeInput()
-                }}
-                onBlur={stopTyping}
-                disabled={locked}
-                placeholder="Write a reply…"
-                rows={1}
-                autoGrow
-                className="flex-1 min-h-[44px] max-h-40 resize-none overflow-y-auto rounded-3xl px-4 py-2.5 disabled:opacity-60"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                    e.preventDefault()
-                    void handleSend(e)
-                  }
-                }}
-              />
-              <button
-                type="submit"
-                disabled={(!body.trim() && !media) || uploading || locked}
-                aria-label="Send"
-                className="btn-icon-action shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                <ArrowUp size={18} strokeWidth={2.5} />
-              </button>
+              <div className="relative flex-1 min-w-0">
+                <Textarea
+                  value={body}
+                  onChange={(e) => {
+                    setBody(e.target.value)
+                    onComposeInput()
+                  }}
+                  onBlur={stopTyping}
+                  disabled={locked}
+                  placeholder="Write a reply…"
+                  rows={1}
+                  autoGrow
+                  className="block w-full min-h-[44px] max-h-40 resize-none overflow-y-auto rounded-3xl px-4 py-2.5 pr-14 disabled:opacity-60"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                      e.preventDefault()
+                      void handleSend(e)
+                    }
+                  }}
+                />
+                {/* Send anchored at the bottom-right inside the field, iOS-style. */}
+                <button
+                  type="submit"
+                  disabled={(!body.trim() && !media) || uploading || locked}
+                  aria-label="Send"
+                  className="absolute bottom-1.5 right-1.5 inline-flex h-8 w-8 items-center justify-center rounded-pill bg-gold text-white shadow-sm transition-colors hover:bg-gold-dark disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <ArrowUp size={16} strokeWidth={2.5} />
+                </button>
+              </div>
             </form>
             <p className="mt-2 text-micro text-ink-faint">
               Press <span className="font-mono">⌘↵</span> to send · Tap + to attach a photo or short video
