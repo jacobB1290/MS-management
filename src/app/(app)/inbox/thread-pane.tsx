@@ -3,7 +3,7 @@ import { useContext, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { InboxNavContext } from "./inbox-frame"
-import { ArrowLeft, AlertTriangle, Plus, Loader2, X, ChevronRight, RotateCcw, Sparkles, Clock, Info, ArrowUp, Image as ImageIcon, Mail, MessageSquare, MailX, Paperclip, FileText, Pencil } from "lucide-react"
+import { ArrowLeft, AlertTriangle, Plus, Loader2, X, ChevronRight, RotateCcw, Sparkles, Clock, Info, ArrowUp, Image as ImageIcon, Mail, MessageSquare, MailX, Paperclip, FileText, Pencil, Eye } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -115,6 +115,10 @@ export function ThreadPane({
   const [attachUploading, setAttachUploading] = useState(false)
   const [emailHtml, setEmailHtml] = useState<string | null>(null)
   const [beautifying, setBeautifying] = useState(false)
+  // Email preview: a slide-in panel rendering the email exactly as it sends.
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null)
+  const [previewing, setPreviewing] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const attachInputRef = useRef<HTMLInputElement>(null)
   const scrollerRef = useRef<HTMLDivElement>(null)
@@ -365,6 +369,37 @@ export function ThreadPane({
   // tweak the plain text and re-beautify.
   function editPreviewText() {
     setEmailHtml(null)
+  }
+
+  // Render the email exactly as it will send (same server pipeline) and slide it
+  // in. Works for both a plain typed reply and a beautified draft.
+  async function handlePreview() {
+    if (previewing || !body.trim()) {
+      if (!body.trim()) toast.message("Write a message to preview")
+      return
+    }
+    setPreviewing(true)
+    setPreviewOpen(true)
+    setPreviewHtml(null)
+    try {
+      const res = await fetch("/api/messages/preview-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contact_id: contact.id, body, html: emailHtml }),
+      })
+      const json = await res.json().catch(() => null)
+      if (!res.ok || typeof json?.html !== "string") {
+        toast.error("Couldn’t build the preview")
+        setPreviewOpen(false)
+        return
+      }
+      setPreviewHtml(json.html as string)
+    } catch (err) {
+      toast.error(`Network error: ${err instanceof Error ? err.message : String(err)}`)
+      setPreviewOpen(false)
+    } finally {
+      setPreviewing(false)
+    }
   }
 
   function onPickEmailFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -903,6 +938,14 @@ export function ThreadPane({
                       </button>
                     )}
                     <button
+                      type="button"
+                      onClick={handlePreview}
+                      disabled={previewing || locked || sending}
+                      className="inline-flex items-center gap-1.5 rounded-pill border border-ink-hairline bg-white px-3 py-1.5 text-small text-ink-muted transition-colors hover:text-ink disabled:opacity-50"
+                    >
+                      {previewing ? <Loader2 size={14} className="animate-spin" /> : <Eye size={14} />} Preview
+                    </button>
+                    <button
                       type="submit"
                       disabled={!subject.trim() || !body.trim() || locked || sending}
                       className="ml-auto inline-flex items-center gap-1.5 rounded-pill bg-gold px-4 py-1.5 text-small font-medium text-white shadow-sm transition-colors hover:bg-gold-dark disabled:opacity-40 disabled:cursor-not-allowed"
@@ -941,6 +984,9 @@ export function ThreadPane({
                           <Sparkles size={16} /> {body.trim() ? "Improve with AI" : "Draft with AI"}
                         </DropdownMenuItem>
                       )}
+                      <DropdownMenuItem onClick={handlePreview} disabled={!body.trim() || previewing}>
+                        <Eye size={16} /> Preview email
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                   <Textarea
@@ -1100,6 +1146,35 @@ export function ThreadPane({
             optInMode={optInMode}
             optInRequestedAt={optInRequestedAt}
           />
+        </SheetContent>
+      </Sheet>
+
+      {/* Email preview: the message rendered exactly as it sends, slid in from
+          the side. The full email document is dropped into a sandboxed iframe
+          (no scripts) so its own styles render faithfully and in isolation. */}
+      <Sheet open={previewOpen} onOpenChange={setPreviewOpen} side="right">
+        <SheetContent className="p-0 w-[min(96vw,520px)] gap-0">
+          <div className="flex items-center gap-2 border-b border-ink-hairline px-4 py-3">
+            <Eye size={16} className="shrink-0 text-gold-dark" />
+            <SheetTitle className="text-body font-medium">Email preview</SheetTitle>
+          </div>
+          <div className="flex-1 overflow-hidden bg-[#f4f4f5]">
+            {previewHtml ? (
+              <iframe
+                title="Email preview"
+                sandbox=""
+                srcDoc={previewHtml}
+                className="h-full w-full border-0 bg-white"
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center text-ink-faint">
+                <Loader2 size={22} className="animate-spin" />
+              </div>
+            )}
+          </div>
+          <p className="border-t border-ink-hairline px-4 py-2.5 text-micro text-ink-faint">
+            This is exactly how {contact.name?.split(" ")[0] ?? "the recipient"} will see it.
+          </p>
         </SheetContent>
       </Sheet>
     </>
