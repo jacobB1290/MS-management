@@ -1,7 +1,8 @@
 import "server-only"
 import { createSupabaseAdminClient } from "@/lib/supabase/server"
 import { createAnthropicClient, isAiEnabled } from "./client"
-import { getFeatureConfig, modelSupportsEffort } from "./config"
+import { getFeatureConfig } from "./config"
+import { generateWithKnowledge } from "./knowledge"
 import { sanitizeEmailContent, htmlFragmentToText } from "@/server/comms/emailHtml"
 
 /** Recent thread depth handed to the model for context. */
@@ -42,7 +43,7 @@ Output format (STRICT):
 
 Hard rules:
 - Never use em dashes. Restructure the sentence instead.
-- Do not invent specific facts you were not given (service times, addresses, names, dates, prices). If a detail is needed and unknown, keep it general or gently offer to follow up.
+- Look up real church facts before answering: when the person asks about the church or you need a specific detail (service or Bible study times, location, ministries, events, beliefs, how to visit or join), call the lookup_church_info tool and base the email on what it returns. Do not invent service times, addresses, names, dates, or prices. If the lookup finds nothing relevant, keep it general or gently offer to follow up.
 - Never promise an action on the church's behalf (that someone will call, visit, or follow up) unless the staff draft already says so.
 - If a message signals crisis, grief, self-harm, abuse, or acute distress, respond with brief, genuine warmth and offer that someone from the church will reach out personally and soon. Do not counsel, diagnose, or minimize, and do not include phone numbers, hotlines, or external resources.
 - Reply in the same language the contact used (English or Russian).
@@ -114,24 +115,16 @@ export async function draftEmail(args: {
 
   try {
     const client = createAnthropicClient()
-    const supportsEffort = modelSupportsEffort(config.model)
-    const response = await client.messages.create({
-      model: config.model,
-      max_tokens: 1500,
-      ...(supportsEffort
-        ? { thinking: { type: "disabled" as const }, output_config: { effort: config.effort } }
-        : {}),
-      system: [
-        { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
-      ],
-      messages: [{ role: "user", content: userContent }],
+    // The model may call lookup_church_info to pull real church facts before it
+    // writes; generateWithKnowledge runs that tool loop and returns the final
+    // JSON text. Effort/thinking handling + prompt caching live in that helper.
+    const text = await generateWithKnowledge({
+      client,
+      config,
+      maxTokens: 1500,
+      system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
+      userContent,
     })
-
-    const text = response.content
-      .filter((b): b is { type: "text"; text: string; citations: null } => b.type === "text")
-      .map((b) => b.text)
-      .join("")
-      .trim()
 
     const parsed = parseModelJson(text)
     if (!parsed) return { ok: false, reason: "provider_failed", detail: "unparseable" }
