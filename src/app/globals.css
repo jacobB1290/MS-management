@@ -414,16 +414,23 @@ h1, h2, h3, h4, h5, h6 {
   color: inherit;
   text-decoration: none;
 }
-button,
-[role="button"] {
-  appearance: none;
-  -webkit-appearance: none;
-  background-color: transparent;
-  color: inherit;
-  font: inherit;
-}
-:where(button:active, [role="button"]:active, a:active) {
-  color: inherit;
+/* In @layer base so Tailwind background + text color utilities (utilities layer)
+ * win over this reset. Unlayered, it forced every button's background to
+ * transparent and color to inherit, silently clobbering bg-gold / text-white
+ * etc. on a button (e.g. the composer send button + the active channel pill).
+ * Base still beats the UA stylesheet, so the iOS native button paint is killed. */
+@layer base {
+  button,
+  [role="button"] {
+    appearance: none;
+    -webkit-appearance: none;
+    background-color: transparent;
+    color: inherit;
+    font: inherit;
+  }
+  :where(button:active, [role="button"]:active, a:active) {
+    color: inherit;
+  }
 }
 
 /* iOS Safari fires :hover on touch and the state persists after the tap
