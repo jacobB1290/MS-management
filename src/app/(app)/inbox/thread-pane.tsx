@@ -177,9 +177,8 @@ export function ThreadPane({
     channel === "email" ? m.channel === "email" : m.channel !== "email",
   )
 
-  // The email subject field, shared between two placements: inline next to the
-  // channel selector when the toggle is shown, or inside the email form for an
-  // email-only contact (no selector to sit beside).
+  // The email subject lives inside the compose box; this standalone field is
+  // only used in AI-preview mode (above the formatted-preview card).
   const subjectField = (className?: string) => (
     <Input
       value={subject}
@@ -193,6 +192,40 @@ export function ThreadPane({
       aria-label="Email subject"
       className={cn("rounded-2xl text-small disabled:opacity-60", className)}
     />
+  )
+
+  // Text / Email channel selector. Rendered inline at the left of the compose
+  // row when composing; falls back to a standalone row when a blocker banner or
+  // the AI email preview takes the composer's place (so it never disappears).
+  const channelToggle = (
+    <div
+      role="radiogroup"
+      aria-label="Reply channel"
+      className="inline-flex shrink-0 items-center gap-0.5 rounded-pill border border-ink-hairline bg-white p-0.5"
+    >
+      {(["sms", "email"] as const).map((ch) => {
+        const active = channel === ch
+        const Icon = ch === "sms" ? MessageSquare : Mail
+        return (
+          <button
+            key={ch}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            onClick={() => setChannel(ch)}
+            className={cn(
+              "inline-flex min-h-9 items-center gap-1.5 rounded-pill px-3 py-1.5 text-small font-medium transition-colors",
+              active
+                ? "bg-[color-mix(in_oklab,var(--gold)_16%,transparent)] text-gold-dark"
+                : "text-ink-muted hover:text-ink",
+            )}
+          >
+            <Icon size={15} strokeWidth={2.25} />
+            {ch === "sms" ? "Text" : "Email"}
+          </button>
+        )
+      })}
+    </div>
   )
 
   // Sync local state when the parent feeds a fresh thread (URL `?c=` change).
@@ -816,37 +849,10 @@ export function ThreadPane({
             </div>
           </div>
         )}
+        {/* Above the composer, left-aligned with the text box (indented past the
+            + button: w-11 = 44px + gap-2 = 8px). */}
         {channelToggleVisible && (
-          <div className="mb-2.5 flex items-center">
-            <div
-              role="radiogroup"
-              aria-label="Reply channel"
-              className="inline-flex items-center gap-0.5 rounded-pill border border-ink-hairline bg-white p-0.5"
-            >
-              {(["sms", "email"] as const).map((ch) => {
-                const active = channel === ch
-                const Icon = ch === "sms" ? MessageSquare : Mail
-                return (
-                  <button
-                    key={ch}
-                    type="button"
-                    role="radio"
-                    aria-checked={active}
-                    onClick={() => setChannel(ch)}
-                    className={cn(
-                      "inline-flex min-h-[40px] items-center gap-1.5 rounded-pill px-4 py-2 text-small font-medium transition-colors",
-                      active
-                        ? "bg-gold text-white shadow-sm"
-                        : "text-ink-muted hover:text-ink",
-                    )}
-                  >
-                    <Icon size={15} strokeWidth={2.25} />
-                    {ch === "sms" ? "Text" : "Email"}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
+          <div className="mb-2.5 flex items-center pl-[52px]">{channelToggle}</div>
         )}
 
         {activeBlocker === "sms_opt_out" ? (
