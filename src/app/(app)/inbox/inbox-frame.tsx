@@ -39,12 +39,22 @@ export function InboxFrame({ conversations, children }: InboxFrameProps) {
 
   const closeThread = useCallback(() => {
     setClosing(true)
-    // Let the slide-out play to completion, then actually clear the route.
+    // Let the slide-out play, then clear the route. We deliberately DON'T reset
+    // `closing` here: the URL (selectedId) update lags this tick, so flipping it
+    // back now makes threadOpen briefly true again — the panel slides back in,
+    // then out ("goes back in then back out"). It's reset in render below, once
+    // the route has actually cleared.
     window.setTimeout(() => {
       router.push("/inbox", { scroll: false })
-      setClosing(false)
     }, SLIDE_MS)
   }, [router])
+
+  // Once the route has actually cleared, the close is done. Reconcile during
+  // render (not in an effect) — same pattern as the conversation list's
+  // selectedId sync — so there's no extra commit or flicker, and no
+  // setState-in-effect. It can't loop: it only fires while closing && no route,
+  // and immediately makes that condition false.
+  if (closing && !selectedId) setClosing(false)
 
   // Drives the mobile slide. Desktop ignores it (both panes are docked there).
   const threadOpen = Boolean(selectedId) && !closing

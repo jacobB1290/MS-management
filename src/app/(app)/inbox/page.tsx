@@ -5,6 +5,7 @@ import { isVoiceConfigured } from "@/server/comms/voice"
 import { createSupabaseServerClient, createSupabaseAdminClient } from "@/lib/supabase/server"
 import { assertCanSendSms } from "@/server/comms/optOut"
 import { resolveOptInMode } from "@/server/comms/optInMode"
+import { isAiEnabled } from "@/server/ai/client"
 import { ThreadPane } from "./thread-pane"
 import { ContactPanel } from "./contact-panel"
 import { EmptyState } from "@/components/ui/empty-state"
@@ -114,6 +115,7 @@ async function ThreadLoader({
         voiceConfigured={isVoiceConfigured()}
         optInMode={optInMode}
         optInRequestedAt={contact.marketing_opt_in_requested_at}
+        aiEnabled={isAiEnabled()}
       />
     </div>
   )
