@@ -31,7 +31,7 @@ export default async function SettingsPage() {
   const user = await requireStaff()
   const supabase = await createSupabaseServerClient()
 
-  const [teamRes, heartbeatRes, spend, aiSpend, aiConfig, media, dbRpc, knowledgeRes, lastSync] =
+  const [teamRes, heartbeatRes, spend, aiSpend, aiConfig, media, dbRpc, knowledgeRes, lastSync, modelFamilies] =
     await Promise.all([
       user.role === "admin"
         ? supabase.from("app_users").select("user_id, role, display_name, created_at").order("created_at")
@@ -47,9 +47,12 @@ export default async function SettingsPage() {
         .select("id, title, body, source, source_url, updated_at")
         .order("updated_at", { ascending: false }),
       getLastKnowledgeSync(),
+      // Live picker options — one (the latest) per class, discovered from the
+      // Models API. Folded into the batch so it runs alongside the DB reads
+      // instead of adding a serial round-trip after them.
+      getModelFamilies(),
     ])
-  // Live picker options — one (the latest) per class, discovered from the Models API.
-  const aiModelChoices = modelChoicesFrom(await getModelFamilies())
+  const aiModelChoices = modelChoicesFrom(modelFamilies)
   const team = teamRes.data
   const heartbeat = heartbeatRes.data
   const dbBytes = Number((dbRpc.data as number | null) ?? 0)

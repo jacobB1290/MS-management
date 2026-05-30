@@ -3,6 +3,7 @@ import { notFound } from "next/navigation"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { requireStaff } from "@/server/auth"
 import { BASE_TAG_VOCAB } from "@/server/ai/prompts"
+import { getContactTagOccurrences } from "@/server/contacts/tags"
 import { PageHeader } from "@/components/ui/page-header"
 import { ContactForm } from "../../new/contact-form"
 
@@ -19,14 +20,12 @@ export default async function EditContactPage({ params, searchParams }: PageProp
   const { from } = await searchParams
   const backHref = from === "inbox" ? `/contacts/${id}?from=inbox` : `/contacts/${id}`
   const supabase = await createSupabaseServerClient()
-  const [{ data: contact }, { data: tagRows }] = await Promise.all([
+  const [{ data: contact }, tagOccurrences] = await Promise.all([
     supabase.from("contacts").select("*").eq("id", id).maybeSingle(),
-    supabase.from("contacts").select("tags").limit(1000),
+    getContactTagOccurrences(),
   ])
   if (!contact) notFound()
-  const tagSuggestions = Array.from(
-    new Set([...BASE_TAG_VOCAB, ...(tagRows ?? []).flatMap((r) => (r.tags ?? []) as string[])]),
-  )
+  const tagSuggestions = Array.from(new Set([...BASE_TAG_VOCAB, ...tagOccurrences]))
     .filter(Boolean)
     .sort()
 

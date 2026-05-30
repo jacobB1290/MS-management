@@ -253,6 +253,78 @@ export function ThreadPane({
   // STOP reply (carrier opt-out) blocks the composer live.
   useEffect(() => {
     const supabase = createSupabaseBrowserClient()
+
+    // Realtime is live-only: while the tab is backgrounded (or the socket blips
+    // during Twilio's delivery callbacks) the channel drops and missed INSERT/
+    // UPDATE events are NOT replayed. So re-fetch the thread on refocus and on
+    // reconnect to catch up — otherwise an inbound message or a delivered status
+    // only appears after a manual refresh.
+    let subscribedOnce = false
+    const runReconcile = async () => {
+      const [{ data: msgs }, { data: c }] = await Promise.all([
+        supabase
+          .from("messages")
+          .select("*")
+          .eq("contact_id", contactProp.id)
+          .order("created_at", { ascending: false })
+          .limit(80),
+        supabase.from("contacts").select("*").eq("id", contactProp.id).maybeSingle(),
+      ])
+      if (msgs) {
+        const server = msgs.slice().reverse()
+        setMessages((cur) => {
+          // A new inbound (id we didn't have) reopens the conversational window,
+          // exactly like a live inbound INSERT does.
+          if (server.some((s) => s.direction === "in" && !cur.some((m) => m.id === s.id))) {
+            queueMicrotask(() => setSawInbound(true))
+          }
+          // Replace confirmed rows with server truth; keep only still-pending
+          // optimistic sends the server hasn't recorded yet.
+          const pending = cur.filter(
+            (m) =>
+              m._optimistic &&
+              !server.some(
+                (s) =>
+                  s.direction === m.direction &&
+                  s.channel === m.channel &&
+                  s.body === m.body &&
+                  (s.media_url ?? null) === (m.media_url ?? null),
+              ),
+          )
+          return [...server, ...pending]
+        })
+      }
+      if (c) setContact((cur) => ({ ...cur, ...c }))
+    }
+    // Refocus and socket-reconnect can both ask to catch up at nearly the same
+    // moment. Coalesce: ride an in-flight reconcile rather than firing a second
+    // parallel fetch, and skip one that lands right after the last so a quick
+    // blur/focus doesn't hit the DB twice.
+    let inFlight: Promise<void> | null = null
+    let lastReconciledAt = 0
+    const reconcile = (): Promise<void> => {
+      if (document.visibilityState !== "visible") return Promise.resolve()
+      if (inFlight) return inFlight
+      if (Date.now() - lastReconciledAt < 1500) return Promise.resolve()
+      inFlight = runReconcile().finally(() => {
+        inFlight = null
+        lastReconciledAt = Date.now()
+      })
+      return inFlight
+    }
+    // A quick glance away keeps the socket alive and the live handlers cover it,
+    // so only reconcile after a real absence — coming back stays instant.
+    let hiddenAt = 0
+    const onVisible = () => {
+      if (document.visibilityState === "hidden") {
+        hiddenAt = Date.now()
+      } else if (hiddenAt && Date.now() - hiddenAt > 2000) {
+        hiddenAt = 0
+        void reconcile()
+      }
+    }
+    document.addEventListener("visibilitychange", onVisible)
+
     const channel = supabase
       .channel(`thread:${contactProp.id}`, {
         config: { presence: { key: currentUserId } },
@@ -324,6 +396,9 @@ export function ThreadPane({
       .subscribe((status) => {
         if (status === "SUBSCRIBED") {
           void channel.track({ user_id: currentUserId, name: myName, typing_at: null })
+          // A re-SUBSCRIBED after a drop means events may have been missed.
+          if (subscribedOnce) void reconcile()
+          subscribedOnce = true
         }
       })
     channelRef.current = channel
@@ -331,6 +406,7 @@ export function ThreadPane({
       if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
       typingAtRef.current = null
       channelRef.current = null
+      document.removeEventListener("visibilitychange", onVisible)
       void supabase.removeChannel(channel)
     }
   }, [contactProp.id, currentUserId, myName])

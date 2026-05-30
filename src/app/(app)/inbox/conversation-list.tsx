@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useMemo, useState } from "react"
+import { memo, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { formatDistanceToNow } from "date-fns"
@@ -44,6 +44,93 @@ function inSegment(c: Conversation, segment: Segment): boolean {
   if (segment === "members") return Boolean(c.is_member)
   return (c.inbox_category ?? "general") === segment
 }
+
+/** One conversation row. Memoized so a realtime update to a single conversation
+ *  (or any message INSERT that bumps one row) re-renders only that row instead
+ *  of reformatting the relative time and re-rendering all ~200 list rows. The
+ *  parent passes stable refs (unchanged rows keep their object identity across
+ *  setItems) and a stable onSelect, so memo skips untouched rows. */
+const ConversationRow = memo(function ConversationRow({
+  c,
+  active,
+  onSelect,
+}: {
+  c: Conversation
+  active: boolean
+  onSelect: (id: string) => void
+}) {
+  const awaitingReply = isAwaitingReply(c)
+  const lastAt = c.last_message_at
+    ? formatDistanceToNow(new Date(c.last_message_at), { addSuffix: false })
+    : null
+  return (
+    <li>
+      {/* A real prefetching Link (not a button): prefetch pulls the full thread
+          — messages included — as the row enters the viewport, so the FIRST tap
+          opens instantly with no load, matching the contacts list. scroll={false}
+          keeps the list scroll position; onClick flips the active row
+          optimistically. */}
+      <Link
+        href={`/inbox?c=${c.id}`}
+        prefetch
+        scroll={false}
+        onClick={() => c.id && onSelect(c.id)}
+        className={cn(
+          "w-full text-left flex items-center gap-2.5 px-4 py-3.5 transition-colors",
+          active
+            ? "bg-white shadow-[inset_3px_0_0_var(--gold)]"
+            : "hover:bg-white/60 active:bg-white/60",
+        )}
+        aria-current={active ? "page" : undefined}
+      >
+        <span className="w-2 shrink-0 flex justify-center" aria-hidden={!awaitingReply}>
+          {awaitingReply && (
+            <span className="h-2.5 w-2.5 rounded-pill bg-gold" aria-label="Awaiting reply" />
+          )}
+        </span>
+        <Avatar name={c.name ?? c.phone ?? c.email} size="md" />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-baseline justify-between gap-2">
+            <p className={cn("truncate", awaitingReply ? "font-semibold text-ink" : "font-medium text-ink")}>
+              {c.name ?? formatPhone(c.phone) ?? c.email ?? "Unknown"}
+            </p>
+            {lastAt && (
+              <span
+                data-dynamic
+                className={cn("text-micro shrink-0", awaitingReply ? "text-gold-dark font-medium" : "text-ink-faint")}
+              >
+                {lastAt}
+              </span>
+            )}
+          </div>
+          {/* Preview + compliance flags share one line so every row is the
+              same height (avatar + two lines). STOP/UNSUB stay inline. */}
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <p className={cn("text-small truncate min-w-0 flex-1", awaitingReply ? "text-ink" : "text-ink-muted")}>
+              {c.last_message_channel === "email" && (
+                <Mail size={12} className="inline-block mr-1 -mt-0.5 text-ink-faint" aria-label="Email" />
+              )}
+              {c.last_message_body ? (
+                <>
+                  {c.last_message_direction === "out" && (
+                    <span className="text-ink-faint">You: </span>
+                  )}
+                  {c.last_message_body}
+                </>
+              ) : (
+                <span className="text-ink-faint">
+                  {c.phone ? formatPhone(c.phone) : c.email ?? "No messages yet"}
+                </span>
+              )}
+            </p>
+            {c.sms_opted_out_at && <Badge variant="warning" className="shrink-0">STOP</Badge>}
+            {c.email_unsubscribed_at && <Badge variant="muted" className="shrink-0">UNSUB</Badge>}
+          </div>
+        </div>
+      </Link>
+    </li>
+  )
+})
 
 interface ConversationListProps {
   conversations: Conversation[]
@@ -148,7 +235,23 @@ export function ConversationList({
         },
       )
       .subscribe()
+    // Realtime is live-only and drops while the tab is backgrounded; reconcile
+    // the list on refocus so anything missed while away isn't stuck until a
+    // manual refresh. A quick glance away (< 2s) keeps the socket alive and the
+    // live handlers above already covered it, so skip the server round-trip and
+    // only refresh after a real absence — coming back stays instant.
+    let hiddenAt = 0
+    const onVisible = () => {
+      if (document.visibilityState === "hidden") {
+        hiddenAt = Date.now()
+      } else if (hiddenAt && Date.now() - hiddenAt > 2000) {
+        hiddenAt = 0
+        router.refresh()
+      }
+    }
+    document.addEventListener("visibilitychange", onVisible)
     return () => {
+      document.removeEventListener("visibilitychange", onVisible)
       void supabase.removeChannel(channel)
     }
   }, [router])
@@ -260,80 +363,14 @@ export function ConversationList({
           </li>
         )}
 
-        {filtered.map((c) => {
-          const active = c.id === activeId
-          const awaitingReply = isAwaitingReply(c)
-          const lastAt = c.last_message_at
-            ? formatDistanceToNow(new Date(c.last_message_at), { addSuffix: false })
-            : null
-          return (
-            <li key={c.id}>
-              {/* A real prefetching Link (not a button): prefetch pulls the
-                  full thread — messages included — as the row enters the
-                  viewport, so the FIRST tap opens instantly with no load,
-                  matching the contacts list. scroll={false} keeps the list
-                  scroll position; onClick flips the active row optimistically. */}
-              <Link
-                href={`/inbox?c=${c.id}`}
-                prefetch
-                scroll={false}
-                onClick={() => c.id && setOptimisticId(c.id)}
-                className={cn(
-                  "w-full text-left flex items-center gap-2.5 px-4 py-3.5 transition-colors",
-                  active
-                    ? "bg-white shadow-[inset_3px_0_0_var(--gold)]"
-                    : "hover:bg-white/60 active:bg-white/60",
-                )}
-                aria-current={active ? "page" : undefined}
-              >
-                <span className="w-2 shrink-0 flex justify-center" aria-hidden={!awaitingReply}>
-                  {awaitingReply && (
-                    <span className="h-2.5 w-2.5 rounded-pill bg-gold" aria-label="Awaiting reply" />
-                  )}
-                </span>
-                <Avatar name={c.name ?? c.phone ?? c.email} size="md" />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <p className={cn("truncate", awaitingReply ? "font-semibold text-ink" : "font-medium text-ink")}>
-                      {c.name ?? formatPhone(c.phone) ?? c.email ?? "Unknown"}
-                    </p>
-                    {lastAt && (
-                      <span
-                        data-dynamic
-                        className={cn("text-micro shrink-0", awaitingReply ? "text-gold-dark font-medium" : "text-ink-faint")}
-                      >
-                        {lastAt}
-                      </span>
-                    )}
-                  </div>
-                  {/* Preview + compliance flags share one line so every row is the
-                      same height (avatar + two lines). STOP/UNSUB stay inline. */}
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <p className={cn("text-small truncate min-w-0 flex-1", awaitingReply ? "text-ink" : "text-ink-muted")}>
-                      {c.last_message_channel === "email" && (
-                        <Mail size={12} className="inline-block mr-1 -mt-0.5 text-ink-faint" aria-label="Email" />
-                      )}
-                      {c.last_message_body ? (
-                        <>
-                          {c.last_message_direction === "out" && (
-                            <span className="text-ink-faint">You: </span>
-                          )}
-                          {c.last_message_body}
-                        </>
-                      ) : (
-                        <span className="text-ink-faint">
-                          {c.phone ? formatPhone(c.phone) : c.email ?? "No messages yet"}
-                        </span>
-                      )}
-                    </p>
-                    {c.sms_opted_out_at && <Badge variant="warning" className="shrink-0">STOP</Badge>}
-                    {c.email_unsubscribed_at && <Badge variant="muted" className="shrink-0">UNSUB</Badge>}
-                  </div>
-                </div>
-              </Link>
-            </li>
-          )
-        })}
+        {filtered.map((c) => (
+          <ConversationRow
+            key={c.id}
+            c={c}
+            active={c.id === activeId}
+            onSelect={setOptimisticId}
+          />
+        ))}
       </ol>
     </>
   )

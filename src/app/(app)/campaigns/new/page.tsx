@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import { requireStaff } from "@/server/auth"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { getContactTagOccurrences } from "@/server/contacts/tags"
 import { PageHeader } from "@/components/ui/page-header"
 import { CampaignComposer } from "./campaign-composer"
 
@@ -8,17 +8,9 @@ export const metadata: Metadata = { title: "New campaign" }
 
 export default async function NewCampaignPage() {
   await requireStaff()
-  const supabase = await createSupabaseServerClient()
-  const { data: contactRows } = await supabase
-    .from("contacts")
-    .select("tags")
-    .limit(5000)
-
   const tagCounts = new Map<string, number>()
-  for (const row of contactRows ?? []) {
-    for (const t of row.tags ?? []) {
-      tagCounts.set(t, (tagCounts.get(t) ?? 0) + 1)
-    }
+  for (const t of await getContactTagOccurrences()) {
+    tagCounts.set(t, (tagCounts.get(t) ?? 0) + 1)
   }
   const tagOptions = [...tagCounts.entries()]
     .sort((a, b) => b[1] - a[1])

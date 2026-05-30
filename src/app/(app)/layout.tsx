@@ -33,8 +33,12 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode
 }) {
-  const user = await requireStaff()
-  const awaitingReply = await getAwaitingReplyCount()
+  // Independent: the awaiting-reply count doesn't depend on the user, so run
+  // both together instead of paying two serial round-trips on every nav.
+  const [user, awaitingReply] = await Promise.all([
+    requireStaff(),
+    getAwaitingReplyCount(),
+  ])
 
   return (
     // Lock the whole app to the viewport. Children get `flex-1 min-h-0

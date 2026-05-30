@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { requireStaff } from "@/server/auth"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { BASE_TAG_VOCAB } from "@/server/ai/prompts"
+import { getContactTagOccurrences } from "@/server/contacts/tags"
 import { PageHeader } from "@/components/ui/page-header"
 import { ContactForm } from "./contact-form"
 
@@ -9,10 +9,8 @@ export const metadata: Metadata = { title: "New contact" }
 
 export default async function NewContactPage() {
   await requireStaff()
-  const supabase = await createSupabaseServerClient()
-  const { data: tagRows } = await supabase.from("contacts").select("tags").limit(1000)
   const tagSuggestions = Array.from(
-    new Set([...BASE_TAG_VOCAB, ...(tagRows ?? []).flatMap((r) => (r.tags ?? []) as string[])]),
+    new Set([...BASE_TAG_VOCAB, ...(await getContactTagOccurrences())]),
   )
     .filter(Boolean)
     .sort()

@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { Suspense } from "react"
+import { Suspense, cache } from "react"
 import { requireStaff } from "@/server/auth"
 import { isVoiceConfigured } from "@/server/comms/voice"
 import { createSupabaseServerClient, createSupabaseAdminClient } from "@/lib/supabase/server"
@@ -10,8 +10,21 @@ import { ContactPanel } from "./contact-panel"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Inbox } from "lucide-react"
+import type { Tables } from "@/lib/database.types"
 
 export const metadata: Metadata = { title: "Inbox" }
+
+// The thread pane and the contact panel render as two separate Suspense
+// children that both need the same contact and its opt-in mode. Request-scoped
+// memoization collapses what used to be two identical contact reads (and two
+// runs of the opt-in gate) into one per request — the page opens with a single
+// round-trip for the row instead of several.
+const loadContact = cache(async (id: string): Promise<Tables<"contacts"> | null> => {
+  const supabase = await createSupabaseServerClient()
+  const { data } = await supabase.from("contacts").select("*").eq("id", id).maybeSingle()
+  return data
+})
+const loadOptInMode = cache((contact: Tables<"contacts">) => resolveOptInMode(contact))
 
 interface InboxPageProps {
   searchParams: Promise<{ c?: string }>
@@ -67,8 +80,8 @@ async function ThreadLoader({
   // was wasteful and made the thread payload heavy on chatty contacts.
   // Staff names (service-role read) let each outbound message show who sent
   // it — works for every staff member regardless of app_users RLS.
-  const [contactRes, messagesRes, usersRes, replyGate] = await Promise.all([
-    supabase.from("contacts").select("*").eq("id", contactId).maybeSingle(),
+  const [contact, messagesRes, usersRes, replyGate] = await Promise.all([
+    loadContact(contactId),
     supabase
       .from("messages")
       .select("*")
@@ -80,7 +93,7 @@ async function ThreadLoader({
     // a lapsed thread blocks the composer instead of failing on send.
     assertCanSendSms(contactId, "conversational_reply"),
   ])
-  if (!contactRes.data) return null
+  if (!contact) return null
   const messages = (messagesRes.data ?? []).slice().reverse()
   const impliedExpired = !replyGate.ok && replyGate.reason === "implied_expired"
   const senderNames: Record<string, string> = {}
@@ -89,34 +102,33 @@ async function ThreadLoader({
   }
   // The mobile contact sheet reuses ContactPanel, so the thread needs the same
   // panel inputs (voice + opt-in eligibility) to hand it.
-  const optInMode = await resolveOptInMode(contactRes.data)
+  const optInMode = await loadOptInMode(contact)
   return (
     <div className="flex-1 min-w-0 flex flex-col min-h-0">
       <ThreadPane
-        contact={contactRes.data}
+        contact={contact}
         initialMessages={messages}
         currentUserId={currentUserId}
         senderNames={senderNames}
         impliedExpired={impliedExpired}
         voiceConfigured={isVoiceConfigured()}
         optInMode={optInMode}
-        optInRequestedAt={contactRes.data.marketing_opt_in_requested_at}
+        optInRequestedAt={contact.marketing_opt_in_requested_at}
       />
     </div>
   )
 }
 
 async function ContactPanelLoader({ contactId }: { contactId: string }) {
-  const supabase = await createSupabaseServerClient()
-  const { data } = await supabase.from("contacts").select("*").eq("id", contactId).maybeSingle()
-  if (!data) return null
-  const optInMode = await resolveOptInMode(data)
+  const contact = await loadContact(contactId)
+  if (!contact) return null
+  const optInMode = await loadOptInMode(contact)
   return (
     <ContactPanel
-      contact={data}
+      contact={contact}
       voiceConfigured={isVoiceConfigured()}
       optInMode={optInMode}
-      optInRequestedAt={data.marketing_opt_in_requested_at}
+      optInRequestedAt={contact.marketing_opt_in_requested_at}
     />
   )
 }
