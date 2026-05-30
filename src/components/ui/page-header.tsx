@@ -12,16 +12,19 @@ export interface PageHeaderProps
   /** When set, renders a compact inline back affordance in the utility row. */
   backHref?: string
   backLabel?: string
+  /** A custom back affordance (e.g. a history-aware button) for subviews with
+   *  no single parent route. Takes the left slot in place of `backHref`. */
+  backSlot?: React.ReactNode
   /** Optional context that appears in a ⓘ popover next to the title. */
   info?: React.ReactNode
 }
 
 export const PageHeader = React.forwardRef<HTMLElement, PageHeaderProps>(
   function PageHeader(
-    { className, title, eyebrow, actions, backHref, backLabel, info, children, ...props },
+    { className, title, eyebrow, actions, backHref, backLabel, backSlot, info, children, ...props },
     ref,
   ) {
-    const hasUtilityRow = Boolean(backHref || actions)
+    const hasUtilityRow = Boolean(backHref || backSlot || actions)
     return (
       <header
         ref={ref}
@@ -38,7 +41,9 @@ export const PageHeader = React.forwardRef<HTMLElement, PageHeaderProps>(
             back band above a separate actions row. */}
         {hasUtilityRow && (
           <div className="flex flex-wrap items-center justify-between gap-x-[var(--space-sm)] gap-y-2">
-            {backHref ? (
+            {backSlot ? (
+              backSlot
+            ) : backHref ? (
               <Link
                 href={backHref}
                 prefetch

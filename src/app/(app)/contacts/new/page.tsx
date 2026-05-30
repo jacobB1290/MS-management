@@ -20,6 +20,8 @@ export default async function NewContactPage() {
         <PageHeader
           eyebrow="Directory"
           title="New contact"
+          backHref="/contacts"
+          backLabel="All contacts"
           info="Add someone manually. For everyone arriving from the public website form, the form receiver creates them automatically with the form as the proof of opt-in."
         />
       </div>

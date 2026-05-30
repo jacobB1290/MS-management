@@ -3,6 +3,7 @@ import { format } from "date-fns"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { requireAdmin } from "@/server/auth"
 import { PageHeader } from "@/components/ui/page-header"
+import { BackButton } from "@/components/ui/back-button"
 import { Badge } from "@/components/ui/badge"
 import { EmptyState } from "@/components/ui/empty-state"
 
@@ -41,6 +42,7 @@ export default async function AuditPage() {
         <PageHeader
           eyebrow="Console"
           title="Audit log"
+          backSlot={<BackButton label="Back" />}
           info="Every privileged write is logged: sends, opt-out toggles, contact edits, campaign starts, logins, invites. Reads are not logged; the threat is unauthorized writes, not legitimate viewing."
         />
       </div>

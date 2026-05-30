@@ -3,8 +3,7 @@ import { requireStaff } from "@/server/auth"
 import { createSupabaseAdminClient } from "@/lib/supabase/server"
 import { isDemoEnabled } from "@/server/demo"
 import { Sidebar } from "@/components/shell/sidebar"
-import { MobileNav } from "@/components/shell/mobile-nav"
-import { Topbar } from "@/components/shell/topbar"
+import { AppShell } from "@/components/shell/app-shell"
 import { ServiceWorkerRegister } from "@/components/shell/service-worker-register"
 import { LiveRefresh } from "@/components/shell/live-refresh"
 import { StaleReload } from "@/components/shell/stale-reload"
@@ -52,21 +51,14 @@ export default async function AppLayout({
       <StaleReload />
       <Sidebar user={user} awaitingReply={awaitingReply} />
 
-      <div className="flex-1 flex flex-col min-w-0">
-        <Topbar user={user} />
-        {isDemoEnabled() && (
-          <div className="shrink-0 bg-gold/12 border-b border-gold/25 px-4 py-1.5 text-center text-micro text-gold-dark">
-            Demo mode · sample data, nothing is actually sent
-          </div>
-        )}
-        {/*
-         * Each page owns its own scroll region (sticky header + scrolling
-         * body). Main itself never scrolls; that's what kills the "everything
-         * scrolls" iOS feel.
-         */}
-        <main className="flex-1 min-h-0 overflow-hidden">{children}</main>
-        <MobileNav role={user.role} awaitingReply={awaitingReply} />
-      </div>
+      <AppShell
+        user={user}
+        role={user.role}
+        demo={isDemoEnabled()}
+        awaitingReply={awaitingReply}
+      >
+        {children}
+      </AppShell>
     </div>
   )
 }

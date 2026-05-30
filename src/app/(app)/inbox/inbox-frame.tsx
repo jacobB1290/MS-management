@@ -1,7 +1,8 @@
 "use client"
-import { createContext, useCallback, useState } from "react"
+import { createContext, useCallback, useContext, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ConversationList } from "./conversation-list"
+import { ChromeContext } from "@/components/shell/chrome-context"
 import { cn } from "@/lib/utils"
 import type { Tables } from "@/lib/database.types"
 
@@ -28,6 +29,9 @@ interface InboxFrameProps {
  */
 export const InboxNavContext = createContext<{ closeThread: () => void } | null>(null)
 
+// Must equal --motion-medium (0.3s): it gates the route change behind the
+// slide-out so the back gesture doesn't snap. Kept in lockstep with the
+// transition below and the app-shell chrome collapse (same token).
 const SLIDE_MS = 300
 
 export function InboxFrame({ conversations, children }: InboxFrameProps) {
@@ -59,6 +63,15 @@ export function InboxFrame({ conversations, children }: InboxFrameProps) {
   // Drives the mobile slide. Desktop ignores it (both panes are docked there).
   const threadOpen = Boolean(selectedId) && !closing
 
+  // Tell the app shell to collapse the mobile chrome while the thread is open,
+  // off the same state that drives the slide so the two stay in lockstep (incl.
+  // the closing animation). Reset on unmount so leaving the inbox restores it.
+  const chrome = useContext(ChromeContext)
+  useEffect(() => {
+    chrome?.setInboxThreadOpen(threadOpen)
+    return () => chrome?.setInboxThreadOpen(false)
+  }, [threadOpen, chrome])
+
   return (
     <InboxNavContext.Provider value={{ closeThread }}>
       <div className="h-full overflow-hidden">
@@ -70,7 +83,7 @@ export function InboxFrame({ conversations, children }: InboxFrameProps) {
         <div
           className={cn(
             "flex h-full min-h-0",
-            "transition-transform duration-300 ease-[var(--ease-out-soft)] lg:transition-none",
+            "transition-transform duration-[var(--motion-medium)] ease-[var(--ease-out-soft)] motion-reduce:transition-none lg:transition-none",
             // The track's own width is one viewport; -translate-x-full shifts it
             // a full screen so the second pane (thread) fills the viewport.
             threadOpen ? "max-lg:-translate-x-full" : "translate-x-0",
