@@ -1,5 +1,5 @@
 "use client"
-import { useContext, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { InboxNavContext } from "./inbox-frame"
@@ -131,6 +131,10 @@ export function ThreadPane({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const attachInputRef = useRef<HTMLInputElement>(null)
   const scrollerRef = useRef<HTMLDivElement>(null)
+  // Whether the operator is reading the latest messages (vs. scrolled up into
+  // history). A ref, not state, so a late-loading attachment can re-pin without
+  // forcing a re-render of the whole thread.
+  const pinnedToBottomRef = useRef(true)
   // Mobile-only: the contact panel opens as a slide-over sheet (desktop docks it).
   const [infoOpen, setInfoOpen] = useState(false)
 
@@ -416,12 +420,37 @@ export function ThreadPane({
     }
   }, [contactProp.id, currentUserId, myName])
 
-  // Auto-scroll to bottom on new message
-  useEffect(() => {
+  const scrollToBottom = useCallback(() => {
     const el = scrollerRef.current
     if (!el) return
     el.scrollTop = el.scrollHeight
-  }, [messages.length])
+    pinnedToBottomRef.current = true
+  }, [])
+
+  // Keep `pinned` current: at the bottom (within a small slop) we hold the
+  // newest message in view as content grows; scrolled up, we leave them be.
+  const onScrollerScroll = useCallback(() => {
+    const el = scrollerRef.current
+    if (!el) return
+    pinnedToBottomRef.current =
+      el.scrollHeight - el.scrollTop - el.clientHeight < 80
+  }, [])
+
+  // An MMS image/video lays out its real height only after it loads — that's
+  // the "things shift a moment after I open a thread" jump: the bubble grows
+  // and shoves everything, pushing the latest message off the bottom. Re-pin
+  // once it settles, but only when they're already at the bottom, so it never
+  // yanks them out of history they've scrolled up to read.
+  const onMediaLoad = useCallback(() => {
+    if (pinnedToBottomRef.current) scrollToBottom()
+  }, [scrollToBottom])
+
+  // Jump to the latest message when the thread opens/switches or a message is
+  // added. contactProp.id covers a switch where the message count happens to
+  // match, which a length-only dep would miss.
+  useEffect(() => {
+    scrollToBottom()
+  }, [messages.length, contactProp.id, scrollToBottom])
 
   // Ask Claude to draft a fresh reply (empty composer) or improve the current
   // draft. The result lands in the textarea for the operator to edit — never
@@ -1012,6 +1041,7 @@ export function ThreadPane({
 
       <div
         ref={scrollerRef}
+        onScroll={onScrollerScroll}
         className="flex-1 overflow-y-auto overscroll-contain px-4 md:px-8 py-6 space-y-4"
       >
         {visibleMessages.length === 0 && (
@@ -1029,6 +1059,7 @@ export function ThreadPane({
             key={m.id}
             message={m}
             onRetry={handleRetry}
+            onMediaLoad={onMediaLoad}
             senderName={m.direction === "out" && m.sent_by ? senderNames[m.sent_by] ?? null : null}
           />
         ))}
@@ -1405,10 +1436,13 @@ export function ThreadPane({
 function MessageBubble({
   message,
   onRetry,
+  onMediaLoad,
   senderName,
 }: {
   message: OptimisticMessage
   onRetry: (message: OptimisticMessage) => void
+  /** Fired once the bubble's image/video lays out, so the thread can re-pin. */
+  onMediaLoad: () => void
   senderName: string | null
 }) {
   const isOut = message.direction === "out"
@@ -1444,6 +1478,7 @@ function MessageBubble({
             <video
               src={message.media_url}
               controls
+              onLoadedMetadata={onMediaLoad}
               className="rounded-md max-h-64 w-auto mb-2"
             />
           ) : (
@@ -1457,6 +1492,8 @@ function MessageBubble({
               <img
                 src={message.media_url}
                 alt="Attachment"
+                onLoad={onMediaLoad}
+                onError={onMediaLoad}
                 className="rounded-md max-h-64 w-auto"
               />
             </a>
