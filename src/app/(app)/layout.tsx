@@ -7,6 +7,7 @@ import { MobileNav } from "@/components/shell/mobile-nav"
 import { Topbar } from "@/components/shell/topbar"
 import { ServiceWorkerRegister } from "@/components/shell/service-worker-register"
 import { LiveRefresh } from "@/components/shell/live-refresh"
+import { StaleReload } from "@/components/shell/stale-reload"
 
 // Threads whose last message is inbound and that we can still reply to are
 // awaiting a reply — surfaced as a count on the Inbox nav item. The query runs
@@ -48,6 +49,7 @@ export default async function AppLayout({
     <div className="flex h-dvh bg-bg overflow-hidden">
       <ServiceWorkerRegister />
       <LiveRefresh />
+      <StaleReload />
       <Sidebar user={user} awaitingReply={awaitingReply} />
 
       <div className="flex-1 flex flex-col min-w-0">
