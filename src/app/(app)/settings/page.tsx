@@ -1,14 +1,13 @@
 import type { Metadata } from "next"
-import type { ReactNode } from "react"
+import { Suspense, type ReactNode } from "react"
 import { format } from "date-fns"
 import { Check, X } from "lucide-react"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { requireStaff } from "@/server/auth"
-import { getSpendSummary, formatMoney, type SpendSummary } from "@/server/billing/twilio"
+import { getSpendSummary, formatMoney } from "@/server/billing/twilio"
 import {
   getAiSpendSummary,
   formatTokens,
-  type AiSpendSummary,
 } from "@/server/billing/anthropic"
 import { getAiConfig } from "@/server/ai/config"
 import { getModelFamilies } from "@/server/ai/models"
@@ -18,6 +17,7 @@ import { PageHeader } from "@/components/ui/page-header"
 import { PageInfo } from "@/components/ui/page-info"
 import { Badge } from "@/components/ui/badge"
 import { Avatar } from "@/components/ui/avatar"
+import { Skeleton } from "@/components/ui/skeleton"
 import { TeamPanel } from "./team-panel"
 import { StoragePanel } from "./storage-panel"
 import { NotificationsPanel } from "./notifications-panel"
@@ -28,44 +28,13 @@ import { getLastKnowledgeSync } from "@/server/ai/knowledgeSync"
 export const metadata: Metadata = { title: "Settings" }
 
 export default async function SettingsPage() {
+  // Only the user (local, cached) is awaited up front, so the shell + the
+  // instant sections (You, Notifications, Provider config) paint immediately.
+  // Every data-backed section streams in its own Suspense boundary below —
+  // the slow external calls (Twilio + Anthropic billing, the Models API,
+  // storage listing) no longer block the page from appearing.
   const user = await requireStaff()
-  const supabase = await createSupabaseServerClient()
-
-  const [teamRes, heartbeatRes, spend, aiSpend, aiConfig, media, dbRpc, knowledgeRes, lastSync, modelFamilies] =
-    await Promise.all([
-      user.role === "admin"
-        ? supabase.from("app_users").select("user_id, role, display_name, created_at").order("created_at")
-        : Promise.resolve({ data: null }),
-      supabase.from("heartbeat").select("last_run_at").eq("id", 1).maybeSingle(),
-      getSpendSummary(),
-      getAiSpendSummary(),
-      getAiConfig(),
-      listMmsMedia(),
-      supabase.rpc("database_size" as never),
-      supabase
-        .from("church_knowledge")
-        .select("id, title, body, source, source_url, updated_at")
-        .order("updated_at", { ascending: false }),
-      getLastKnowledgeSync(),
-      // Live picker options — one (the latest) per class, discovered from the
-      // Models API. Folded into the batch so it runs alongside the DB reads
-      // instead of adding a serial round-trip after them.
-      getModelFamilies(),
-    ])
-  const aiModelChoices = modelChoicesFrom(modelFamilies)
-  const team = teamRes.data
-  const heartbeat = heartbeatRes.data
-  const dbBytes = Number((dbRpc.data as number | null) ?? 0)
-  const knowledge = knowledgeRes.data ?? []
-  const knowledgeSync = lastSync
-    ? {
-        ran_at: lastSync.ran_at,
-        pages: lastSync.pages,
-        inserted: lastSync.inserted,
-        updated: lastSync.updated,
-        ok: lastSync.ok,
-      }
-    : null
+  const isAdmin = user.role === "admin"
 
   const status = {
     twilio: Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN),
@@ -83,131 +52,97 @@ export default async function SettingsPage() {
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 md:px-8 pb-6 md:pb-8 max-w-3xl w-full">
-      <section className="rounded-lg border border-ink-hairline bg-white p-6">
-        <p className="eyebrow mb-3">You</p>
-        <div className="flex items-center gap-4">
-          <Avatar name={user.displayName ?? user.email} size="lg" />
-          <div>
-            <p className="font-medium text-ink">{user.displayName ?? user.email}</p>
-            <p className="text-small text-ink-faint">{user.email}</p>
-            <Badge variant="gold" className="mt-2 capitalize">
-              {user.role}
-            </Badge>
+        <section className="rounded-lg border border-ink-hairline bg-white p-6">
+          <p className="eyebrow mb-3">You</p>
+          <div className="flex items-center gap-4">
+            <Avatar name={user.displayName ?? user.email} size="lg" />
+            <div>
+              <p className="font-medium text-ink">{user.displayName ?? user.email}</p>
+              <p className="text-small text-ink-faint">{user.email}</p>
+              <Badge variant="gold" className="mt-2 capitalize">
+                {user.role}
+              </Badge>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
-        <p className="eyebrow mb-3">Notifications</p>
-        <NotificationsPanel />
-      </section>
+        <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
+          <p className="eyebrow mb-3">Notifications</p>
+          <NotificationsPanel />
+        </section>
 
-      <SpendSection spend={spend} />
+        <Suspense fallback={<SectionSkeleton title="Spend" />}>
+          <SpendSection />
+        </Suspense>
 
-      <AiUsageSection spend={aiSpend} />
+        <Suspense fallback={<SectionSkeleton title="AI usage" />}>
+          <AiUsageSection />
+        </Suspense>
 
-      {user.role === "admin" && (
+        {isAdmin && (
+          <Suspense fallback={<SectionSkeleton title="AI models" />}>
+            <AiModelsSection />
+          </Suspense>
+        )}
+
+        <Suspense fallback={<SectionSkeleton title="Church knowledge" />}>
+          <ChurchKnowledgeSection isAdmin={isAdmin} />
+        </Suspense>
+
+        <Suspense fallback={<SectionSkeleton title="Storage" />}>
+          <StorageSection />
+        </Suspense>
+
+        {isAdmin && (
+          <Suspense fallback={<SectionSkeleton title="Team" />}>
+            <TeamSection currentUserId={user.id} />
+          </Suspense>
+        )}
+
         <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
           <SectionTitle
-            label="About AI models"
-            info="Pick which Claude model each feature uses, and how much reasoning effort to spend. Changes take effect immediately, no redeploy. Effort applies to Opus and Sonnet; Haiku ignores it. Prompts are cached to keep cost down regardless of model."
+            label="About provider configuration"
+            info="Set the provider env vars in Vercel and redeploy. Until a given provider is configured, the matching send path records the attempt without contacting the carrier; useful for staging, never for real delivery."
           >
-            AI models
+            Provider configuration
           </SectionTitle>
-          <AiModelsPanel config={aiConfig} choices={aiModelChoices} />
+          <dl className="space-y-2">
+            <StatusRow
+              label="Twilio (account + auth)"
+              ready={status.twilio}
+              detail={status.twilio ? "Configured" : "TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN missing"}
+            />
+            <StatusRow
+              label="Twilio Messaging Service"
+              ready={status.twilioMessaging}
+              detail={status.twilioMessaging ? "Configured" : "TWILIO_MESSAGING_SERVICE_SID missing; campaign batches won’t auto-meter"}
+            />
+            <StatusRow
+              label="SendGrid API"
+              ready={status.sendgrid}
+              detail={status.sendgrid ? "Configured" : "SENDGRID_API_KEY + SENDGRID_FROM_EMAIL missing"}
+            />
+            <StatusRow
+              label="SendGrid event webhook"
+              ready={status.sendgridWebhook}
+              detail={status.sendgridWebhook ? "Public key configured" : "SENDGRID_WEBHOOK_PUBLIC_KEY missing; events won’t be verified"}
+            />
+            <StatusRow
+              label="Public form receiver"
+              ready={status.publicForm}
+              detail={status.publicForm ? "HMAC secret configured" : "PUBLIC_FORM_HMAC_SECRET missing"}
+            />
+            <StatusRow
+              label="Cron secret"
+              ready={status.cronSecret}
+              detail={status.cronSecret ? "Cron endpoints protected" : "CRON_SECRET missing; anyone can hit the cron endpoint"}
+            />
+          </dl>
         </section>
-      )}
 
-      <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
-        <SectionTitle
-          label="About church knowledge"
-          info="Facts the AI draft assistant can look up when replying to people (service times, Bible studies, ministries, beliefs, how to visit). Synced daily from ms.church; you can also add entries by hand. The assistant decides when to use them and never invents details it can't find."
-        >
-          Church knowledge
-        </SectionTitle>
-        <ChurchKnowledgePanel
-          entries={knowledge}
-          lastSync={knowledgeSync}
-          isAdmin={user.role === "admin"}
-        />
-      </section>
-
-      <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
-        <SectionTitle
-          label="About storage"
-          info="Two separate Supabase free-tier limits: about 500 MB for your data (contacts, messages, campaigns) and 1 GB for media files. Deleting a media file frees file space but breaks its preview in any past message that used it."
-        >
-          Storage
-        </SectionTitle>
-        <StoragePanel files={media.files} totalBytes={media.totalBytes} dbBytes={dbBytes} />
-      </section>
-
-      {user.role === "admin" && (
-        <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
-          <SectionTitle
-            label="About team settings"
-            info="Sign-in is by invitation only. Admins can invite, demote, or remove people here. Removed people can still sign in but hit the no-access page."
-          >
-            Team
-          </SectionTitle>
-          <TeamPanel team={team ?? []} currentUserId={user.id} />
-        </section>
-      )}
-
-      <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
-        <SectionTitle
-          label="About provider configuration"
-          info="Set the provider env vars in Vercel and redeploy. Until a given provider is configured, the matching send path records the attempt without contacting the carrier; useful for staging, never for real delivery."
-        >
-          Provider configuration
-        </SectionTitle>
-        <dl className="space-y-2">
-          <StatusRow
-            label="Twilio (account + auth)"
-            ready={status.twilio}
-            detail={status.twilio ? "Configured" : "TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN missing"}
-          />
-          <StatusRow
-            label="Twilio Messaging Service"
-            ready={status.twilioMessaging}
-            detail={status.twilioMessaging ? "Configured" : "TWILIO_MESSAGING_SERVICE_SID missing; campaign batches won’t auto-meter"}
-          />
-          <StatusRow
-            label="SendGrid API"
-            ready={status.sendgrid}
-            detail={status.sendgrid ? "Configured" : "SENDGRID_API_KEY + SENDGRID_FROM_EMAIL missing"}
-          />
-          <StatusRow
-            label="SendGrid event webhook"
-            ready={status.sendgridWebhook}
-            detail={status.sendgridWebhook ? "Public key configured" : "SENDGRID_WEBHOOK_PUBLIC_KEY missing; events won’t be verified"}
-          />
-          <StatusRow
-            label="Public form receiver"
-            ready={status.publicForm}
-            detail={status.publicForm ? "HMAC secret configured" : "PUBLIC_FORM_HMAC_SECRET missing"}
-          />
-          <StatusRow
-            label="Cron secret"
-            ready={status.cronSecret}
-            detail={status.cronSecret ? "Cron endpoints protected" : "CRON_SECRET missing; anyone can hit the cron endpoint"}
-          />
-        </dl>
-      </section>
-
-      <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
-        <SectionTitle
-          label="About the heartbeat"
-          info="A daily ping keeps the free-tier Supabase project from pausing."
-        >
-          Heartbeat
-        </SectionTitle>
-        <p className="text-body" data-dynamic>
-          {heartbeat?.last_run_at
-            ? `Last run: ${format(new Date(heartbeat.last_run_at), "PPp")}`
-            : "Never run."}
-        </p>
-      </section>
+        <Suspense fallback={<SectionSkeleton title="Heartbeat" />}>
+          <HeartbeatSection />
+        </Suspense>
       </div>
     </div>
   )
@@ -230,7 +165,23 @@ function SectionTitle({
   )
 }
 
-function SpendSection({ spend }: { spend: SpendSummary }) {
+/** Section-shaped placeholder shown while a streamed section's data loads. The
+ *  card + title are real (no shift on those); only the body is a skeleton. */
+function SectionSkeleton({ title }: { title: string }) {
+  return (
+    <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
+      <p className="eyebrow mb-3">{title}</p>
+      <div className="space-y-2.5">
+        <Skeleton className="h-4 w-1/3" />
+        <Skeleton className="h-4 w-2/3" />
+        <Skeleton className="h-4 w-1/2" />
+      </div>
+    </section>
+  )
+}
+
+async function SpendSection() {
+  const spend = await getSpendSummary()
   return (
     <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
       <SectionTitle
@@ -278,7 +229,8 @@ function SpendSection({ spend }: { spend: SpendSummary }) {
   )
 }
 
-function AiUsageSection({ spend }: { spend: AiSpendSummary }) {
+async function AiUsageSection() {
+  const spend = await getAiSpendSummary()
   return (
     <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
       <SectionTitle
@@ -325,6 +277,117 @@ function AiUsageSection({ spend }: { spend: AiSpendSummary }) {
           )}
         </>
       )}
+    </section>
+  )
+}
+
+async function AiModelsSection() {
+  const [config, modelFamilies] = await Promise.all([getAiConfig(), getModelFamilies()])
+  const choices = modelChoicesFrom(modelFamilies)
+  return (
+    <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
+      <SectionTitle
+        label="About AI models"
+        info="Pick which Claude model each feature uses, and how much reasoning effort to spend. Changes take effect immediately, no redeploy. Effort applies to Opus and Sonnet; Haiku ignores it. Prompts are cached to keep cost down regardless of model."
+      >
+        AI models
+      </SectionTitle>
+      <AiModelsPanel config={config} choices={choices} />
+    </section>
+  )
+}
+
+async function ChurchKnowledgeSection({ isAdmin }: { isAdmin: boolean }) {
+  const supabase = await createSupabaseServerClient()
+  const [knowledgeRes, lastSync] = await Promise.all([
+    supabase
+      .from("church_knowledge")
+      .select("id, title, body, source, source_url, updated_at")
+      .order("updated_at", { ascending: false }),
+    getLastKnowledgeSync(),
+  ])
+  const knowledge = knowledgeRes.data ?? []
+  const knowledgeSync = lastSync
+    ? {
+        ran_at: lastSync.ran_at,
+        pages: lastSync.pages,
+        inserted: lastSync.inserted,
+        updated: lastSync.updated,
+        ok: lastSync.ok,
+      }
+    : null
+  return (
+    <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
+      <SectionTitle
+        label="About church knowledge"
+        info="Facts the AI draft assistant can look up when replying to people (service times, Bible studies, ministries, beliefs, how to visit). Synced daily from ms.church; you can also add entries by hand. The assistant decides when to use them and never invents details it can't find."
+      >
+        Church knowledge
+      </SectionTitle>
+      <ChurchKnowledgePanel entries={knowledge} lastSync={knowledgeSync} isAdmin={isAdmin} />
+    </section>
+  )
+}
+
+async function StorageSection() {
+  const supabase = await createSupabaseServerClient()
+  const [media, dbRpc] = await Promise.all([
+    listMmsMedia(),
+    supabase.rpc("database_size" as never),
+  ])
+  const dbBytes = Number((dbRpc.data as number | null) ?? 0)
+  return (
+    <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
+      <SectionTitle
+        label="About storage"
+        info="Two separate Supabase free-tier limits: about 500 MB for your data (contacts, messages, campaigns) and 1 GB for media files. Deleting a media file frees file space but breaks its preview in any past message that used it."
+      >
+        Storage
+      </SectionTitle>
+      <StoragePanel files={media.files} totalBytes={media.totalBytes} dbBytes={dbBytes} />
+    </section>
+  )
+}
+
+async function TeamSection({ currentUserId }: { currentUserId: string }) {
+  const supabase = await createSupabaseServerClient()
+  const { data: team } = await supabase
+    .from("app_users")
+    .select("user_id, role, display_name, created_at")
+    .order("created_at")
+  return (
+    <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
+      <SectionTitle
+        label="About team settings"
+        info="Sign-in is by invitation only. Admins can invite, demote, or remove people here. Removed people can still sign in but hit the no-access page."
+      >
+        Team
+      </SectionTitle>
+      <TeamPanel team={team ?? []} currentUserId={currentUserId} />
+    </section>
+  )
+}
+
+async function HeartbeatSection() {
+  const supabase = await createSupabaseServerClient()
+  const { data: heartbeat } = await supabase
+    .from("heartbeat")
+    .select("last_run_at")
+    .eq("id", 1)
+    .maybeSingle()
+  return (
+    <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
+      <SectionTitle
+        label="About the heartbeat"
+        info="A daily ping keeps the free-tier Supabase project from pausing."
+      >
+        Heartbeat
+      </SectionTitle>
+      <p className="text-body" data-dynamic>
+        {heartbeat?.last_run_at
+          ? `Last run: ${format(new Date(heartbeat.last_run_at), "PPp")}`
+          : "Never run."}
+      </p>
     </section>
   )
 }

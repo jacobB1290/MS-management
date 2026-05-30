@@ -37,6 +37,7 @@ import {
 } from "@/lib/email-attachments"
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import { ContactPanel } from "./contact-panel"
+import { AiNote } from "./ai-note"
 import { explainTwilioError } from "@/lib/twilio-errors"
 import type { Tables } from "@/lib/database.types"
 
@@ -433,15 +434,6 @@ export function ThreadPane({
       active = false
     }
   }, [])
-
-  // Auto-clear the operator note. The CSS fade is ~6s; this is the fallback that
-  // also covers reduced-motion (where the animation, and its onAnimationEnd,
-  // don't run). Re-runs whenever a new note arrives.
-  useEffect(() => {
-    if (!aiNote) return
-    const t = setTimeout(() => setAiNote(null), 6500)
-    return () => clearTimeout(t)
-  }, [aiNote])
 
   // Ask Claude to draft a fresh reply (empty composer) or improve the current
   // draft. The result lands in the textarea for the operator to edit — never
@@ -1056,17 +1048,7 @@ export function ThreadPane({
 
       <footer className="relative shrink-0 border-t border-ink-hairline bg-bg/95 backdrop-blur px-4 md:px-6 py-3 md:py-4">
         {aiNote && (
-          <div
-            key={aiNote}
-            role="status"
-            onAnimationEnd={() => setAiNote(null)}
-            className="ai-note pointer-events-none absolute inset-x-3 md:inset-x-6 bottom-full z-10 mb-2"
-          >
-            <div className="pointer-events-auto flex items-start gap-2 rounded-lg border border-gold/40 bg-white px-3 py-2 shadow-md">
-              <Sparkles size={14} className="mt-0.5 shrink-0 text-gold-dark" />
-              <p className="text-small leading-prose text-ink-muted">{aiNote}</p>
-            </div>
-          </div>
+          <AiNote key={aiNote} note={aiNote} onDismiss={() => setAiNote(null)} />
         )}
         {/* Standalone selector for the blocker / AI-preview states; an active
             composer shows it in the controls row above the bar instead. */}
