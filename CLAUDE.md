@@ -198,7 +198,9 @@ for the typed view. Highlights:
   transition (the token motion tiers), never an instant state jump. A new
   affordance that pops in with no transition, or a value that hard-cuts, is a
   bug. Honor `prefers-reduced-motion` (it scales motion down, it does not excuse
-  skipping it elsewhere).
+  skipping it elsewhere). **"It animates" is the floor; "smooth and tasteful" is
+  the bar** — every motion change gets an independent quality review before it
+  ships (see §11).
 
 ### Adaptation from the marketing site
 
@@ -271,6 +273,15 @@ The mobile reply UX is **as critical as desktop** — staff will live in it.
 - **Run the harness before pushing UI changes** (`npm run harness`).
   Update snapshots when intentional (`npm run harness:update`) and commit
   the new baselines.
+- **Independent motion review — mandatory, every time it's relevant.** Whenever
+  a change adds or alters motion (a transition, a newly animated affordance, an
+  optimistic update, a slide/fade/open-close, anything that moves or appears),
+  hand it to a *separate, unbiased agent* — one that did NOT write the change —
+  to judge the motion quality, not just its presence: easing/timing feel, no
+  jank, no layout shift, nothing abrupt, snappy or gratuitous, reduced-motion
+  respected. Its findings are blocking polish, not optional notes — address them
+  before shipping. The owner cares about this specifically and deeply: animated
+  is the floor, *extremely smooth and tastefully done* is the requirement.
 
 ## 12. Environment variables
 
