@@ -5,6 +5,7 @@ import { format } from "date-fns"
 import { Plus } from "lucide-react"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { requireStaff } from "@/server/auth"
+import { getContactTagOccurrences } from "@/server/contacts/tags"
 import { Button } from "@/components/ui/button"
 import { Avatar } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -23,12 +24,10 @@ export default async function ContactsPage({ searchParams }: PageProps) {
   await requireStaff()
   const { q, tag } = await searchParams
 
-  // Distinct tags across contacts, for the filter dropdown.
-  const supabase = await createSupabaseServerClient()
-  const { data: tagRows } = await supabase.from("contacts").select("tags").limit(1000)
-  const allTags = Array.from(
-    new Set((tagRows ?? []).flatMap((r) => (r.tags ?? []) as string[])),
-  ).sort((a, b) => a.localeCompare(b))
+  // Distinct tags across contacts, for the filter dropdown (cached scan).
+  const allTags = Array.from(new Set(await getContactTagOccurrences())).sort((a, b) =>
+    a.localeCompare(b),
+  )
 
   return (
     <div className="flex flex-col h-full min-h-0">
