@@ -86,6 +86,12 @@ export function ContactsSearch({
         />
         <Input
           type="search"
+          inputMode="search"
+          enterKeyHint="search"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          aria-label="Search contacts"
           placeholder="Search contacts by name, phone, email"
           value={q}
           onChange={(e) => setQ(e.target.value)}

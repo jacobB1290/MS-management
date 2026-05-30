@@ -7,6 +7,8 @@ import { AppShell } from "@/components/shell/app-shell"
 import { ServiceWorkerRegister } from "@/components/shell/service-worker-register"
 import { LiveRefresh } from "@/components/shell/live-refresh"
 import { StaleReload } from "@/components/shell/stale-reload"
+import { PlatformEnhancements } from "@/components/shell/platform-enhancements"
+import { AppBadge } from "@/components/shell/app-badge"
 
 // Threads whose last message is inbound and that we can still reply to are
 // awaiting a reply — surfaced as a count on the Inbox nav item. The query runs
@@ -41,14 +43,17 @@ export default async function AppLayout({
   ])
 
   return (
-    // Lock the whole app to the viewport. Children get `flex-1 min-h-0
-    // overflow-hidden` so internal scroll regions are owned by each page
-    // (conversation list, message thread, contact list) rather than the
-    // outer document. Fixes "everything scrolls" feel.
-    <div className="flex h-dvh bg-bg overflow-hidden">
+    // Lock the whole app to the viewport. h-full (not h-dvh) tracks the fixed
+    // body, which lifts its bottom edge for the keyboard inset — so the app
+    // area shrinks with the keyboard instead of the composer hiding behind it.
+    // Children get `flex-1 min-h-0 overflow-hidden` so internal scroll regions
+    // are owned by each page rather than the outer document.
+    <div className="flex h-full bg-bg overflow-hidden">
       <ServiceWorkerRegister />
       <LiveRefresh />
       <StaleReload />
+      <PlatformEnhancements />
+      <AppBadge count={awaitingReply} />
       <Sidebar user={user} awaitingReply={awaitingReply} />
 
       <AppShell

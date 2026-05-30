@@ -43,9 +43,13 @@ export const viewport: Viewport = {
   userScalable: false,
   viewportFit: "cover",
   // Resize the layout when the on-screen keyboard opens so the sticky compose
-  // bar stays above it instead of being covered.
+  // bar stays above it instead of being covered. (PlatformEnhancements covers
+  // WebKit, which doesn't honor this yet.)
   interactiveWidget: "resizes-content",
   themeColor: "#f6f1ea",
+  // Light-only product: keep WebKit from inverting form controls / scrollbars
+  // in Dark Mode. Mirrors `color-scheme: light` in globals.css.
+  colorScheme: "light",
 }
 
 export default function RootLayout({

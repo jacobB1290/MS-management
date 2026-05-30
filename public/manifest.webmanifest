@@ -1,13 +1,18 @@
 {
+  "id": "/",
   "name": "MS Management",
   "short_name": "MS Mgmt",
   "description": "Staff console for Morning Star Christian Church.",
+  "lang": "en",
+  "dir": "ltr",
   "start_url": "/inbox",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "orientation": "portrait",
   "background_color": "#f6f1ea",
   "theme_color": "#f6f1ea",
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/icon",
@@ -20,6 +25,29 @@
       "sizes": "180x180",
       "type": "image/png",
       "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Inbox",
+      "short_name": "Inbox",
+      "description": "Open the conversation inbox",
+      "url": "/inbox",
+      "icons": [{ "src": "/icon", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Contacts",
+      "short_name": "Contacts",
+      "description": "Browse contacts",
+      "url": "/contacts",
+      "icons": [{ "src": "/icon", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "New campaign",
+      "short_name": "Campaign",
+      "description": "Compose a new SMS or email campaign",
+      "url": "/campaigns/new",
+      "icons": [{ "src": "/icon", "sizes": "192x192", "type": "image/png" }]
     }
   ],
   "categories": ["productivity", "business"]

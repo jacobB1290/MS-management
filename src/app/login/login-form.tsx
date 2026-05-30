@@ -182,7 +182,12 @@ export function LoginForm({ demoEnabled = false }: { demoEnabled?: boolean }) {
               // In demo, accept the `demo` sentinel as well as emails, so the
               // browser's email validation doesn't block it.
               type={demoEnabled ? "text" : "email"}
+              inputMode="email"
               autoComplete="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              enterKeyHint="go"
               required
               autoFocus
               defaultValue={email}

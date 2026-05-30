@@ -185,14 +185,23 @@ html {
 
 body {
   position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100dvh;
+  top: 0;
+  left: 0;
+  right: 0;
+  /* Defaults to the bottom of the viewport (full dynamic height). The fixed
+   * body can't be shrunk by iOS when the keyboard opens, so a sticky composer
+   * would hide behind it — PlatformEnhancements measures the keyboard via
+   * visualViewport and lifts this edge by `--keyboard-inset` to clear it.
+   * Self-corrects against `interactive-widget: resizes-content` (where the
+   * layout viewport already shrank, the inset computes to ~0). */
+  bottom: var(--keyboard-inset, 0px);
   overflow: hidden;
   overscroll-behavior: none;
   /* Disable double-tap-to-zoom and pinch-zoom on the chrome — inner
    * regions that want it can opt back in with touch-action: auto. */
   touch-action: manipulation;
+  /* Ease the lift so the composer rises with the keyboard rather than snapping. */
+  transition: bottom var(--motion-medium) var(--ease-out-soft);
 }
 
 /* Inputs at 16px+ prevent iOS from zooming the viewport on focus. */
@@ -200,6 +209,17 @@ input,
 textarea,
 select {
   font-size: max(16px, var(--text-body));
+}
+
+/* Native auto-grow (Safari 26.2+, Chromium). Scoped to fields that opt in via
+ * the autoGrow Textarea — the default `resize-y` textareas keep their fixed
+ * box. Where this is supported the Textarea skips its JS height measurement,
+ * so the field grows on the compositor with no per-keystroke reflow; older
+ * WebKit falls back to that JS path automatically. */
+@supports (field-sizing: content) {
+  .field-sizing-content {
+    field-sizing: content;
+  }
 }
 
 * {
@@ -214,6 +234,11 @@ html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  /* This product is light-only. Declaring the scheme stops iOS/iPadOS from
+   * auto-inverting form controls, scrollbars, and the `black-translucent`
+   * status bar when the device is in Dark Mode, which otherwise paints dark
+   * UI fragments over the warm cream surface. */
+  color-scheme: light;
 }
 
 body {
@@ -224,6 +249,10 @@ body {
   line-height: var(--leading-normal);
   font-feature-settings: "ss01", "cv11";
   -webkit-tap-highlight-color: transparent;
+  /* Safari 26 / Chromium: even out the ragged edge and avoid orphaned last
+   * lines in running copy. Inherits, so paragraph text picks it up; headings
+   * override with `balance` below. Ignored gracefully on older WebKit. */
+  text-wrap: pretty;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -232,6 +261,9 @@ h1, h2, h3, h4, h5, h6 {
   line-height: var(--leading-snug);
   letter-spacing: var(--tracking-tight);
   color: var(--text-primary);
+  /* Short display headings read best with lines evened out rather than
+   * the last-line-only treatment `pretty` gives body copy. */
+  text-wrap: balance;
 }
 
 /* Identity phrase — italic gold, never wrap in ASCII quotes */
@@ -413,6 +445,9 @@ h1, h2, h3, h4, h5, h6 {
 :where(a, a:link, a:visited, a:hover, a:active) {
   color: inherit;
   text-decoration: none;
+  /* No long-press "open/copy link" callout — in a home-screen web app a link
+   * should feel like a native control, not a Safari hyperlink. */
+  -webkit-touch-callout: none;
 }
 /* In @layer base so Tailwind background + text color utilities (utilities layer)
  * win over this reset. Unlayered, it forced every button's background to
@@ -427,6 +462,12 @@ h1, h2, h3, h4, h5, h6 {
     background-color: transparent;
     color: inherit;
     font: inherit;
+    /* Tap targets shouldn't be text-selectable or pop the iOS callout on a
+     * long press — that's native control behavior. Content (message bubbles,
+     * contact fields) stays selectable: this is scoped to controls only. */
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
   }
   :where(button:active, [role="button"]:active, a:active) {
     color: inherit;

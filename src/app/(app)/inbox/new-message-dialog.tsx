@@ -126,7 +126,9 @@ export function NewMessageDialog() {
             <Input
               id="nm-phone"
               type="tel"
+              inputMode="tel"
               autoComplete="tel"
+              enterKeyHint="next"
               placeholder="(208) 555-0100"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
@@ -138,6 +140,8 @@ export function NewMessageDialog() {
             <Input
               id="nm-name"
               autoComplete="name"
+              autoCapitalize="words"
+              enterKeyHint="next"
               placeholder="Jane Doe"
               value={name}
               onChange={(e) => setName(e.target.value)}

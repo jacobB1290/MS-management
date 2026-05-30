@@ -20,6 +20,19 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
       () => innerRef.current as HTMLTextAreaElement,
     )
 
+    // Safari 26.2+ / Chromium grow the field natively via `field-sizing:
+    // content` (applied in CSS). When that's available we skip the JS height
+    // measurement entirely — no per-keystroke reflow. Older WebKit keeps the
+    // measure-and-set fallback. Evaluated once on the client; SSR-safe.
+    const nativeFieldSizing = React.useMemo(
+      () =>
+        typeof CSS !== "undefined" &&
+        typeof CSS.supports === "function" &&
+        CSS.supports("field-sizing: content"),
+      [],
+    )
+    const jsAutoGrow = autoGrow && !nativeFieldSizing
+
     const resize = React.useCallback(() => {
       const el = innerRef.current
       if (!el) return
@@ -28,15 +41,15 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
     }, [])
 
     React.useEffect(() => {
-      if (autoGrow) resize()
-    }, [autoGrow, resize, props.value, props.defaultValue])
+      if (jsAutoGrow) resize()
+    }, [jsAutoGrow, resize, props.value, props.defaultValue])
 
     return (
       <textarea
         ref={innerRef}
         rows={rows}
         onChange={(event) => {
-          if (autoGrow) resize()
+          if (jsAutoGrow) resize()
           onChange?.(event)
         }}
         className={cn(
@@ -48,7 +61,9 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           "focus-visible:outline-2 focus-visible:outline-gold focus-visible:outline-offset-2",
           "disabled:opacity-60 disabled:cursor-not-allowed",
           "aria-invalid:border-danger aria-invalid:focus-visible:outline-danger",
-          autoGrow && "resize-none overflow-hidden",
+          // `field-sizing-content` lets WebKit/Chromium grow the box; the JS
+          // fallback uses overflow-hidden + measured height instead.
+          autoGrow && "resize-none overflow-hidden field-sizing-content",
           className,
         )}
         {...props}
