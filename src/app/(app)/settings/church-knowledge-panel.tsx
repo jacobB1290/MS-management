@@ -46,24 +46,58 @@ export function ChurchKnowledgePanel({
   const [editBody, setEditBody] = useState("")
   const [busyId, setBusyId] = useState<string | null>(null)
 
+  // Entries are held locally so add/edit/delete apply instantly and roll back
+  // on failure. Only a website sync still goes through the server (router
+  // .refresh), which re-provides this prop — reseed when that snapshot changes.
+  const [items, setItems] = useState<KnowledgeEntry[]>(entries)
+  const seedSig = entries.map((e) => `${e.id}:${e.updated_at}`).join("|")
+  const [seed, setSeed] = useState(seedSig)
+  if (seedSig !== seed) {
+    setSeed(seedSig)
+    setItems(entries)
+  }
+
   async function add() {
-    if (!title.trim() || !body.trim()) return
+    const t = title.trim()
+    const b = body.trim()
+    if (!t || !b) return
     setAdding(true)
+    // Optimistic: show the new entry at the top (server orders updated_at desc)
+    // and clear the form right away. Swap in the real id on success.
+    const tempId = `temp-${Date.now()}`
+    const optimistic: KnowledgeEntry = {
+      id: tempId,
+      title: t,
+      body: b,
+      source: "staff",
+      source_url: null,
+      updated_at: new Date().toISOString(),
+    }
+    setItems((cur) => [optimistic, ...cur])
+    setTitle("")
+    setBody("")
     try {
       const res = await fetch("/api/ai/knowledge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, body }),
+        body: JSON.stringify({ title: t, body: b }),
       })
-      if (!res.ok) {
-        const j = await res.json().catch(() => null)
+      const j = await res.json().catch(() => null)
+      if (!res.ok || !j?.id) {
+        // Roll back: drop the row and restore what they typed.
+        setItems((cur) => cur.filter((e) => e.id !== tempId))
+        setTitle(t)
+        setBody(b)
         toast.error(`Couldn’t add: ${j?.error ?? res.status}`)
       } else {
+        setItems((cur) => cur.map((e) => (e.id === tempId ? { ...e, id: j.id } : e)))
         toast.success("Knowledge added")
-        setTitle("")
-        setBody("")
-        router.refresh()
       }
+    } catch {
+      setItems((cur) => cur.filter((e) => e.id !== tempId))
+      setTitle(t)
+      setBody(b)
+      toast.error("Couldn’t add entry")
     } finally {
       setAdding(false)
     }
@@ -95,21 +129,36 @@ export function ChurchKnowledgePanel({
   }
 
   async function saveEdit(id: string) {
-    if (!editTitle.trim() || !editBody.trim()) return
+    const t = editTitle.trim()
+    const b = editBody.trim()
+    if (!t || !b) return
     setBusyId(id)
+    const prev = items
+    // Optimistic: apply the edit, move it to the top (matches updated_at desc),
+    // and close the editor immediately.
+    setItems((cur) => {
+      const target = cur.find((e) => e.id === id)
+      if (!target) return cur
+      const rest = cur.filter((e) => e.id !== id)
+      return [{ ...target, title: t, body: b, updated_at: new Date().toISOString() }, ...rest]
+    })
+    setEditingId(null)
     try {
       const res = await fetch(`/api/ai/knowledge/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: editTitle, body: editBody }),
+        body: JSON.stringify({ title: t, body: b }),
       })
       if (!res.ok) {
         const j = await res.json().catch(() => null)
+        // Roll back and reopen the editor with what they typed.
+        setItems(prev)
+        setEditingId(id)
+        setEditTitle(t)
+        setEditBody(b)
         toast.error(`Couldn’t save: ${j?.error ?? res.status}`)
       } else {
         toast.success("Saved")
-        setEditingId(null)
-        router.refresh()
       }
     } finally {
       setBusyId(null)
@@ -119,14 +168,17 @@ export function ChurchKnowledgePanel({
   async function remove(id: string) {
     if (!confirm("Delete this knowledge entry? The AI will no longer use it.")) return
     setBusyId(id)
+    const prev = items
+    // Optimistic: drop it from the list immediately; restore on failure.
+    setItems((cur) => cur.filter((e) => e.id !== id))
     try {
       const res = await fetch(`/api/ai/knowledge/${id}`, { method: "DELETE" })
       if (!res.ok) {
         const j = await res.json().catch(() => null)
+        setItems(prev)
         toast.error(`Couldn’t delete: ${j?.error ?? res.status}`)
       } else {
         toast.success("Deleted")
-        router.refresh()
       }
     } finally {
       setBusyId(null)
@@ -155,14 +207,14 @@ export function ChurchKnowledgePanel({
         </div>
       )}
 
-      {entries.length === 0 ? (
+      {items.length === 0 ? (
         <p className="text-small text-ink-faint">
           No church info yet.{" "}
           {isAdmin ? "Sync from the website or add an entry below." : "Add an entry below."}
         </p>
       ) : (
         <ul className="space-y-3">
-          {entries.map((e) => {
+          {items.map((e) => {
             const isWebsite = e.source === "website"
             const editing = editingId === e.id
             return (

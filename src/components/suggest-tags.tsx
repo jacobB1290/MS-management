@@ -113,6 +113,13 @@ export function SuggestTags({
     }
     // Merge with existing tags (deduped) — the write is the operator's intent.
     const merged = Array.from(new Set([...currentTags, ...additions]))
+    // Optimistic: close the popover immediately. The applied tags surface via
+    // the contact's realtime UPDATE (inbox panel) and router.refresh (contact
+    // page); reopen the suggestions if the write fails so nothing is lost.
+    const prevSuggestion = suggestion
+    const prevSelected = selected
+    setSuggestion(null)
+    setSelected(new Set())
     setSaving(true)
     try {
       const res = await fetch(`/api/contacts/${contactId}`, {
@@ -122,14 +129,16 @@ export function SuggestTags({
       })
       if (!res.ok) {
         const j = await res.json().catch(() => null)
+        setSuggestion(prevSuggestion)
+        setSelected(prevSelected)
         toast.error(`Save failed: ${j?.error ?? res.status}`)
         return
       }
       toast.success(additions.length === 1 ? "Tag added" : `${additions.length} tags added`)
-      setSuggestion(null)
-      setSelected(new Set())
       router.refresh()
     } catch (err) {
+      setSuggestion(prevSuggestion)
+      setSelected(prevSelected)
       toast.error(`Network error: ${err instanceof Error ? err.message : String(err)}`)
     } finally {
       setSaving(false)

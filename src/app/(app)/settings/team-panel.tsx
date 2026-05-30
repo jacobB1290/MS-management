@@ -23,6 +23,17 @@ export function TeamPanel({ team, currentUserId }: { team: Member[]; currentUser
   const [pendingRemove, setPendingRemove] = useState<{ userId: string; name: string } | null>(null)
   const [removing, setRemoving] = useState(false)
 
+  // Roster held locally so promote/demote/remove apply instantly and roll back
+  // on failure. An invite still round-trips (it needs the new user_id) and
+  // re-provides this prop; reseed when that snapshot changes.
+  const [members, setMembers] = useState<Member[]>(team)
+  const seedSig = team.map((m) => `${m.user_id}:${m.role}`).join("|")
+  const [seed, setSeed] = useState(seedSig)
+  if (seedSig !== seed) {
+    setSeed(seedSig)
+    setMembers(team)
+  }
+
   async function invite(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setInviting(true)
@@ -52,15 +63,19 @@ export function TeamPanel({ team, currentUserId }: { team: Member[]; currentUser
 
   async function remove() {
     if (!pendingRemove) return
+    const userId = pendingRemove.userId
     setRemoving(true)
+    const prev = members
+    // Optimistic: drop them from the roster immediately; restore on failure.
+    setMembers((cur) => cur.filter((m) => m.user_id !== userId))
     try {
-      const res = await fetch(`/api/team/${pendingRemove.userId}`, { method: "DELETE" })
+      const res = await fetch(`/api/team/${userId}`, { method: "DELETE" })
       if (!res.ok) {
         const j = await res.json().catch(() => null)
+        setMembers(prev)
         toast.error(`Failed: ${j?.error ?? res.status}`)
       } else {
         toast.success("Removed")
-        router.refresh()
       }
     } finally {
       setRemoving(false)
@@ -69,6 +84,9 @@ export function TeamPanel({ team, currentUserId }: { team: Member[]; currentUser
   }
 
   async function setRole(userId: string, role: "admin" | "member") {
+    const prev = members
+    // Optimistic: flip the badge now; revert if the write is rejected.
+    setMembers((cur) => cur.map((m) => (m.user_id === userId ? { ...m, role } : m)))
     const res = await fetch(`/api/team/${userId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -76,16 +94,15 @@ export function TeamPanel({ team, currentUserId }: { team: Member[]; currentUser
     })
     if (!res.ok) {
       const j = await res.json().catch(() => null)
+      setMembers(prev)
       toast.error(`Failed: ${j?.error ?? res.status}`)
-    } else {
-      router.refresh()
     }
   }
 
   return (
     <div>
       <ul className="divide-y divide-ink-hairline">
-        {team.map((m) => (
+        {members.map((m) => (
           <li key={m.user_id} className="flex items-center gap-3 py-3">
             <Avatar name={m.display_name} size="md" />
             <div className="flex-1 min-w-0">

@@ -1,6 +1,5 @@
 "use client"
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import { Trash2, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import type { StoredMedia } from "@/server/media/storage"
@@ -17,8 +16,18 @@ export function StoragePanel({
   totalBytes: number
   dbBytes: number
 }) {
-  const router = useRouter()
   const [deleting, setDeleting] = useState<string | null>(null)
+  // Files + media usage held locally so a delete drops the tile and shrinks the
+  // usage bar instantly; reseed when the server re-provides a fresh snapshot.
+  const [list, setList] = useState<StoredMedia[]>(files)
+  const [used, setUsed] = useState(totalBytes)
+  const seedSig = `${files.length}:${totalBytes}`
+  const [seed, setSeed] = useState(seedSig)
+  if (seedSig !== seed) {
+    setSeed(seedSig)
+    setList(files)
+    setUsed(totalBytes)
+  }
 
   async function remove(name: string) {
     if (
@@ -27,7 +36,13 @@ export function StoragePanel({
       )
     )
       return
+    const target = list.find((f) => f.name === name)
     setDeleting(name)
+    // Optimistic: drop the tile and shrink the usage bar now; restore on failure.
+    const prevList = list
+    const prevUsed = used
+    setList((cur) => cur.filter((f) => f.name !== name))
+    if (target) setUsed((u) => Math.max(0, u - target.size))
     try {
       const res = await fetch("/api/media/delete", {
         method: "POST",
@@ -36,11 +51,16 @@ export function StoragePanel({
       })
       if (!res.ok) {
         const j = await res.json().catch(() => null)
+        setList(prevList)
+        setUsed(prevUsed)
         toast.error(`Delete failed: ${j?.error ?? res.status}`)
       } else {
         toast.success("Deleted.")
-        router.refresh()
       }
+    } catch {
+      setList(prevList)
+      setUsed(prevUsed)
+      toast.error("Delete failed")
     } finally {
       setDeleting(null)
     }
@@ -57,21 +77,21 @@ export function StoragePanel({
         />
         <UsageBar
           label="Media files"
-          used={totalBytes}
+          used={used}
           quota={FILE_QUOTA_BYTES}
           quotaLabel="1 GB"
-          aside={`${files.length} file${files.length === 1 ? "" : "s"}`}
+          aside={`${list.length} file${list.length === 1 ? "" : "s"}`}
         />
       </div>
 
-      {files.length === 0 ? (
+      {list.length === 0 ? (
         <p className="text-small text-ink-faint">
           No media uploaded yet. Attachments you send in the inbox or on a
           campaign show up here.
         </p>
       ) : (
         <ul className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {files.map((f) => (
+          {list.map((f) => (
             <li
               key={f.name}
               className="rounded-md border border-ink-hairline overflow-hidden bg-surface"
