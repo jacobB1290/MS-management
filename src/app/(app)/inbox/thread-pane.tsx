@@ -253,6 +253,55 @@ export function ThreadPane({
   // STOP reply (carrier opt-out) blocks the composer live.
   useEffect(() => {
     const supabase = createSupabaseBrowserClient()
+
+    // Realtime is live-only: while the tab is backgrounded (or the socket blips
+    // during Twilio's delivery callbacks) the channel drops and missed INSERT/
+    // UPDATE events are NOT replayed. So re-fetch the thread on refocus and on
+    // reconnect to catch up — otherwise an inbound message or a delivered status
+    // only appears after a manual refresh.
+    let subscribedOnce = false
+    const reconcile = async () => {
+      if (document.visibilityState !== "visible") return
+      const [{ data: msgs }, { data: c }] = await Promise.all([
+        supabase
+          .from("messages")
+          .select("*")
+          .eq("contact_id", contactProp.id)
+          .order("created_at", { ascending: false })
+          .limit(80),
+        supabase.from("contacts").select("*").eq("id", contactProp.id).maybeSingle(),
+      ])
+      if (msgs) {
+        const server = msgs.slice().reverse()
+        setMessages((cur) => {
+          // A new inbound (id we didn't have) reopens the conversational window,
+          // exactly like a live inbound INSERT does.
+          if (server.some((s) => s.direction === "in" && !cur.some((m) => m.id === s.id))) {
+            queueMicrotask(() => setSawInbound(true))
+          }
+          // Replace confirmed rows with server truth; keep only still-pending
+          // optimistic sends the server hasn't recorded yet.
+          const pending = cur.filter(
+            (m) =>
+              m._optimistic &&
+              !server.some(
+                (s) =>
+                  s.direction === m.direction &&
+                  s.channel === m.channel &&
+                  s.body === m.body &&
+                  (s.media_url ?? null) === (m.media_url ?? null),
+              ),
+          )
+          return [...server, ...pending]
+        })
+      }
+      if (c) setContact((cur) => ({ ...cur, ...c }))
+    }
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void reconcile()
+    }
+    document.addEventListener("visibilitychange", onVisible)
+
     const channel = supabase
       .channel(`thread:${contactProp.id}`, {
         config: { presence: { key: currentUserId } },
@@ -324,6 +373,9 @@ export function ThreadPane({
       .subscribe((status) => {
         if (status === "SUBSCRIBED") {
           void channel.track({ user_id: currentUserId, name: myName, typing_at: null })
+          // A re-SUBSCRIBED after a drop means events may have been missed.
+          if (subscribedOnce) void reconcile()
+          subscribedOnce = true
         }
       })
     channelRef.current = channel
@@ -331,6 +383,7 @@ export function ThreadPane({
       if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
       typingAtRef.current = null
       channelRef.current = null
+      document.removeEventListener("visibilitychange", onVisible)
       void supabase.removeChannel(channel)
     }
   }, [contactProp.id, currentUserId, myName])

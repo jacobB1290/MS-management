@@ -148,7 +148,15 @@ export function ConversationList({
         },
       )
       .subscribe()
+    // Realtime is live-only and drops while the tab is backgrounded; reconcile
+    // the list on refocus so anything missed while away isn't stuck until a
+    // manual refresh.
+    const onVisible = () => {
+      if (document.visibilityState === "visible") router.refresh()
+    }
+    document.addEventListener("visibilitychange", onVisible)
     return () => {
+      document.removeEventListener("visibilitychange", onVisible)
       void supabase.removeChannel(channel)
     }
   }, [router])
