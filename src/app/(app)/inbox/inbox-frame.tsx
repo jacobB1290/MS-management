@@ -70,7 +70,7 @@ export function InboxFrame({ conversations, children }: InboxFrameProps) {
         <div
           className={cn(
             "flex h-full min-h-0",
-            "transition-transform duration-300 ease-out lg:transition-none",
+            "transition-transform duration-300 ease-[var(--ease-out-soft)] lg:transition-none",
             // The track's own width is one viewport; -translate-x-full shifts it
             // a full screen so the second pane (thread) fills the viewport.
             threadOpen ? "max-lg:-translate-x-full" : "translate-x-0",
