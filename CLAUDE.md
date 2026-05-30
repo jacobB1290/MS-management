@@ -192,7 +192,13 @@ for the typed view. Highlights:
 - **Italic gold identity phrases** (`<em class="motto">`) without ASCII quotes.
 - **No em dashes** in visible copy; restructure for flow.
 - **One canonical CTA pill** (`.btn-cta`) with modifiers. Never fork the design.
-- **Motion:** animate everything that moves; honor `prefers-reduced-motion`.
+- **Motion (non-negotiable):** animate everything that moves, and **every action
+  must be animated.** The owner *hates* an action that just snaps — a tap, toggle,
+  open/close, send, nav, optimistic update, appear/disappear all get a visible
+  transition (the token motion tiers), never an instant state jump. A new
+  affordance that pops in with no transition, or a value that hard-cuts, is a
+  bug. Honor `prefers-reduced-motion` (it scales motion down, it does not excuse
+  skipping it elsewhere).
 
 ### Adaptation from the marketing site
 
@@ -231,6 +237,11 @@ The mobile reply UX is **as critical as desktop** — staff will live in it.
 - **Fix root cause, not symptom.** No `!important` to win specificity. No
   silent fallbacks to mask bugs.
 - **Cross-component impact check.** Shared primitives touch everything.
+- **Every action animates (load-bearing).** Before pushing any interaction,
+  confirm it has a transition — no snapping. Buttons/affordances that conditionally
+  render must reserve their space and fade/slide in (or be gated on server props so
+  they're present on first paint), never pop in and shove the layout. A hard state
+  jump where motion was possible is a defect, not a style nit. See §7 Motion.
 - **Visual verification beats type-checking for UI.** Type-checking passes
   != layout works. Run the Playwright harness on a viewport matrix before
   pushing UI changes.
