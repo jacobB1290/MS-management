@@ -57,6 +57,10 @@ interface ThreadPaneProps {
   voiceConfigured: boolean
   optInMode: "send" | "requested" | "blocked" | null
   optInRequestedAt: string | null
+  /** Server-computed: whether Claude reply-assist is configured. Passed in (not
+   *  client-probed) so the AI button is correct on first paint — no late pop-in
+   *  or layout shift. */
+  aiEnabled: boolean
 }
 
 /** Optimistic message rows are real Message shape but with a temp id and
@@ -88,6 +92,7 @@ export function ThreadPane({
   voiceConfigured,
   optInMode,
   optInRequestedAt,
+  aiEnabled,
 }: ThreadPaneProps) {
   // Contact is held in state so realtime row updates (e.g. a STOP reply
   // flipping sms_opted_out_at) reflect in the thread immediately, without
@@ -105,9 +110,8 @@ export function ThreadPane({
   const [sending, setSending] = useState(false)
   const [media, setMedia] = useState<{ url: string; isVideo: boolean } | null>(null)
   const [uploading, setUploading] = useState(false)
-  // Claude reply-assist: availability is probed once; the affordance is hidden
-  // when the integration is not configured. `drafting` drives its loading state.
-  const [aiEnabled, setAiEnabled] = useState(false)
+  // Claude reply-assist: `aiEnabled` (whether it's configured) is a server prop
+  // so the button is correct on first paint; `drafting` drives its loading state.
   const [drafting, setDrafting] = useState(false)
   // Operator-only aside from a draft (e.g. "couldn't find that in the knowledge
   // base"). It is NEVER put in the compose box — it surfaces as a small note that
@@ -418,22 +422,6 @@ export function ThreadPane({
     if (!el) return
     el.scrollTop = el.scrollHeight
   }, [messages.length])
-
-  // Probe whether the Claude reply-assist is configured for this deployment.
-  useEffect(() => {
-    let active = true
-    fetch("/api/ai/status")
-      .then((r) => (r.ok ? r.json() : { enabled: false }))
-      .then((j) => {
-        if (active) setAiEnabled(Boolean(j.enabled))
-      })
-      .catch(() => {
-        if (active) setAiEnabled(false)
-      })
-    return () => {
-      active = false
-    }
-  }, [])
 
   // Ask Claude to draft a fresh reply (empty composer) or improve the current
   // draft. The result lands in the textarea for the operator to edit — never
@@ -1205,7 +1193,7 @@ export function ThreadPane({
                     <button
                       type="submit"
                       disabled={!subject.trim() || !body.trim() || locked || sending}
-                      className="ml-auto inline-flex items-center gap-1.5 rounded-pill bg-gold px-4 py-1.5 text-small font-medium text-white shadow-sm transition-colors hover:bg-gold-dark disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="ml-auto inline-flex items-center gap-1.5 rounded-pill bg-gold px-4 py-1.5 text-small font-medium text-white shadow-sm transition-[color,background-color,opacity] duration-[var(--motion-fast)] ease-[var(--ease-out-soft)] hover:bg-gold-dark disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       {sending ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} strokeWidth={2.25} />} Send
                     </button>
@@ -1265,7 +1253,7 @@ export function ThreadPane({
                       type="submit"
                       disabled={!subject.trim() || !body.trim() || locked || sending || attachUploading}
                       aria-label="Send email"
-                      className="absolute bottom-2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-pill bg-gold text-white shadow-sm transition-colors hover:bg-gold-dark disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="absolute bottom-2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-pill bg-gold text-white shadow-sm transition-[color,background-color,opacity] duration-[var(--motion-fast)] ease-[var(--ease-out-soft)] hover:bg-gold-dark disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       {sending ? <Loader2 size={16} className="animate-spin" /> : <ArrowUp size={16} strokeWidth={2.5} />}
                     </button>
@@ -1354,7 +1342,7 @@ export function ThreadPane({
                   type="submit"
                   disabled={(!body.trim() && !media) || uploading || locked}
                   aria-label="Send"
-                  className="absolute bottom-1.5 right-1.5 inline-flex h-8 w-8 items-center justify-center rounded-pill bg-gold text-white shadow-sm transition-colors hover:bg-gold-dark disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="absolute bottom-1.5 right-1.5 inline-flex h-8 w-8 items-center justify-center rounded-pill bg-gold text-white shadow-sm transition-[color,background-color,opacity] duration-[var(--motion-fast)] ease-[var(--ease-out-soft)] hover:bg-gold-dark disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <ArrowUp size={16} strokeWidth={2.5} />
                 </button>

@@ -192,7 +192,15 @@ for the typed view. Highlights:
 - **Italic gold identity phrases** (`<em class="motto">`) without ASCII quotes.
 - **No em dashes** in visible copy; restructure for flow.
 - **One canonical CTA pill** (`.btn-cta`) with modifiers. Never fork the design.
-- **Motion:** animate everything that moves; honor `prefers-reduced-motion`.
+- **Motion (non-negotiable):** animate everything that moves, and **every action
+  must be animated.** The owner *hates* an action that just snaps — a tap, toggle,
+  open/close, send, nav, optimistic update, appear/disappear all get a visible
+  transition (the token motion tiers), never an instant state jump. A new
+  affordance that pops in with no transition, or a value that hard-cuts, is a
+  bug. Honor `prefers-reduced-motion` (it scales motion down, it does not excuse
+  skipping it elsewhere). **"It animates" is the floor; "smooth and tasteful" is
+  the bar** — every motion change gets an independent quality review before it
+  ships (see §11).
 
 ### Adaptation from the marketing site
 
@@ -231,6 +239,11 @@ The mobile reply UX is **as critical as desktop** — staff will live in it.
 - **Fix root cause, not symptom.** No `!important` to win specificity. No
   silent fallbacks to mask bugs.
 - **Cross-component impact check.** Shared primitives touch everything.
+- **Every action animates (load-bearing).** Before pushing any interaction,
+  confirm it has a transition — no snapping. Buttons/affordances that conditionally
+  render must reserve their space and fade/slide in (or be gated on server props so
+  they're present on first paint), never pop in and shove the layout. A hard state
+  jump where motion was possible is a defect, not a style nit. See §7 Motion.
 - **Visual verification beats type-checking for UI.** Type-checking passes
   != layout works. Run the Playwright harness on a viewport matrix before
   pushing UI changes.
@@ -260,6 +273,15 @@ The mobile reply UX is **as critical as desktop** — staff will live in it.
 - **Run the harness before pushing UI changes** (`npm run harness`).
   Update snapshots when intentional (`npm run harness:update`) and commit
   the new baselines.
+- **Independent motion review — mandatory, every time it's relevant.** Whenever
+  a change adds or alters motion (a transition, a newly animated affordance, an
+  optimistic update, a slide/fade/open-close, anything that moves or appears),
+  hand it to a *separate, unbiased agent* — one that did NOT write the change —
+  to judge the motion quality, not just its presence: easing/timing feel, no
+  jank, no layout shift, nothing abrupt, snappy or gratuitous, reduced-motion
+  respected. Its findings are blocking polish, not optional notes — address them
+  before shipping. The owner cares about this specifically and deeply: animated
+  is the floor, *extremely smooth and tastefully done* is the requirement.
 
 ## 12. Environment variables
 
