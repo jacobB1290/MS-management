@@ -260,8 +260,7 @@ export function ThreadPane({
     // reconnect to catch up — otherwise an inbound message or a delivered status
     // only appears after a manual refresh.
     let subscribedOnce = false
-    const reconcile = async () => {
-      if (document.visibilityState !== "visible") return
+    const runReconcile = async () => {
       const [{ data: msgs }, { data: c }] = await Promise.all([
         supabase
           .from("messages")
@@ -297,8 +296,32 @@ export function ThreadPane({
       }
       if (c) setContact((cur) => ({ ...cur, ...c }))
     }
+    // Refocus and socket-reconnect can both ask to catch up at nearly the same
+    // moment. Coalesce: ride an in-flight reconcile rather than firing a second
+    // parallel fetch, and skip one that lands right after the last so a quick
+    // blur/focus doesn't hit the DB twice.
+    let inFlight: Promise<void> | null = null
+    let lastReconciledAt = 0
+    const reconcile = (): Promise<void> => {
+      if (document.visibilityState !== "visible") return Promise.resolve()
+      if (inFlight) return inFlight
+      if (Date.now() - lastReconciledAt < 1500) return Promise.resolve()
+      inFlight = runReconcile().finally(() => {
+        inFlight = null
+        lastReconciledAt = Date.now()
+      })
+      return inFlight
+    }
+    // A quick glance away keeps the socket alive and the live handlers cover it,
+    // so only reconcile after a real absence — coming back stays instant.
+    let hiddenAt = 0
     const onVisible = () => {
-      if (document.visibilityState === "visible") void reconcile()
+      if (document.visibilityState === "hidden") {
+        hiddenAt = Date.now()
+      } else if (hiddenAt && Date.now() - hiddenAt > 2000) {
+        hiddenAt = 0
+        void reconcile()
+      }
     }
     document.addEventListener("visibilitychange", onVisible)
 
