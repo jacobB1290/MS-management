@@ -50,7 +50,11 @@ export function AppShell({ user, role, demo, awaitingReply, children }: AppShell
   return (
     <ChromeContext.Provider value={ctx}>
       <div className="flex-1 flex flex-col min-w-0">
-        <Collapse open={!hidden} edge="top" className="md:hidden">
+        {/* relative z-10: lift the whole top-chrome subtree above <main> (a
+            later, unpositioned sibling), so the profile dropdown — which is an
+            absolutely-positioned child, not a portal — paints over the page's
+            sticky search/header instead of behind it. */}
+        <Collapse open={!hidden} edge="top" className="md:hidden relative z-10">
           <Topbar user={user} />
         </Collapse>
 
@@ -123,11 +127,14 @@ function Collapse({
     >
       <div
         className={cn(
-          "overflow-hidden transition-[opacity,transform] duration-[var(--motion-medium)] ease-[var(--ease-out-soft)] motion-reduce:transition-none",
+          "transition-[opacity,transform] duration-[var(--motion-medium)] ease-[var(--ease-out-soft)] motion-reduce:transition-none",
+          // Clip only while collapsing/collapsed, so the height animation stays
+          // clean. When open, let children overflow — otherwise the topbar's
+          // dropdown menu (which hangs below the bar) gets clipped to the bar.
           open
-            ? "opacity-100 translate-y-0"
-            : cn("opacity-0", edge === "top" ? "-translate-y-1" : "translate-y-1"),
-          desktopAlwaysOpen && "md:opacity-100 md:translate-y-0",
+            ? "overflow-visible opacity-100 translate-y-0"
+            : cn("overflow-hidden opacity-0", edge === "top" ? "-translate-y-1" : "translate-y-1"),
+          desktopAlwaysOpen && "md:overflow-visible md:opacity-100 md:translate-y-0",
         )}
       >
         {children}
