@@ -270,14 +270,27 @@ export function ThreadPane({
     // only appears after a manual refresh.
     let subscribedOnce = false
     const runReconcile = async () => {
+      // Bound the catch-up: a request stalled by a flaky post-resume network
+      // must not wedge `inFlight` forever, which would silently stop every
+      // future reconcile and leave the thread permanently stale. On timeout the
+      // queries abort, inFlight clears (below), and the next trigger retries.
+      const ctrl = new AbortController()
+      const timer = setTimeout(() => ctrl.abort(), 8000)
+      try {
       const [{ data: msgs }, { data: c }] = await Promise.all([
         supabase
           .from("messages")
           .select("*")
           .eq("contact_id", contactProp.id)
           .order("created_at", { ascending: false })
-          .limit(80),
-        supabase.from("contacts").select("*").eq("id", contactProp.id).maybeSingle(),
+          .limit(80)
+          .abortSignal(ctrl.signal),
+        supabase
+          .from("contacts")
+          .select("*")
+          .eq("id", contactProp.id)
+          .abortSignal(ctrl.signal)
+          .maybeSingle(),
       ])
       if (msgs) {
         const server = msgs.slice().reverse()
@@ -304,6 +317,9 @@ export function ThreadPane({
         })
       }
       if (c) setContact((cur) => ({ ...cur, ...c }))
+      } finally {
+        clearTimeout(timer)
+      }
     }
     // Refocus and socket-reconnect can both ask to catch up at nearly the same
     // moment. Coalesce: ride an in-flight reconcile rather than firing a second
@@ -315,10 +331,15 @@ export function ThreadPane({
       if (document.visibilityState !== "visible") return Promise.resolve()
       if (inFlight) return inFlight
       if (Date.now() - lastReconciledAt < 1500) return Promise.resolve()
-      inFlight = runReconcile().finally(() => {
-        inFlight = null
-        lastReconciledAt = Date.now()
-      })
+      inFlight = runReconcile()
+        // Best-effort catch-up: a failed or aborted fetch just retries on the
+        // next trigger; swallow it so it doesn't surface as an unhandled
+        // rejection (and so a rejection still clears inFlight below).
+        .catch(() => {})
+        .finally(() => {
+          inFlight = null
+          lastReconciledAt = Date.now()
+        })
       return inFlight
     }
     // A quick glance away keeps the socket alive and the live handlers cover it,
