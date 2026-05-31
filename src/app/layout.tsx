@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next"
 import { Inter, Playfair_Display } from "next/font/google"
 import { Toaster } from "sonner"
+import { IOS_STARTUP_IMAGES } from "@/lib/ios-startup-images"
 import "./globals.css"
 
 const inter = Inter({
@@ -30,6 +31,10 @@ export const metadata: Metadata = {
     // black-translucent: the warm cream surface flows under the iOS
     // status bar instead of getting a hard white bar above it.
     statusBarStyle: "black-translucent",
+    // Native launch screens, shown during the standalone cold-launch gap so
+    // it's a branded splash, not a blank page. icon.tsx / apple-icon.tsx still
+    // own the home-screen icon; `startupImage` only adds the launch screens.
+    startupImage: IOS_STARTUP_IMAGES,
   },
   formatDetection: {
     telephone: false,
