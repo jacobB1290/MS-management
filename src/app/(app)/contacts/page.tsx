@@ -4,6 +4,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { requireStaff } from "@/server/auth"
 import { getContactTagOccurrences } from "@/server/contacts/tags"
 import { Avatar } from "@/components/ui/avatar"
+import { Button } from "@/components/ui/button"
+import { EmptyState } from "@/components/ui/empty-state"
 import { ContactsSearch } from "./contacts-search"
 import { ContactsIndex } from "./contacts-index"
 import { formatPhone } from "@/lib/utils"
@@ -93,9 +95,23 @@ export default async function ContactsPage({ searchParams }: ContactsPageProps) 
       <div className="relative flex-1 min-h-0">
         <div className="h-full overflow-y-auto overscroll-contain pb-8">
           {rows.length === 0 ? (
-            <p className="px-4 md:px-8 py-6 text-ink-faint text-small">
-              {filtered ? "No contacts match your search." : "No contacts yet."}
-            </p>
+            <div className="px-4 md:px-8 py-10">
+              <EmptyState
+                title={filtered ? "No matches" : "No contacts yet"}
+                body={
+                  filtered
+                    ? "Try a different search or clear the filter."
+                    : "Add contacts manually, or wire up the public website form to create them automatically."
+                }
+                action={
+                  !filtered && (
+                    <Button asChild>
+                      <Link href="/contacts/new">Add the first contact</Link>
+                    </Button>
+                  )
+                }
+              />
+            </div>
           ) : (
             <>
               {sectionKeys.map((key) => (
