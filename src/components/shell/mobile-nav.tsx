@@ -1,7 +1,7 @@
 "use client"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { NAV_ITEMS } from "./nav-items"
+import { PRIMARY_NAV_ITEMS } from "./nav-items"
 import { cn } from "@/lib/utils"
 
 export function MobileNav({
@@ -12,13 +12,12 @@ export function MobileNav({
   awaitingReply?: number
 }) {
   const pathname = usePathname()
-  // Mobile bottom nav is for the three primary surfaces only — Settings and
-  // Audit live in the user menu (top right) so the bottom rail doesn't get
-  // crowded and the three core actions stay one-thumb reachable.
+  // The bottom nav is the primary surfaces, straight from the single source of
+  // truth (Settings + Audit live in the user menu, so the rail stays uncrowded
+  // and one-thumb reachable). Same list the app-shell uses to decide when the
+  // mobile chrome shows, so a tab and its chrome can never disagree.
   void role
-  const items = NAV_ITEMS.filter(
-    (i) => i.href === "/inbox" || i.href === "/contacts" || i.href === "/campaigns",
-  )
+  const items = PRIMARY_NAV_ITEMS
 
   return (
     <nav
@@ -28,7 +27,12 @@ export function MobileNav({
       className="md:hidden shrink-0 border-t border-ink-hairline bg-surface/95 backdrop-blur supports-[backdrop-filter]:bg-surface/80"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
-      <ul className="grid grid-cols-3">
+      <ul
+        className="grid"
+        // Columns track the number of primary tabs, so adding/removing one in
+        // nav-items.ts never leaves a stale hard-coded count.
+        style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}
+      >
         {items.map((item) => {
           const active = pathname === item.href || pathname?.startsWith(item.href + "/")
           const Icon = item.icon
@@ -39,7 +43,9 @@ export function MobileNav({
                 href={item.href}
                 prefetch
                 className={cn(
-                  "flex flex-col items-center justify-center gap-1 py-2.5 px-3 min-h-[58px] text-micro transition-colors active:bg-white/50",
+                  // Tighter side padding than the old 3-up rail so four labels
+                  // (incl. "Campaigns") sit comfortably at the 360px width.
+                  "flex flex-col items-center justify-center gap-1 py-2.5 px-1 min-h-[58px] text-micro transition-colors active:bg-white/50",
                   active ? "text-gold" : "text-ink-faint",
                 )}
                 aria-current={active ? "page" : undefined}
@@ -55,7 +61,12 @@ export function MobileNav({
                     </span>
                   )}
                 </span>
-                <span className={cn("text-eyebrow tracking-wide", active && "font-semibold")}>
+                <span
+                  className={cn(
+                    "text-eyebrow tracking-wide whitespace-nowrap",
+                    active && "font-semibold",
+                  )}
+                >
                   {item.label}
                 </span>
               </Link>

@@ -3,6 +3,7 @@ import { useMemo, useState, type ReactNode } from "react"
 import { usePathname, useSearchParams } from "next/navigation"
 import { Topbar } from "./topbar"
 import { MobileNav } from "./mobile-nav"
+import { PRIMARY_ROUTES } from "./nav-items"
 import { ChromeContext } from "./chrome-context"
 import { cn } from "@/lib/utils"
 import type { StaffUser } from "@/server/auth"
@@ -15,13 +16,13 @@ interface AppShellProps {
   children: ReactNode
 }
 
-// The three primary surfaces are the only places the mobile chrome (top header
-// + bottom nav) belongs. Everything deeper — a conversation thread, a contact
-// or campaign detail, the create forms, settings, audit — is a focused subview
-// that takes over the whole screen on mobile (it carries its own back
-// affordance). The inbox list and the open thread share one route, so the
-// thread reports itself through ChromeContext instead of the path.
-const LIST_ROUTES = new Set(["/inbox", "/contacts", "/campaigns"])
+// The mobile chrome (top header + bottom nav) belongs only on the primary
+// surfaces, which ARE the bottom-nav tabs — so both read from PRIMARY_ROUTES
+// (nav-items.ts) and can never drift apart. Everything deeper — a conversation
+// thread, a contact/campaign/event detail, the create forms, settings, audit —
+// is a focused subview that takes over the whole screen on mobile (it carries
+// its own back affordance). The inbox list and the open thread share one route,
+// so the thread reports itself through ChromeContext instead of the path.
 
 /**
  * Owns the mobile chrome and collapses it for full-screen subviews. Lives in
@@ -41,7 +42,7 @@ export function AppShell({ user, role, demo, awaitingReply, children }: AppShell
     () => (pathname ?? "") === "/inbox" && searchParams.has("c"),
   )
 
-  const onListRoot = LIST_ROUTES.has(pathname ?? "")
+  const onListRoot = PRIMARY_ROUTES.has(pathname ?? "")
   // A subview (mobile): hide the chrome and let the page own the full screen.
   const hidden = !onListRoot || inboxThreadOpen
 
