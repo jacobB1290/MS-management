@@ -519,21 +519,15 @@ h1, h2, h3, h4, h5, h6 {
 .email-ai-preview a { color: var(--color-gold-dark); text-decoration: underline; }
 .email-ai-preview strong { font-weight: 600; }
 
-/* Settings (iOS/macOS-style panes). The active pane fades up on desktop; on the
- * mobile drill-in it pushes in from the right (opening a category) and the list
- * pops back from the left (returning). Deliberately small offsets — a gentle
- * slide reads as more refined than a full-screen swipe, and the 12px stays
- * within the page's side gutter so it never spawns a horizontal scrollbar. The
- * reduced-motion rule above collapses the duration to ~0, so these no-op there. */
+/* Settings (iOS/macOS-style panes): the freshly-selected pane — and, on the
+ * mobile drill-in, the category list when you return to it — settles in with a
+ * gentle fade + 6px rise. An earlier horizontal "push" was dropped: only the
+ * incoming view could move (the outgoing one is removed instantly), so a slide
+ * implied a direction the missing exit contradicted; an honest fade reads
+ * cleaner. Applied via the `animate-[... backwards]` utility so the from-state
+ * holds before the first frame (no flash, and it masks the on-switch scroll
+ * reset). The reduced-motion rule above collapses the duration to ~0 here. */
 @keyframes settings-pane-in {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
-}
-@keyframes settings-push-in {
-  from { opacity: 0; transform: translateX(12px); }
-  to   { opacity: 1; transform: translateX(0); }
-}
-@keyframes settings-pop-in {
-  from { opacity: 0; transform: translateX(-12px); }
-  to   { opacity: 1; transform: translateX(0); }
 }

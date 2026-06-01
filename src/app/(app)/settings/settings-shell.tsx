@@ -104,27 +104,52 @@ export function SettingsShell({ sections }: { sections: SettingsSection[] }) {
   // there's no clean SSR deep-link without a hydration mismatch — the rail just
   // opens on the first pane, the way System Settings opens on its top item.)
   const [detailOpen, setDetailOpen] = React.useState(false)
+  // Has the operator selected a category at least once? Entrance animations are
+  // gated on this so the landing content (the pane on desktop, the list on
+  // mobile) is simply *present* on first paint — it never slides/fades in as if
+  // it were arriving, which would read as gratuitous.
+  const [navigated, setNavigated] = React.useState(false)
+  const rootRef = React.useRef<HTMLDivElement>(null)
 
   const open = React.useCallback((id: SettingsSectionId) => {
     setActive(id)
     setDetailOpen(true)
+    setNavigated(true)
   }, [])
 
   const back = React.useCallback(() => setDetailOpen(false), [])
+
+  // Switching panes can swap a tall pane for a short one (or vice versa); since
+  // each pane is keyed/remounted, a retained scroll offset would land the reader
+  // mid-pane. Reset the one scroll region to the top of the freshly-selected
+  // pane — the expected System-Settings behaviour. The new pane enters at
+  // opacity 0 (backwards fill), so this reset is never visible as a jump.
+  React.useEffect(() => {
+    rootRef.current
+      ?.closest<HTMLElement>("[data-scroll-region]")
+      ?.scrollTo({ top: 0 })
+  }, [active])
 
   const activeSection = sections.find((s) => s.id === active) ?? sections[0]
   const activeMeta = META[activeSection.id]
 
   return (
-    <div className="pt-6 lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:items-start lg:gap-[var(--space-2xl)]">
+    <div
+      ref={rootRef}
+      className="pt-6 lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:items-start lg:gap-[var(--space-2xl)]"
+    >
       {/* ── Rail (desktop) / grouped list (mobile) ─────────────────────────── */}
       <nav
         aria-label="Settings categories"
         className={cn(
           "lg:sticky lg:top-2 lg:self-start",
-          // Mobile: the list pops in from the left whenever it (re)appears —
-          // including when you tap back. Desktop: docked, no entrance.
-          "max-lg:animate-[settings-pop-in_var(--motion-medium)_var(--ease-out-soft)] lg:animate-none",
+          // Mobile: when you tap back, the list re-appears (display:none→block,
+          // which re-fires the CSS animation) with a gentle fade+rise — but only
+          // after a first drill-in (`navigated`), never on initial paint.
+          // Desktop: docked, no entrance.
+          navigated &&
+            !detailOpen &&
+            "max-lg:animate-[settings-pane-in_var(--motion-medium)_var(--ease-out-soft)_backwards]",
           detailOpen && "max-lg:hidden",
         )}
       >
@@ -148,7 +173,9 @@ export function SettingsShell({ sections }: { sections: SettingsSection[] }) {
                   aria-current={selected ? "page" : undefined}
                   className={cn(
                     "group flex w-full items-center gap-3 text-left",
-                    "transition-colors duration-[var(--motion-fast)] ease-[var(--ease-standard)]",
+                    // Include box-shadow so the selected pill's soft shadow fades
+                    // in with its background rather than hard-cutting beside it.
+                    "transition-[color,background-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--ease-standard)]",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/35",
                     // Mobile metrics: tall touch rows inside the grouped card.
                     "px-4 py-3 text-ink active:bg-surface",
@@ -209,13 +236,15 @@ export function SettingsShell({ sections }: { sections: SettingsSection[] }) {
           Settings
         </button>
 
-        {/* Keyed by the active id so the enter animation replays on every switch
-            (desktop) and every open (mobile). */}
+        {/* Keyed by the active id so the fade replays on every switch (desktop)
+            and every drill-in (mobile). Gated on `navigated` so the first pane
+            is present on load, not animated in. An honest fade+rise (same on
+            both breakpoints) rather than a one-sided horizontal "push". */}
         <section
           key={activeSection.id}
           className={cn(
-            "max-lg:animate-[settings-push-in_var(--motion-medium)_var(--ease-out-soft)]",
-            "lg:animate-[settings-pane-in_var(--motion-medium)_var(--ease-out-soft)]",
+            navigated &&
+              "animate-[settings-pane-in_var(--motion-medium)_var(--ease-out-soft)_backwards]",
           )}
         >
           <header className="mb-[var(--space-lg)]">
