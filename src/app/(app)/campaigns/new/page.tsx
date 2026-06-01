@@ -4,6 +4,7 @@ import { requireStaff } from "@/server/auth"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { getContactTagOccurrences } from "@/server/contacts/tags"
 import { PageHeader } from "@/components/ui/page-header"
+import { PageScaffold } from "@/components/ui/page-scaffold"
 import { Skeleton } from "@/components/ui/skeleton"
 import { eventLongDate, eventDisplayTime } from "@/lib/event-format"
 import { CampaignComposer, type ComposerPrefill } from "./campaign-composer"
@@ -21,8 +22,8 @@ export default async function NewCampaignPage({ searchParams }: NewCampaignPageP
   const { event, channel } = await searchParams
 
   return (
-    <div className="flex flex-col h-full min-h-0">
-      <div className="shrink-0 px-4 md:px-8 pt-4 md:pt-6 pb-4 bg-bg max-w-3xl w-full mx-auto">
+    <PageScaffold
+      header={
         <PageHeader
           eyebrow="Outreach"
           title="New campaign"
@@ -30,16 +31,14 @@ export default async function NewCampaignPage({ searchParams }: NewCampaignPageP
           backLabel="All campaigns"
           info="Compose a one-off SMS or email blast. Opted-out and unsubscribed contacts are automatically excluded; the recipient list records who was skipped and why."
         />
+      }
+    >
+      <div className="pt-6">
+        <Suspense fallback={<ComposerSkeleton />}>
+          <CampaignComposerLoader eventId={event} channel={channel} />
+        </Suspense>
       </div>
-
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 md:px-8 pb-6 md:pb-8 max-w-3xl w-full mx-auto">
-        <div className="rounded-lg border border-ink-hairline bg-white p-6 md:p-8">
-          <Suspense fallback={<ComposerSkeleton />}>
-            <CampaignComposerLoader eventId={event} channel={channel} />
-          </Suspense>
-        </div>
-      </div>
-    </div>
+    </PageScaffold>
   )
 }
 

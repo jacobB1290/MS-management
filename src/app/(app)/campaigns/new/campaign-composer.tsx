@@ -137,8 +137,19 @@ export function CampaignComposer({ tagOptions, prefill }: ComposerProps) {
     }
   }
 
+  const segments = body.length === 0 ? 0 : Math.ceil(body.length / 160)
+  const audienceLabel =
+    audienceKind === "all"
+      ? "All contacts"
+      : audienceKind === "members"
+        ? "Members"
+        : selectedTags.length
+          ? selectedTags.join(", ")
+          : "Pick at least one tag"
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_clamp(320px,28vw,400px)] xl:gap-12">
+      <form onSubmit={handleSubmit} className="space-y-6">
       {prefill?.eventTitle && (
         <div className="flex items-start gap-2.5 rounded-lg border border-gold/30 bg-gold/5 px-4 py-3">
           <Megaphone size={16} className="mt-0.5 shrink-0 text-gold" />
@@ -340,6 +351,49 @@ export function CampaignComposer({ tagOptions, prefill }: ComposerProps) {
           {submitting ? "Saving…" : "Save draft"}
         </Button>
       </div>
-    </form>
+      </form>
+
+      <aside>
+        <div className="space-y-3 xl:sticky xl:top-4">
+          <p className="motto text-gold">Preview</p>
+          {channel === "sms" ? (
+            <div className="rounded-2xl border border-ink-hairline bg-surface/60 p-4">
+              <div className="ml-auto max-w-[85%]">
+                {media && !media.isVideo && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={media.url} alt="" className="mb-1 w-full rounded-xl border border-ink-hairline" />
+                )}
+                <div className="whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-gold px-3.5 py-2.5 text-small text-white">
+                  {body.trim() || "Your message will appear here."}
+                </div>
+              </div>
+              <p className="mt-2 text-right text-micro text-ink-faint">
+                {body.length} chars · {segments} segment{segments === 1 ? "" : "s"}
+              </p>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-ink-hairline bg-white p-4">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-small font-semibold text-ink">Morning Star Church</span>
+                <span className="text-micro text-ink-faint">now</span>
+              </div>
+              <p className="mt-0.5 truncate text-small font-medium text-ink">
+                {subject.trim() || "Subject line"}
+              </p>
+              <p className="mt-1 text-small text-ink-muted">
+                {templateId ? "Rendered from your SendGrid template." : "Pick a template to preview."}
+              </p>
+            </div>
+          )}
+          <div className="rounded-xl border border-ink-hairline bg-white px-4 py-3">
+            <p className="text-micro uppercase tracking-wide text-ink-faint">Audience</p>
+            <p className="mt-0.5 text-small text-ink">{audienceLabel}</p>
+            <p className="mt-1 text-micro text-ink-faint">
+              Opted-out and unconsented contacts are excluded automatically.
+            </p>
+          </div>
+        </div>
+      </aside>
+    </div>
   )
 }

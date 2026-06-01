@@ -4,7 +4,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { requireStaff } from "@/server/auth"
 import { Badge } from "@/components/ui/badge"
 import { EmptyState } from "@/components/ui/empty-state"
-import { eventDisplayDate, eventDisplayTime } from "@/lib/event-format"
+import { PageScaffold } from "@/components/ui/page-scaffold"
+import { eventDisplayDate, eventLongDate, eventDisplayTime } from "@/lib/event-format"
 import { EventsToolbar } from "./events-toolbar"
 import { FlyerImage } from "./flyer-image"
 
@@ -35,39 +36,65 @@ export default async function EventsPage() {
     .order("starts_at", { ascending: false })
     .limit(300)
 
-  const rows = (data ?? []) as EventRow[]
-  const { upcoming, past } = partitionEvents(rows)
+  const { upcoming, past } = partitionEvents((data ?? []) as EventRow[])
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="shrink-0 border-b border-ink-hairline bg-bg px-4 pb-3 pt-4 md:px-8">
-        <div className="flex items-center justify-end">
+    <PageScaffold
+      header={
+        <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4 border-b border-ink-hairline pb-4 md:pb-5">
+          <div className="min-w-0">
+            <p className="eyebrow">Console</p>
+            <h1 className="font-display text-title font-semibold leading-[var(--leading-snug)] tracking-[var(--tracking-tight)] text-ink">
+              Events
+            </h1>
+            <p className="mt-1 text-body text-ink-muted">
+              What’s on at Morning Star, and what’s live on the public site.
+            </p>
+          </div>
           <EventsToolbar />
         </div>
-      </div>
+      }
+    >
+      {upcoming.length === 0 && past.length === 0 ? (
+        <div className="py-12">
+          <EmptyState
+            title="No events yet"
+            body="Create an event and publish it to show it on ms.church. Already keep events in Google Calendar? Tap Sync to pull them in."
+          />
+        </div>
+      ) : (
+        <>
+          {upcoming.length > 0 && (
+            <section aria-label="Upcoming" className="pt-6">
+              <SectionHeading>Upcoming</SectionHeading>
+              <FeatureEventCard event={upcoming[0]} />
+              {upcoming.length > 1 && (
+                <div className="mt-4 grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(190px,1fr))]">
+                  {upcoming.slice(1).map((e) => (
+                    <EventCard key={e.id} event={e} />
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
 
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pb-6 md:px-8 md:pb-8">
-        {rows.length === 0 ? (
-          <div className="py-10">
-            <EmptyState
-              title="No events yet"
-              body="Create an event and publish it to show it on ms.church. Already keep events in Google Calendar? Tap Sync to pull them in."
-            />
-          </div>
-        ) : (
-          <>
-            {upcoming.length > 0 && <EventSection title="Upcoming" events={upcoming} />}
-            {past.length > 0 && <EventSection title="Past" events={past} />}
-          </>
-        )}
-      </div>
-    </div>
+          {past.length > 0 && (
+            <section aria-label="Past" className="mt-12 border-t border-ink-hairline pt-6">
+              <SectionHeading>Past</SectionHeading>
+              <div className="grid gap-4 opacity-90 [grid-template-columns:repeat(auto-fill,minmax(160px,1fr))]">
+                {past.map((e) => (
+                  <EventCard key={e.id} event={e} compact />
+                ))}
+              </div>
+            </section>
+          )}
+        </>
+      )}
+    </PageScaffold>
   )
 }
 
-/** Split events into upcoming (start in the future, ascending) and past.
- *  Kept out of the component body so the per-request `Date.now()` read isn't
- *  flagged as impure render. */
+/** Upcoming (future, soonest first) vs past. Kept out of render for purity. */
 function partitionEvents(rows: EventRow[]): { upcoming: EventRow[]; past: EventRow[] } {
   const now = Date.now()
   const upcoming = rows
@@ -77,27 +104,58 @@ function partitionEvents(rows: EventRow[]): { upcoming: EventRow[]; past: EventR
   return { upcoming, past }
 }
 
-function EventSection({ title, events }: { title: string; events: EventRow[] }) {
+function SectionHeading({ children }: { children: React.ReactNode }) {
   return (
-    <section className="mb-8" aria-label={title}>
-      <h2 className="eyebrow mb-3 mt-5">{title}</h2>
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-        {events.map((e) => (
-          <EventCard key={e.id} event={e} />
-        ))}
-      </div>
-    </section>
+    <div className="mb-4 flex items-center gap-3">
+      <h2 className="font-display text-lead font-medium text-ink">{children}</h2>
+      <span className="h-px flex-1 bg-ink-hairline" />
+    </div>
   )
 }
 
-function EventCard({ event }: { event: EventRow }) {
+/** The soonest upcoming event, given a wide editorial treatment. */
+function FeatureEventCard({ event }: { event: EventRow }) {
   const time = eventDisplayTime(event.starts_at, event.ends_at, event.all_day)
   const status = event.status as keyof typeof STATUS_VARIANT
   return (
     <Link
       href={`/events/${event.id}`}
       prefetch
-      className="group flex flex-col overflow-hidden rounded-xl border border-ink-hairline bg-white shadow-sm transition-shadow duration-[var(--motion-medium)] hover:shadow-md motion-reduce:transition-none"
+      className="group flex flex-col overflow-hidden rounded-2xl border border-ink-hairline bg-white shadow-sm transition-shadow duration-[var(--motion-medium)] ease-[var(--ease-out-soft)] hover:shadow-md motion-reduce:transition-none sm:flex-row"
+    >
+      <div className="relative aspect-[4/5] w-full shrink-0 overflow-hidden bg-surface sm:aspect-auto sm:w-44 md:w-56">
+        <FlyerImage url={event.image_public_url} alt={event.title} iconSize={36} />
+      </div>
+      <div className="flex flex-1 flex-col justify-center gap-1.5 p-6 md:p-8">
+        <span className="eyebrow text-gold">Next up</span>
+        <span className="font-display text-hero leading-[0.95] text-gold">
+          {eventDisplayDate(event.starts_at)}
+        </span>
+        <h3 className="font-display text-heading text-ink">{event.title}</h3>
+        <p className="text-small text-ink-muted">
+          {eventLongDate(event.starts_at)}
+          {time ? ` · ${time}` : ""}
+        </p>
+        {status !== "published" && (
+          <span className="mt-1">
+            <Badge variant={STATUS_VARIANT[status] ?? "muted"} className="capitalize">
+              {status}
+            </Badge>
+          </span>
+        )}
+      </div>
+    </Link>
+  )
+}
+
+function EventCard({ event, compact = false }: { event: EventRow; compact?: boolean }) {
+  const time = eventDisplayTime(event.starts_at, event.ends_at, event.all_day)
+  const status = event.status as keyof typeof STATUS_VARIANT
+  return (
+    <Link
+      href={`/events/${event.id}`}
+      prefetch
+      className="group flex flex-col overflow-hidden rounded-xl border border-ink-hairline bg-white shadow-sm transition-shadow duration-[var(--motion-medium)] ease-[var(--ease-out-soft)] hover:shadow-md motion-reduce:transition-none"
     >
       <div className="relative aspect-[4/5] overflow-hidden bg-surface">
         <FlyerImage url={event.image_public_url} alt={event.title} className="group-hover:scale-[1.03]" />
@@ -109,13 +167,19 @@ function EventCard({ event }: { event: EventRow }) {
           </span>
         )}
       </div>
-      <div className="flex flex-1 flex-col gap-0.5 p-3">
+      <div className={cnPad(compact)}>
         <span className="font-display text-base leading-none text-gold">
           {eventDisplayDate(event.starts_at)}
         </span>
         <span className="truncate text-small font-medium text-ink">{event.title}</span>
-        {time && <span className="text-micro text-ink-faint">{time}</span>}
+        {time && !compact && <span className="text-micro text-ink-faint">{time}</span>}
       </div>
     </Link>
   )
+}
+
+function cnPad(compact: boolean): string {
+  return compact
+    ? "flex flex-1 flex-col gap-0.5 p-2.5"
+    : "flex flex-1 flex-col gap-0.5 p-3"
 }

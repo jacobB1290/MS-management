@@ -1,5 +1,5 @@
 "use client"
-import { useMemo, useRef, useState } from "react"
+import { useMemo, useRef, useState, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
 import { Loader2, ImagePlus, X } from "lucide-react"
 import { toast } from "sonner"
@@ -43,6 +43,19 @@ function splitLocal(iso: string | null): { date: string; time: string } {
     date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
     time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
   }
+}
+
+/** A flush field group: a Playfair heading + a gold hairline, no card. */
+function FieldGroup({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="space-y-4">
+      <div className="flex items-center gap-3">
+        <h3 className="font-display text-lead font-medium leading-none text-ink">{title}</h3>
+        <span className="h-px flex-1 bg-gradient-to-r from-gold/40 to-transparent" />
+      </div>
+      {children}
+    </section>
+  )
 }
 
 export function EventForm({ mode, initial }: EventFormProps) {
@@ -183,138 +196,92 @@ export function EventForm({ mode, initial }: EventFormProps) {
 
   const ctaWarn = ctaUrl.trim() !== "" && !ctaIsLive(ctaUrl)
 
+  // Smoothly collapses the time inputs when "all-day" is on.
+  const timeCollapse = cn(
+    "grid transition-all duration-[var(--motion-medium)] ease-[var(--ease-out-soft)] motion-reduce:transition-none",
+    allDay ? "grid-rows-[0fr] opacity-0" : "grid-rows-[1fr] opacity-100",
+  )
+
   return (
-    <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-12">
+    <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_clamp(320px,26vw,400px)] xl:gap-12">
       {/* Editor */}
-      <form onSubmit={handleSubmit} className="order-2 space-y-6 lg:order-1">
-        <FormField label="Title" htmlFor="title" hint="The event name (also the image’s alt text).">
-          <Input
-            id="title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Easter Park Day"
-            required
-          />
-        </FormField>
-
-        {/* All-day toggle */}
-        <div className="flex items-center justify-between rounded-lg border border-ink-hairline bg-white px-4 py-3">
-          <div>
-            <p className="text-body font-medium text-ink">All-day event</p>
-            <p className="text-small text-ink-faint">No specific start/end time.</p>
-          </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={allDay}
-            onClick={() => setAllDay((v) => !v)}
-            className={cn(
-              "relative h-6 w-11 shrink-0 rounded-pill transition-colors duration-[var(--motion-fast)] ease-[var(--ease-standard)] motion-reduce:transition-none",
-              allDay ? "bg-gold" : "bg-ink-fade",
-            )}
-          >
-            <span
-              className={cn(
-                "absolute top-0.5 h-5 w-5 rounded-circle bg-white shadow-sm transition-transform duration-[var(--motion-fast)] ease-[var(--ease-out-soft)] motion-reduce:transition-none",
-                allDay ? "translate-x-[22px]" : "translate-x-0.5",
-              )}
-            />
-          </button>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <FormField label="Start date" htmlFor="start-date">
+      <form onSubmit={handleSubmit} className="order-2 space-y-10 xl:order-1">
+        <FieldGroup title="Basics">
+          <FormField label="Title" htmlFor="title" hint="The event name (also the image’s alt text).">
             <Input
-              id="start-date"
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              data-dynamic
+              id="title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Easter Park Day"
               required
             />
           </FormField>
-          {/* Time inputs collapse smoothly when all-day is on. */}
-          <div
-            className={cn(
-              "grid transition-[grid-template-rows,opacity] duration-[var(--motion-medium)] ease-[var(--ease-out-soft)] motion-reduce:transition-none",
-              allDay ? "grid-rows-[0fr] opacity-0" : "grid-rows-[1fr] opacity-100",
-            )}
-            aria-hidden={allDay}
-          >
-            <div className="overflow-hidden">
-              <FormField label="Start time" htmlFor="start-time">
-                <Input
-                  id="start-time"
-                  type="time"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  data-dynamic
-                  disabled={allDay}
-                />
-              </FormField>
+        </FieldGroup>
+
+        <FieldGroup title="When">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-body font-medium text-ink">All-day event</p>
+              <p className="text-small text-ink-faint">No specific start or end time.</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={allDay}
+              onClick={() => setAllDay((v) => !v)}
+              className={cn(
+                "relative h-6 w-11 shrink-0 rounded-pill transition-colors duration-[var(--motion-fast)] ease-[var(--ease-standard)] motion-reduce:transition-none",
+                allDay ? "bg-gold" : "bg-ink-fade",
+              )}
+            >
+              <span
+                className={cn(
+                  "absolute top-0.5 h-5 w-5 rounded-circle bg-white shadow-sm transition-transform duration-[var(--motion-fast)] ease-[var(--ease-out-soft)] motion-reduce:transition-none",
+                  allDay ? "translate-x-[22px]" : "translate-x-0.5",
+                )}
+              />
+            </button>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField label="Start date" htmlFor="start-date">
+              <Input id="start-date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} data-dynamic required />
+            </FormField>
+            <div className={timeCollapse} aria-hidden={allDay}>
+              <div className="overflow-hidden">
+                <FormField label="Start time" htmlFor="start-time">
+                  <Input id="start-time" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} data-dynamic disabled={allDay} />
+                </FormField>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <FormField label="End date" htmlFor="end-date" hint="Optional.">
-            <Input
-              id="end-date"
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              data-dynamic
-            />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField label="End date" htmlFor="end-date" hint="Optional.">
+              <Input id="end-date" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} data-dynamic />
+            </FormField>
+            <div className={timeCollapse} aria-hidden={allDay}>
+              <div className="overflow-hidden">
+                <FormField label="End time" htmlFor="end-time" hint="Optional.">
+                  <Input id="end-time" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} data-dynamic disabled={allDay} />
+                </FormField>
+              </div>
+            </div>
+          </div>
+        </FieldGroup>
+
+        <FieldGroup title="Where">
+          <FormField label="Location" htmlFor="location" hint="Optional; shown if you add it to the description.">
+            <Input id="location" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="3080 Wildwood St, Boise" />
           </FormField>
-          <div
-            className={cn(
-              "grid transition-[grid-template-rows,opacity] duration-[var(--motion-medium)] ease-[var(--ease-out-soft)] motion-reduce:transition-none",
-              allDay ? "grid-rows-[0fr] opacity-0" : "grid-rows-[1fr] opacity-100",
-            )}
-            aria-hidden={allDay}
-          >
-            <div className="overflow-hidden">
-              <FormField label="End time" htmlFor="end-time" hint="Optional.">
-                <Input
-                  id="end-time"
-                  type="time"
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  data-dynamic
-                  disabled={allDay}
-                />
-              </FormField>
-            </div>
-          </div>
-        </div>
+        </FieldGroup>
 
-        <FormField label="Location" htmlFor="location" hint="Optional; shown if you add it to the description.">
-          <Input
-            id="location"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            placeholder="3080 Wildwood St, Boise"
-          />
-        </FormField>
-
-        {/* Flyer */}
-        <div>
-          <p className="mb-2 text-small font-medium text-ink-muted">Flyer image</p>
-          <input
-            ref={fileRef}
-            type="file"
-            accept={ACCEPTED_IMAGE_TYPES.join(",")}
-            className="hidden"
-            onChange={onPickFile}
-          />
+        <FieldGroup title="Flyer">
+          <input ref={fileRef} type="file" accept={ACCEPTED_IMAGE_TYPES.join(",")} className="hidden" onChange={onPickFile} />
           {imageUrl ? (
             <div className="relative inline-block">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={imageUrl}
-                alt="Flyer preview"
-                className="h-32 rounded-md border border-ink-hairline object-cover"
-              />
+              <img src={imageUrl} alt="Flyer preview" className="h-40 rounded-lg border border-ink-hairline object-cover" />
               <button
                 type="button"
                 onClick={() => {
@@ -332,69 +299,53 @@ export function EventForm({ mode, initial }: EventFormProps) {
               type="button"
               onClick={() => fileRef.current?.click()}
               disabled={uploading}
-              className="flex items-center gap-3 rounded-lg border border-dashed border-ink-hairline bg-white px-4 py-3 text-small text-ink-muted transition-colors duration-[var(--motion-fast)] hover:bg-surface disabled:opacity-50"
+              className="flex aspect-[4/5] w-full max-w-[200px] flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-gold/40 bg-gradient-to-br from-gold/[0.06] to-gold-dark/[0.06] text-center text-small text-ink-muted transition-colors duration-[var(--motion-fast)] hover:from-gold/12 hover:to-gold-dark/10 disabled:opacity-50 motion-reduce:transition-none"
             >
-              {uploading ? (
-                <Loader2 size={18} className="animate-spin" />
-              ) : (
-                <ImagePlus size={18} className="text-gold" />
-              )}
-              {uploading ? "Uploading…" : "Add a flyer (this is the event image on ms.church)"}
+              {uploading ? <Loader2 size={22} className="animate-spin text-gold" /> : <ImagePlus size={22} className="text-gold" />}
+              <span className="px-4">{uploading ? "Uploading…" : "Add a flyer"}</span>
             </button>
           )}
-          <p className="mt-1.5 text-micro text-ink-faint">
+          <p className="text-micro text-ink-faint">
             The flyer is the event on the public site. JPG/PNG/WebP, 5 MB max.
           </p>
-        </div>
+        </FieldGroup>
 
-        <FormField
-          label="Description"
-          htmlFor="description"
-          hint="Context for staff + accessibility. Not shown as text on the card."
-        >
-          <Textarea
-            id="description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            onBlur={liftDescriptionLink}
-            rows={3}
-            placeholder="A free community celebration with games, food, and an egg hunt."
-          />
-        </FormField>
+        <FieldGroup title="Details">
+          <FormField
+            label="Description"
+            htmlFor="description"
+            hint="Context for staff + accessibility. Not shown as text on the card."
+          >
+            <Textarea
+              id="description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              onBlur={liftDescriptionLink}
+              rows={3}
+              placeholder="A free community celebration with games, food, and an egg hunt."
+            />
+          </FormField>
+        </FieldGroup>
 
-        {/* CTA */}
-        <div className="rounded-lg border border-ink-hairline bg-white p-4">
-          <p className="text-small font-medium text-ink">Call-to-action button (optional)</p>
-          <p className="mb-3 text-micro text-ink-faint">
+        <FieldGroup title="Button">
+          <p className="-mt-1 text-small text-ink-faint">
             Shows as a button on the flyer. The public site only renders it for a full https link.
           </p>
           <div className="grid gap-4 sm:grid-cols-2">
             <FormField label="Button text" htmlFor="cta-text">
-              <Input
-                id="cta-text"
-                value={ctaText}
-                onChange={(e) => setCtaText(e.target.value)}
-                placeholder="Reserve your seat"
-                maxLength={40}
-              />
+              <Input id="cta-text" value={ctaText} onChange={(e) => setCtaText(e.target.value)} placeholder="Reserve your seat" maxLength={40} />
             </FormField>
             <FormField
               label="Button link"
               htmlFor="cta-url"
               error={ctaWarn ? "Use a full https:// link or it won’t show on the site." : undefined}
             >
-              <Input
-                id="cta-url"
-                value={ctaUrl}
-                onChange={(e) => setCtaUrl(e.target.value)}
-                placeholder="https://ms.church/form"
-                inputMode="url"
-              />
+              <Input id="cta-url" value={ctaUrl} onChange={(e) => setCtaUrl(e.target.value)} placeholder="https://ms.church/form" inputMode="url" />
             </FormField>
           </div>
-        </div>
+        </FieldGroup>
 
-        <div className="flex items-center justify-end gap-3 border-t border-ink-hairline pt-4">
+        <div className="flex items-center justify-end gap-3 border-t border-ink-hairline pt-5">
           <Button type="button" variant="ghost" onClick={() => router.back()}>
             Cancel
           </Button>
@@ -404,22 +355,24 @@ export function EventForm({ mode, initial }: EventFormProps) {
         </div>
       </form>
 
-      {/* Live preview */}
-      <div className="order-1 lg:order-2">
-        <div className="mx-auto max-w-[320px] lg:mx-0 lg:max-w-none lg:sticky lg:top-4">
-          <p className="eyebrow mb-3">Preview · ms.church</p>
-          <EventPreview
-            title={title}
-            startsAt={startIso}
-            endsAt={endIso}
-            allDay={allDay}
-            imageUrl={imageUrl}
-            ctaText={ctaText}
-            ctaUrl={ctaUrl}
-          />
-          <p className="mt-3 max-w-[320px] text-micro text-ink-faint leading-[var(--leading-prose)]">
-            This is how the event appears in the ms.church events carousel once published. Changes
-            go live within ~5 minutes of publishing.
+      {/* Live preview — a window into the public site */}
+      <div className="order-1 xl:order-2">
+        <div className="mx-auto max-w-[340px] xl:mx-0 xl:max-w-none xl:sticky xl:top-4">
+          <p className="motto mb-3 text-gold">On ms.church</p>
+          <div className="rounded-2xl border border-gold/20 bg-surface/70 p-4">
+            <EventPreview
+              title={title}
+              startsAt={startIso}
+              endsAt={endIso}
+              allDay={allDay}
+              imageUrl={imageUrl}
+              ctaText={ctaText}
+              ctaUrl={ctaUrl}
+            />
+          </div>
+          <p className="mt-3 text-micro text-ink-faint leading-[var(--leading-prose)]">
+            This is how the event appears in the ms.church events carousel once published. Changes go
+            live within ~5 minutes of publishing.
           </p>
         </div>
       </div>

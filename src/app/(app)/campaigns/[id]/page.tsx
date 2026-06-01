@@ -12,6 +12,7 @@ import {
 import { formatMoney } from "@/server/billing/twilio"
 import { isVideoUrl } from "@/lib/media"
 import { PageHeader } from "@/components/ui/page-header"
+import { PageScaffold } from "@/components/ui/page-scaffold"
 import { Badge } from "@/components/ui/badge"
 import { CampaignActions } from "./campaign-actions"
 
@@ -117,110 +118,146 @@ export default async function CampaignDetail({ params }: PageProps) {
     }
   }
 
+  const skippedFailed =
+    counts.skipped_opt_out +
+    counts.skipped_unsubscribed +
+    counts.skipped_no_channel +
+    counts.skipped_no_consent +
+    counts.failed
+
   return (
-    <div className="flex flex-col h-full min-h-0">
-      <div className="shrink-0 px-4 md:px-8 pt-4 md:pt-6 pb-4 bg-bg max-w-4xl w-full mx-auto">
-        <PageHeader
-          eyebrow="Campaign"
-          title={campaign.name}
-          backHref="/campaigns"
-          backLabel="All campaigns"
-          actions={<CampaignActions campaign={campaign} audienceBreakdown={audienceBreakdown} />}
-        />
-        <div className="mt-2 flex items-center gap-2 flex-wrap">
-          <Badge variant={STATUS_VARIANT[campaign.status] ?? "muted"}>
-            {campaign.status}
-          </Badge>
-          <span className="inline-flex items-center gap-1.5 text-ink-muted text-small">
-            {campaign.channel === "sms" ? <MessageSquare size={14} /> : <Mail size={14} />}
-            {campaign.channel.toUpperCase()}
-          </span>
-        </div>
-      </div>
-
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 md:px-8 pb-6 md:pb-8 max-w-4xl w-full mx-auto">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Stat label="Total" value={counts.total} />
-        <Stat label="Sent / delivered" value={counts.sent + counts.delivered} />
-        <Stat label="Queued" value={counts.queued + counts.sending} />
-        <Stat label="Skipped / failed" value={counts.skipped_opt_out + counts.skipped_unsubscribed + counts.skipped_no_channel + counts.skipped_no_consent + counts.failed} />
-      </div>
-
-      {campaign.channel === "sms" && (
-        <div className="mt-8 rounded-lg border border-ink-hairline bg-white p-6">
-          <p className="eyebrow mb-3">Cost</p>
-          <p className="font-display text-title text-ink leading-none" data-dynamic>
-            {formatMoney(cost.total, cost.currency)}
-          </p>
-          <p className="mt-2 text-small text-ink-muted" data-dynamic>
-            {costDetail}
-          </p>
-        </div>
-      )}
-
-      <div className="mt-8 rounded-lg border border-ink-hairline bg-white p-6">
-        <p className="eyebrow mb-3">Message</p>
-        {campaign.channel === "sms" ? (
-          <div className="space-y-3">
-            {campaign.media_url &&
-              (isVideoUrl(campaign.media_url) ? (
-                <video src={campaign.media_url} controls className="rounded-md max-h-72 w-auto" />
-              ) : (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={campaign.media_url} alt="Attachment" className="rounded-md max-h-72 w-auto" />
-              ))}
-            {campaign.body ? (
-              <pre className="whitespace-pre-wrap font-body text-body text-ink leading-normal">
-                {campaign.body}
-              </pre>
-            ) : (
-              <p className="text-small text-ink-faint">Media only, no text</p>
-            )}
+    <PageScaffold
+      header={
+        <>
+          <PageHeader
+            eyebrow="Campaign"
+            title={campaign.name}
+            backHref="/campaigns"
+            backLabel="All campaigns"
+            actions={<CampaignActions campaign={campaign} audienceBreakdown={audienceBreakdown} />}
+          />
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Badge variant={STATUS_VARIANT[campaign.status] ?? "muted"}>{campaign.status}</Badge>
+            <span className="inline-flex items-center gap-1.5 text-small text-ink-muted">
+              {campaign.channel === "sms" ? <MessageSquare size={14} /> : <Mail size={14} />}
+              {campaign.channel.toUpperCase()}
+            </span>
           </div>
-        ) : (
-          <dl className="space-y-2 text-small">
-            <div>
-              <dt className="text-label text-ink-faint">Template ID</dt>
-              <dd className="font-mono text-ink">{campaign.sendgrid_template_id}</dd>
-            </div>
-            <div>
-              <dt className="text-label text-ink-faint">Subject</dt>
-              <dd className="text-ink">{campaign.email_subject}</dd>
-            </div>
-          </dl>
-        )}
-      </div>
+        </>
+      }
+    >
+      <div className="space-y-8 pt-6">
+        {/* Metric band — flush serif numerals on the cream canvas */}
+        <div className="grid grid-cols-2 gap-x-8 gap-y-5 border-b border-ink-hairline pb-6 sm:grid-cols-4">
+          <Stat label="Total" value={counts.total} />
+          <Stat label="Sent / delivered" value={counts.sent + counts.delivered} />
+          <Stat label="Queued" value={counts.queued + counts.sending} />
+          <Stat label="Skipped / failed" value={skippedFailed} />
+        </div>
 
-      <div className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
-        <p className="eyebrow mb-3">Recipient breakdown</p>
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-small">
-          <Row label="Queued" value={counts.queued} />
-          <Row label="Sending" value={counts.sending} />
-          <Row label="Sent" value={counts.sent} />
-          <Row label="Delivered" value={counts.delivered} />
-          <Row label="Failed" value={counts.failed} highlight={counts.failed > 0 ? "danger" : undefined} />
-          <Row label="Skipped (opt-out)" value={counts.skipped_opt_out} highlight={counts.skipped_opt_out > 0 ? "muted" : undefined} />
-          <Row label="Skipped (no consent)" value={counts.skipped_no_consent} highlight={counts.skipped_no_consent > 0 ? "muted" : undefined} />
-          <Row label="Skipped (unsubscribed)" value={counts.skipped_unsubscribed} highlight={counts.skipped_unsubscribed > 0 ? "muted" : undefined} />
-          <Row label="Skipped (no channel)" value={counts.skipped_no_channel} highlight={counts.skipped_no_channel > 0 ? "muted" : undefined} />
-        </dl>
-      </div>
+        {counts.total > 0 && <DeliveryBar done={counts.sent + counts.delivered} total={counts.total} />}
 
-      <div className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
-        <p className="eyebrow mb-3">Timeline</p>
-        <dl className="space-y-2 text-small">
-          <Row label="Created" value={format(new Date(campaign.created_at), "PPp")} />
-          {campaign.scheduled_at && (
-            <Row label="Scheduled" value={format(new Date(campaign.scheduled_at), "PPp")} />
-          )}
-          {campaign.started_at && (
-            <Row label="Started" value={format(new Date(campaign.started_at), "PPp")} />
-          )}
-          {campaign.completed_at && (
-            <Row label="Completed" value={format(new Date(campaign.completed_at), "PPp")} />
-          )}
-        </dl>
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="space-y-6">
+            <div className="rounded-lg border border-ink-hairline bg-white p-6">
+              <p className="eyebrow mb-3">Message</p>
+              {campaign.channel === "sms" ? (
+                <div className="space-y-3">
+                  {campaign.media_url &&
+                    (isVideoUrl(campaign.media_url) ? (
+                      <video src={campaign.media_url} controls className="max-h-72 w-auto rounded-md" />
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={campaign.media_url} alt="Attachment" className="max-h-72 w-auto rounded-md" />
+                    ))}
+                  {campaign.body ? (
+                    <pre className="whitespace-pre-wrap font-body text-body leading-normal text-ink">
+                      {campaign.body}
+                    </pre>
+                  ) : (
+                    <p className="text-small text-ink-faint">Media only, no text</p>
+                  )}
+                </div>
+              ) : (
+                <dl className="space-y-2 text-small">
+                  <div>
+                    <dt className="text-label text-ink-faint">Template ID</dt>
+                    <dd className="font-mono text-ink">{campaign.sendgrid_template_id}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-label text-ink-faint">Subject</dt>
+                    <dd className="text-ink">{campaign.email_subject}</dd>
+                  </div>
+                </dl>
+              )}
+            </div>
+
+            <div className="rounded-lg border border-ink-hairline bg-white p-6">
+              <p className="eyebrow mb-3">Recipient breakdown</p>
+              <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-small">
+                <Row label="Queued" value={counts.queued} />
+                <Row label="Sending" value={counts.sending} />
+                <Row label="Sent" value={counts.sent} />
+                <Row label="Delivered" value={counts.delivered} />
+                <Row label="Failed" value={counts.failed} highlight={counts.failed > 0 ? "danger" : undefined} />
+                <Row label="Skipped (opt-out)" value={counts.skipped_opt_out} highlight={counts.skipped_opt_out > 0 ? "muted" : undefined} />
+                <Row label="Skipped (no consent)" value={counts.skipped_no_consent} highlight={counts.skipped_no_consent > 0 ? "muted" : undefined} />
+                <Row label="Skipped (unsubscribed)" value={counts.skipped_unsubscribed} highlight={counts.skipped_unsubscribed > 0 ? "muted" : undefined} />
+                <Row label="Skipped (no channel)" value={counts.skipped_no_channel} highlight={counts.skipped_no_channel > 0 ? "muted" : undefined} />
+              </dl>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            {campaign.channel === "sms" && (
+              <div className="rounded-lg border border-ink-hairline bg-white p-6">
+                <p className="eyebrow mb-3">Cost</p>
+                <p className="font-display text-title leading-none text-ink" data-dynamic>
+                  {formatMoney(cost.total, cost.currency)}
+                </p>
+                <p className="mt-2 text-small text-ink-muted" data-dynamic>
+                  {costDetail}
+                </p>
+              </div>
+            )}
+
+            <div className="rounded-lg border border-ink-hairline bg-white p-6">
+              <p className="eyebrow mb-3">Timeline</p>
+              <dl className="space-y-2 text-small">
+                <Row label="Created" value={format(new Date(campaign.created_at), "PPp")} />
+                {campaign.scheduled_at && (
+                  <Row label="Scheduled" value={format(new Date(campaign.scheduled_at), "PPp")} />
+                )}
+                {campaign.started_at && (
+                  <Row label="Started" value={format(new Date(campaign.started_at), "PPp")} />
+                )}
+                {campaign.completed_at && (
+                  <Row label="Completed" value={format(new Date(campaign.completed_at), "PPp")} />
+                )}
+              </dl>
+            </div>
+          </div>
+        </div>
       </div>
+    </PageScaffold>
+  )
+}
+
+function DeliveryBar({ done, total }: { done: number; total: number }) {
+  const pct = total ? Math.round((done / total) * 100) : 0
+  return (
+    <div>
+      <div className="mb-1.5 flex items-center justify-between text-micro text-ink-faint">
+        <span className="uppercase tracking-wide">Delivery</span>
+        <span data-dynamic>
+          {done} of {total} sent
+        </span>
+      </div>
+      <div className="h-2 overflow-hidden rounded-pill bg-ink-hairline">
+        <div
+          className="h-full rounded-pill bg-gradient-to-r from-gold to-gold-dark transition-[width] duration-[var(--motion-slow)] ease-[var(--ease-out-soft)] motion-reduce:transition-none"
+          style={{ width: `${pct}%` }}
+        />
       </div>
     </div>
   )
@@ -228,9 +265,11 @@ export default async function CampaignDetail({ params }: PageProps) {
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border border-ink-hairline bg-white p-4">
-      <p className="text-label text-ink-faint">{label}</p>
-      <p className="font-display text-title text-ink mt-0.5 leading-none">{value}</p>
+    <div>
+      <p className="text-label uppercase tracking-wide text-ink-faint">{label}</p>
+      <p className="mt-1 font-display text-hero leading-none text-ink" data-dynamic>
+        {value}
+      </p>
     </div>
   )
 }
@@ -247,13 +286,7 @@ function Row({
   return (
     <div className="flex items-center justify-between">
       <dt className="text-ink-faint">{label}</dt>
-      <dd
-        className={`font-medium ${
-          highlight === "danger" ? "text-danger" : "text-ink"
-        }`}
-      >
-        {value}
-      </dd>
+      <dd className={`font-medium ${highlight === "danger" ? "text-danger" : "text-ink"}`}>{value}</dd>
     </div>
   )
 }
