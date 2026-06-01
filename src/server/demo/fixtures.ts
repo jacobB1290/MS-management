@@ -206,8 +206,18 @@ const contactSummary: Row[] = [
 ]
 
 const campaigns: Row[] = [
-  {"id":"camp1","name":"Neighborhood card drop — visitor follow-up","channel":"sms","status":"draft","body":"Thanks for reaching out after finding our card! We'd love to see you this Sunday at 9 or 11am. Reply with any questions.","media_url":null,"sendgrid_template_id":null,"email_subject":null,"audience_filter":{"category":"outreach"},"scheduled_at":null,"started_at":null,"completed_at":null,"created_at":ago(30)},
-  {"id":"camp2","name":"Volunteer thank-you (draft)","channel":"email","status":"draft","body":null,"media_url":null,"sendgrid_template_id":"d-demo-template-001","email_subject":"Thank you for serving","audience_filter":{"tags":["volunteer"]},"scheduled_at":null,"started_at":null,"completed_at":null,"created_at":ago(1440)},
+  {"id":"camp1","name":"Easter Park Day — invite","channel":"sms","status":"draft","body":"Easter Park Day — Saturday, April 21 at 11 AM. https://ms.church/outreach#events","media_url":null,"sendgrid_template_id":null,"email_subject":null,"audience_filter":{"all":true},"event_id":"E01","scheduled_at":null,"started_at":null,"completed_at":null,"created_at":ago(30)},
+  {"id":"camp2","name":"Volunteer thank-you (draft)","channel":"email","status":"draft","body":null,"media_url":null,"sendgrid_template_id":"d-demo-template-001","email_subject":"Thank you for serving","audience_filter":{"tags":["volunteer"]},"event_id":null,"scheduled_at":null,"started_at":null,"completed_at":null,"created_at":ago(1440)},
+]
+
+// Fixed (non-relative) dates so the JUL/APR date badges stay stable across
+// harness runs. Far-future dates keep the "upcoming" ones upcoming; 2024 ones
+// are "past". No image URLs → the placeholder renders (hermetic screenshots).
+const events: Row[] = [
+  {"id":"E01","gcal_event_id":"gcaldemo1","gcal_calendar_id":null,"title":"Easter Park Day","description":"A free community celebration with games, food, and an egg hunt.","starts_at":"2030-04-21T17:00:00.000Z","ends_at":"2030-04-21T22:00:00.000Z","all_day":false,"location":"Ann Morrison Park, Boise","cta_text":"Get directions","cta_url":"https://maps.google.com/","image_drive_file_id":null,"image_public_url":null,"image_storage_path":null,"status":"published","source":"crm","synced_at":ago(60),"created_by":"demo-admin","created_at":ago(2000)},
+  {"id":"E02","gcal_event_id":null,"gcal_calendar_id":null,"title":"Friendsgiving Lunch","description":"Bring a dish to share; we provide the turkey.","starts_at":"2030-11-23T18:00:00.000Z","ends_at":"2030-11-23T20:00:00.000Z","all_day":false,"location":null,"cta_text":null,"cta_url":null,"image_drive_file_id":null,"image_public_url":null,"image_storage_path":null,"status":"draft","source":"crm","synced_at":null,"created_by":"demo-admin","created_at":ago(120)},
+  {"id":"E03","gcal_event_id":"gcaldemo3","gcal_calendar_id":null,"title":"Christmas Eve Candlelight Service","description":"An evening of carols and candlelight.","starts_at":"2030-12-24T23:00:00.000Z","ends_at":null,"all_day":false,"location":"3080 Wildwood St, Boise","cta_text":null,"cta_url":null,"image_drive_file_id":null,"image_public_url":null,"image_storage_path":null,"status":"published","source":"gcal","synced_at":ago(60),"created_by":null,"created_at":ago(300)},
+  {"id":"E04","gcal_event_id":"gcaldemo4","gcal_calendar_id":null,"title":"Community Breakfast","description":"A look back at our monthly free breakfast.","starts_at":"2024-09-14T15:00:00.000Z","ends_at":"2024-09-14T17:00:00.000Z","all_day":false,"location":null,"cta_text":null,"cta_url":null,"image_drive_file_id":null,"image_public_url":null,"image_storage_path":null,"status":"published","source":"gcal","synced_at":ago(60),"created_by":null,"created_at":ago(9000)},
 ]
 
 const campaignRecipients: Row[] = [
@@ -301,6 +311,7 @@ export const DEMO_TABLES: Record<string, Row[]> = {
   messages,
   campaigns,
   campaign_recipients: campaignRecipients,
+  events,
   app_users: appUsers,
   form_submissions: formSubmissions,
   audit_log: auditLog,

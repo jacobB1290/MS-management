@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "harness": "playwright test --config=scripts/harness/playwright.config.ts",
     "harness:update": "playwright test --config=scripts/harness/playwright.config.ts --update-snapshots",
+    "verify:events": "tsx scripts/events/verify-mapping.ts",
     "ai-eval": "tsx scripts/ai-eval/run.ts",
     "sim": "tsx scripts/ai-eval/sim-run.ts",
     "sim:build": "tsx scripts/ai-eval/sim-assemble.ts && tsx scripts/ai-eval/sim-gen-fixtures.ts",

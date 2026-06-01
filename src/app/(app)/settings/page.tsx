@@ -37,11 +37,18 @@ export default async function SettingsPage() {
   const user = await requireStaff()
   const isAdmin = user.role === "admin"
 
+  const googleWrite = Boolean(
+    process.env.GOOGLE_OAUTH_CLIENT_ID &&
+      process.env.GOOGLE_OAUTH_CLIENT_SECRET &&
+      process.env.GOOGLE_OAUTH_REFRESH_TOKEN,
+  )
   const status = {
     twilio: Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN),
     twilioMessaging: Boolean(process.env.TWILIO_MESSAGING_SERVICE_SID),
     sendgrid: Boolean(process.env.SENDGRID_API_KEY && process.env.SENDGRID_FROM_EMAIL),
     sendgridWebhook: Boolean(process.env.SENDGRID_WEBHOOK_PUBLIC_KEY),
+    googleWrite,
+    googleRead: googleWrite || Boolean(process.env.GOOGLE_CALENDAR_API_KEY),
     publicForm: Boolean(process.env.PUBLIC_FORM_HMAC_SECRET),
     cronSecret: Boolean(process.env.CRON_SECRET),
   }
@@ -127,6 +134,24 @@ export default async function SettingsPage() {
               label="SendGrid event webhook"
               ready={status.sendgridWebhook}
               detail={status.sendgridWebhook ? "Public key configured" : "SENDGRID_WEBHOOK_PUBLIC_KEY missing; events won’t be verified"}
+            />
+            <StatusRow
+              label="Google Calendar — publish events"
+              ready={status.googleWrite}
+              detail={
+                status.googleWrite
+                  ? "OAuth connected; events + flyers publish to ms.church"
+                  : "GOOGLE_OAUTH_* missing; events save as drafts and aren’t pushed live"
+              }
+            />
+            <StatusRow
+              label="Google Calendar — read / sync"
+              ready={status.googleRead}
+              detail={
+                status.googleRead
+                  ? "Can pull events created directly in Google Calendar"
+                  : "Set GOOGLE_OAUTH_* or GOOGLE_CALENDAR_API_KEY to sync"
+              }
             />
             <StatusRow
               label="Public form receiver"

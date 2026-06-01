@@ -134,6 +134,8 @@ export const campaignCreateSchema = z
       media_url: z.string().url().optional().nullable(),
       audience_filter: z.record(z.string(), z.unknown()).optional().default({}),
       scheduled_at: z.string().datetime().optional().nullable(),
+      // Links a promo campaign to the event it announces (set by "Promote").
+      event_id: z.string().uuid().optional().nullable(),
     }),
     z.object({
       channel: z.literal("email"),
@@ -142,6 +144,8 @@ export const campaignCreateSchema = z
       email_subject: z.string().trim().min(1).max(200),
       audience_filter: z.record(z.string(), z.unknown()).optional().default({}),
       scheduled_at: z.string().datetime().optional().nullable(),
+      // Links a promo campaign to the event it announces (set by "Promote").
+      event_id: z.string().uuid().optional().nullable(),
     }),
   ])
   .superRefine((data, ctx) => {
@@ -152,6 +156,71 @@ export const campaignCreateSchema = z
         path: ["body"],
       })
     }
+  })
+
+// --- Events -----------------------------------------------------------------
+
+// CTA fields must survive the website's `[CTA: text | url]` parsing, which keys
+// off `|` and `]`. We reject those characters up front (the mapping layer also
+// defends, but a clear field error beats a silently-dropped button).
+const ctaTextField = z
+  .string()
+  .trim()
+  .max(40)
+  .refine((v) => !v.includes("|") && !v.includes("]"), {
+    message: "Button text can’t contain the characters | or ].",
+  })
+const ctaUrlField = z
+  .string()
+  .trim()
+  .url("Enter a full link starting with https://")
+  .max(600)
+  .refine((v) => !v.includes("]"), { message: "The link can’t contain a ] character." })
+
+const eventBaseShape = {
+  title: z.string().trim().min(1, "Add a title.").max(160),
+  description: z.string().trim().max(4000).optional().nullable(),
+  starts_at: z.string().datetime(),
+  ends_at: z.string().datetime().optional().nullable(),
+  all_day: z.boolean().optional().default(false),
+  location: z.string().trim().max(300).optional().nullable(),
+  cta_text: ctaTextField.optional().nullable(),
+  cta_url: ctaUrlField.optional().nullable(),
+  // The CRM-hosted flyer (mms-media bucket) the operator uploaded, if any. The
+  // bytes get copied to Drive on publish so the public site can show them.
+  image_storage_path: z.string().trim().max(200).optional().nullable(),
+  image_public_url: z.string().trim().url().max(1000).optional().nullable(),
+}
+
+export const eventCreateSchema = z
+  .object(eventBaseShape)
+  .refine((d) => !d.cta_url || (d.cta_text != null && d.cta_text.length > 0), {
+    message: "Add button text for the link.",
+    path: ["cta_text"],
+  })
+  .refine((d) => !d.ends_at || d.ends_at >= d.starts_at, {
+    message: "The end can’t be before the start.",
+    path: ["ends_at"],
+  })
+
+// Update accepts the same fields, all optional (partial edits). Cross-field
+// checks are best-effort here since not every field is always present.
+export const eventUpdateSchema = z
+  .object({
+    title: eventBaseShape.title.optional(),
+    description: eventBaseShape.description,
+    starts_at: z.string().datetime().optional(),
+    ends_at: eventBaseShape.ends_at,
+    all_day: z.boolean().optional(),
+    location: eventBaseShape.location,
+    cta_text: eventBaseShape.cta_text,
+    cta_url: eventBaseShape.cta_url,
+    image_storage_path: eventBaseShape.image_storage_path,
+    image_public_url: eventBaseShape.image_public_url,
+  })
+  .refine((d) => d.cta_url == null || (d.cta_text != null && d.cta_text.length > 0), {
+    message: "Add button text for the link.",
+    path: ["cta_text"],
   })
 
 export const aiSuggestTagsSchema = z.object({

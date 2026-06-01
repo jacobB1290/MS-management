@@ -153,6 +153,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           email_subject: string | null
+          event_id: string | null
           id: string
           media_url: string | null
           name: string
@@ -170,6 +171,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           email_subject?: string | null
+          event_id?: string | null
           id?: string
           media_url?: string | null
           name: string
@@ -187,6 +189,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           email_subject?: string | null
+          event_id?: string | null
           id?: string
           media_url?: string | null
           name?: string
@@ -196,7 +199,15 @@ export type Database = {
           status?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "campaigns_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       church_knowledge: {
         Row: {
@@ -365,6 +376,75 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      events: {
+        Row: {
+          all_day: boolean
+          created_at: string
+          created_by: string | null
+          cta_text: string | null
+          cta_url: string | null
+          description: string | null
+          ends_at: string | null
+          gcal_calendar_id: string | null
+          gcal_event_id: string | null
+          id: string
+          image_drive_file_id: string | null
+          image_public_url: string | null
+          image_storage_path: string | null
+          location: string | null
+          source: string
+          starts_at: string
+          status: string
+          synced_at: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          all_day?: boolean
+          created_at?: string
+          created_by?: string | null
+          cta_text?: string | null
+          cta_url?: string | null
+          description?: string | null
+          ends_at?: string | null
+          gcal_calendar_id?: string | null
+          gcal_event_id?: string | null
+          id?: string
+          image_drive_file_id?: string | null
+          image_public_url?: string | null
+          image_storage_path?: string | null
+          location?: string | null
+          source?: string
+          starts_at: string
+          status?: string
+          synced_at?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          all_day?: boolean
+          created_at?: string
+          created_by?: string | null
+          cta_text?: string | null
+          cta_url?: string | null
+          description?: string | null
+          ends_at?: string | null
+          gcal_calendar_id?: string | null
+          gcal_event_id?: string | null
+          id?: string
+          image_drive_file_id?: string | null
+          image_public_url?: string | null
+          image_storage_path?: string | null
+          location?: string | null
+          source?: string
+          starts_at?: string
+          status?: string
+          synced_at?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       form_submissions: {
         Row: {

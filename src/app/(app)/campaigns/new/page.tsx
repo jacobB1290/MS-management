@@ -1,17 +1,24 @@
 import type { Metadata } from "next"
 import { Suspense } from "react"
 import { requireStaff } from "@/server/auth"
+import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { getContactTagOccurrences } from "@/server/contacts/tags"
 import { PageHeader } from "@/components/ui/page-header"
 import { Skeleton } from "@/components/ui/skeleton"
-import { CampaignComposer } from "./campaign-composer"
+import { eventLongDate, eventDisplayTime } from "@/lib/event-format"
+import { CampaignComposer, type ComposerPrefill } from "./campaign-composer"
 
 export const metadata: Metadata = { title: "New campaign" }
 
-export default async function NewCampaignPage() {
+interface NewCampaignPageProps {
+  searchParams: Promise<{ event?: string; channel?: string }>
+}
+
+export default async function NewCampaignPage({ searchParams }: NewCampaignPageProps) {
   // Shell paints immediately on nav; the composer (which needs the tag
-  // vocabulary) streams in behind a skeleton instead of blocking the page.
+  // vocabulary, and the event when promoting) streams in behind a skeleton.
   await requireStaff()
+  const { event, channel } = await searchParams
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -28,7 +35,7 @@ export default async function NewCampaignPage() {
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 md:px-8 pb-6 md:pb-8 max-w-3xl w-full">
         <div className="rounded-lg border border-ink-hairline bg-white p-6 md:p-8">
           <Suspense fallback={<ComposerSkeleton />}>
-            <CampaignComposerLoader />
+            <CampaignComposerLoader eventId={event} channel={channel} />
           </Suspense>
         </div>
       </div>
@@ -36,16 +43,61 @@ export default async function NewCampaignPage() {
   )
 }
 
-async function CampaignComposerLoader() {
+async function CampaignComposerLoader({
+  eventId,
+  channel,
+}: {
+  eventId?: string
+  channel?: string
+}) {
+  const supabase = await createSupabaseServerClient()
+  const [tagList, eventRes] = await Promise.all([
+    getContactTagOccurrences(),
+    eventId
+      ? supabase
+          .from("events")
+          .select("id, title, starts_at, ends_at, all_day, cta_url, image_public_url")
+          .eq("id", eventId)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+  ])
+
   const tagCounts = new Map<string, number>()
-  for (const t of await getContactTagOccurrences()) {
+  for (const t of tagList) {
     tagCounts.set(t, (tagCounts.get(t) ?? 0) + 1)
   }
   const tagOptions = [...tagCounts.entries()]
     .sort((a, b) => b[1] - a[1])
     .map(([tag, count]) => ({ tag, count }))
 
-  return <CampaignComposer tagOptions={tagOptions} />
+  const ev = eventRes.data
+  const prefill: ComposerPrefill | undefined = ev
+    ? {
+        channel: channel === "email" ? "email" : "sms",
+        name: `Promote: ${ev.title}`,
+        body: smsPromoBody(ev),
+        mediaUrl: ev.image_public_url,
+        subject: ev.title,
+        eventId: ev.id,
+        eventTitle: ev.title,
+      }
+    : undefined
+
+  return <CampaignComposer tagOptions={tagOptions} prefill={prefill} />
+}
+
+/** A short SMS promo seed from an event: title, when, and a link. */
+function smsPromoBody(ev: {
+  title: string
+  starts_at: string
+  ends_at: string | null
+  all_day: boolean
+  cta_url: string | null
+}): string {
+  const time = eventDisplayTime(ev.starts_at, ev.ends_at, ev.all_day)
+  const when = time ? `${eventLongDate(ev.starts_at)} at ${time}` : eventLongDate(ev.starts_at)
+  const link = ev.cta_url || "https://ms.church/outreach#events"
+  return `${ev.title} — ${when}. ${link}`
 }
 
 function ComposerSkeleton() {
@@ -60,4 +112,3 @@ function ComposerSkeleton() {
     </div>
   )
 }
-

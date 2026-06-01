@@ -71,6 +71,12 @@ Six core tables + three supporting. See `supabase/migrations/0001_init.sql`.
 - `app_users` — `auth.users.id` → role (`admin` | `member`).
 - `audit_log` — write-only privileged action log.
 - `heartbeat` — single row, kept warm by GH Actions cron.
+- `events` (added in `0028`) — CRM mirror/editor for the church Google Calendar
+  that ms.church reads. `gcal_event_id UNIQUE` (sync key), structured CTA
+  (`cta_text`/`cta_url`), the flyer's Drive file id + public URL, `status`
+  (`draft`/`published`/`cancelled`), `source` (`crm`/`gcal`). `campaigns.event_id`
+  links a promo campaign to it. Google Calendar is the public source of truth;
+  this table is the working copy + CRM metadata. See §13.2.
 
 **Migrations are the only way to change schema.** Never hand-edit via the
 dashboard. New migration file under `supabase/migrations/` + apply via the
@@ -364,6 +370,50 @@ opt-in via `detectMarketingJoin`). Inbound + status webhooks point at
   Parse are live, sending works and receiving stays dormant. Inbound HTML is
   stored in `messages.body_html` but the inbox renders the plain-text `body`
   only (no sanitizer yet — sanitize before ever rendering the HTML).
+
+## 13.2 Events → Google Calendar (ms.church)
+
+Staff create events in the CRM (`/events`) that show up on **ms.church**. The
+public site reads the church Google Calendar and renders whatever is on it, so
+the CRM **writes to that same calendar** in the exact shape the site already
+parses — no website change. Google Calendar is the public source of truth; the
+`events` table is the CRM's editing surface + mirror.
+
+- **Single source of the contract:** `src/server/google/eventMapping.ts` (pure,
+  dependency-free) is the only place that translates an event ↔ a Google
+  Calendar event, mirroring ms.church's own regexes:
+  - title → `summary`; description → `description` with a `[CTA: text | url]`
+    tag appended (the site strips it and renders it as the flyer button — only
+    for real `http(s)` links); flyer → a **public Drive attachment**
+    (`supportsAttachments=true`), shown via `lh3.googleusercontent.com/d/<id>=w800`;
+    timed events send `dateTime` + `timeZone: America/Boise`, all-day uses
+    exclusive `end.date`.
+  - `npm run verify:events` asserts our output against the site's verbatim
+    regexes. **Run it after touching the mapping.** If ms.church changes how it
+    reads the calendar, update the mapping + this verifier together.
+- **Auth + degrade-to-mock (like Twilio/SendGrid):** `src/server/google/auth.ts`.
+  Reads work with `GOOGLE_CALENDAR_API_KEY` *or* OAuth; writes (events + Drive
+  uploads) need an OAuth refresh token for the church account
+  (`GOOGLE_OAUTH_CLIENT_ID/SECRET/REFRESH_TOKEN`, scopes `calendar` +
+  `drive.file`). No creds → mock mode: events save locally, Publish/Sync are
+  logged no-ops. Setup + the load-bearing gotcha (publish the OAuth app to
+  **Production** or the refresh token dies in 7 days) live in
+  `docs/events-google-setup-runbook.md`.
+- **Two-way:** Publish pushes a CRM event to the calendar; Sync pulls events
+  authored directly in Calendar into the table and reconciles status. Service
+  logic: `src/server/events/service.ts`; routes under `src/app/api/events/`.
+- **Image flow:** the flyer is uploaded to the CRM's `mms-media` bucket (the
+  editor preview + MMS/email promo use that URL), then copied to Drive and shared
+  publicly on publish — that Drive copy is what the public site shows.
+- **Campaigns + consent:** "Promote" opens the campaign composer pre-filled from
+  the event (SMS body + flyer as MMS, or email subject) and links it via
+  `campaigns.event_id`. The promo is **marketing**, so it goes through the
+  existing wall unchanged — SMS requires `marketing_consent_at` + not opted out;
+  bulk email requires the unsubscribe group + postal address (see §6/§6.1). No
+  new send path; consent timing is enforced exactly as for any campaign.
+- **Care:** don't publish throwaway future-dated test events on the live
+  calendar — they appear publicly within ~5 minutes. Use mock mode or a separate
+  `GOOGLE_CALENDAR_ID` while testing.
 
 ## 14. Future phases (do NOT build yet)
 

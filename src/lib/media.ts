@@ -28,14 +28,18 @@ export function isVideoUrl(url: string): boolean {
   return /\.(mp4|3gp|3gpp|mov|m4v|qt)(\?|#|$)/i.test(url)
 }
 
-/** Upload a file through the staff-gated server route; returns its public URL. */
-export async function uploadMedia(file: File): Promise<{ url: string }> {
+/** Upload a file through the staff-gated server route; returns its public URL
+ *  and the storage path (the path lets callers, e.g. the event editor, track
+ *  the stored object). */
+export async function uploadMedia(file: File): Promise<{ url: string; path: string }> {
   const form = new FormData()
   form.set("file", file)
   const res = await fetch("/api/media/upload", { method: "POST", body: form })
-  const json = (await res.json().catch(() => null)) as { url?: string; error?: string } | null
+  const json = (await res.json().catch(() => null)) as
+    | { url?: string; path?: string; error?: string }
+    | null
   if (!res.ok || !json?.url) {
     throw new Error(json?.error ?? `upload_failed_${res.status}`)
   }
-  return { url: json.url }
+  return { url: json.url, path: json.path ?? "" }
 }
