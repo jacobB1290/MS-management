@@ -2,7 +2,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { ExternalLink, Loader2, Megaphone, Trash2, Upload, EyeOff } from "lucide-react"
+import { ExternalLink, Loader2, Sparkles, Trash2, Upload, EyeOff } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 
@@ -76,8 +76,8 @@ export function EventActions({ id, status, isAdmin }: EventActionsProps) {
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Button asChild variant="secondary" size="sm">
-        <Link href={`/campaigns/new?event=${id}`}>
-          <Megaphone size={15} />
+        <Link href={`/campaigns/new?event=${id}&ai=1`}>
+          <Sparkles size={15} />
           Promote
         </Link>
       </Button>

@@ -12,14 +12,14 @@ import { CampaignComposer, type ComposerPrefill } from "./campaign-composer"
 export const metadata: Metadata = { title: "New campaign" }
 
 interface NewCampaignPageProps {
-  searchParams: Promise<{ event?: string; channel?: string }>
+  searchParams: Promise<{ event?: string; channel?: string; ai?: string }>
 }
 
 export default async function NewCampaignPage({ searchParams }: NewCampaignPageProps) {
   // Shell paints immediately on nav; the composer (which needs the tag
   // vocabulary, and the event when promoting) streams in behind a skeleton.
   await requireStaff()
-  const { event, channel } = await searchParams
+  const { event, channel, ai } = await searchParams
 
   return (
     <PageScaffold
@@ -35,7 +35,7 @@ export default async function NewCampaignPage({ searchParams }: NewCampaignPageP
     >
       <div className="pt-6">
         <Suspense fallback={<ComposerSkeleton />}>
-          <CampaignComposerLoader eventId={event} channel={channel} />
+          <CampaignComposerLoader eventId={event} channel={channel} ai={ai === "1" || ai === "true"} />
         </Suspense>
       </div>
     </PageScaffold>
@@ -45,9 +45,11 @@ export default async function NewCampaignPage({ searchParams }: NewCampaignPageP
 async function CampaignComposerLoader({
   eventId,
   channel,
+  ai,
 }: {
   eventId?: string
   channel?: string
+  ai?: boolean
 }) {
   const supabase = await createSupabaseServerClient()
   const [tagList, eventRes] = await Promise.all([
@@ -79,6 +81,7 @@ async function CampaignComposerLoader({
         subject: ev.title,
         eventId: ev.id,
         eventTitle: ev.title,
+        ai: Boolean(ai),
       }
     : undefined
 

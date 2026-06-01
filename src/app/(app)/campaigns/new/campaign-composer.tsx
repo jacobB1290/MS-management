@@ -1,7 +1,7 @@
 "use client"
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Plus, Loader2, X, Megaphone } from "lucide-react"
+import { Plus, Loader2, X, Megaphone, Sparkles } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -27,11 +27,21 @@ export interface ComposerPrefill {
   subject?: string
   eventId?: string
   eventTitle?: string
+  /** When true (arriving from "Promote with AI"), the composer asks Opus to draft
+   *  the whole campaign on mount and fills the fields from its plan. */
+  ai?: boolean
 }
 
 interface ComposerProps {
   tagOptions: { tag: string; count: number }[]
   prefill?: ComposerPrefill
+}
+
+/** ISO instant → a value the datetime-local input accepts (browser-local). */
+function isoToLocalInput(iso: string): string {
+  const d = new Date(iso)
+  const pad = (n: number) => String(n).padStart(2, "0")
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
 export function CampaignComposer({ tagOptions, prefill }: ComposerProps) {
@@ -51,6 +61,57 @@ export function CampaignComposer({ tagOptions, prefill }: ComposerProps) {
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const eventId = prefill?.eventId
+
+  // "Promote with AI": on arrival, ask Opus to plan the whole campaign from the
+  // event flyer + audience and fill the fields. The static prefill above is the
+  // instant fallback shown while it drafts (and if AI is off).
+  const [aiDrafting, setAiDrafting] = useState(Boolean(prefill?.ai && eventId))
+  const [aiRationale, setAiRationale] = useState<string | null>(null)
+  useEffect(() => {
+    if (!prefill?.ai || !eventId) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/events/${eventId}/promote`, { method: "POST" })
+        const json = await res.json().catch(() => null)
+        if (cancelled) return
+        if (!res.ok || !json?.proposal) {
+          if (res.status === 503)
+            toast.info("AI promotion isn’t configured — pre-filled the basics from the event.")
+          else toast.error("Couldn’t draft with AI. Pre-filled the basics from the event.")
+          return
+        }
+        const p = json.proposal as {
+          channel: "sms" | "email"
+          name: string
+          body: string
+          subject: string
+          audience: { mode: "all" | "members" | "tags"; tags: string[] }
+          scheduledAt: string | null
+          rationale: string
+        }
+        setChannel(p.channel)
+        if (p.name) setName(p.name)
+        if (p.body) setBody(p.body)
+        if (p.subject) setSubject(p.subject)
+        setAudienceKind(p.audience.mode)
+        setSelectedTags(p.audience.mode === "tags" ? p.audience.tags : [])
+        if (p.scheduledAt) setScheduledAt(isoToLocalInput(p.scheduledAt))
+        setAiRationale(p.rationale || null)
+        toast.success("Drafted with Opus — review and adjust before sending.")
+      } catch {
+        if (!cancelled)
+          toast.error("Couldn’t reach the AI. Pre-filled the basics from the event.")
+      } finally {
+        if (!cancelled) setAiDrafting(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+    // Runs once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -150,13 +211,34 @@ export function CampaignComposer({ tagOptions, prefill }: ComposerProps) {
   return (
     <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_clamp(320px,28vw,400px)] xl:gap-12">
       <form onSubmit={handleSubmit} className="space-y-6">
-      {prefill?.eventTitle && (
+      {prefill?.eventTitle && !aiDrafting && !aiRationale && (
         <div className="flex items-start gap-2.5 rounded-lg border border-gold/30 bg-gold/5 px-4 py-3">
           <Megaphone size={16} className="mt-0.5 shrink-0 text-gold" />
           <p className="text-small text-ink-muted">
             Promoting <span className="font-medium text-ink">{prefill.eventTitle}</span>. We’ve
             pre-filled the message{prefill.mediaUrl ? " and attached the flyer" : ""}; opted-out and
             unconsented contacts are still excluded automatically.
+          </p>
+        </div>
+      )}
+
+      {aiDrafting && (
+        <div className="flex items-center gap-2.5 rounded-lg border border-gold/30 bg-gold/5 px-4 py-3">
+          <Loader2 size={16} className="shrink-0 animate-spin text-gold" />
+          <p className="text-small text-ink-muted">
+            Drafting the promotion for{" "}
+            <span className="font-medium text-ink">{prefill?.eventTitle}</span> with Opus — reading
+            the flyer and choosing the message, audience, and timing…
+          </p>
+        </div>
+      )}
+
+      {aiRationale && (
+        <div className="flex items-start gap-2.5 rounded-lg border border-gold/30 bg-gold/[0.07] px-4 py-3">
+          <Sparkles size={16} className="mt-0.5 shrink-0 text-gold" />
+          <p className="text-small text-ink-muted">
+            <span className="font-medium text-ink">Opus drafted this.</span> {aiRationale} Review and
+            adjust anything before you send.
           </p>
         </div>
       )}
