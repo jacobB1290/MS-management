@@ -16,6 +16,7 @@ import {
   MAX_MEDIA_BYTES,
   uploadMedia,
 } from "@/lib/media"
+import { flyerRenderSrc } from "@/lib/event-format"
 import { SendgridTemplateField } from "./sendgrid-template-field"
 
 /** Optional seed values when arriving from an event's "Promote" action. */
@@ -295,7 +296,7 @@ export function CampaignComposer({ tagOptions, prefill }: ComposerProps) {
                   ) : (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={media.url}
+                      src={flyerRenderSrc(media.url) ?? media.url}
                       alt="Attachment preview"
                       className="h-24 rounded-md border border-ink-hairline"
                     />
@@ -443,7 +444,7 @@ export function CampaignComposer({ tagOptions, prefill }: ComposerProps) {
               <div className="ml-auto max-w-[85%]">
                 {media && !media.isVideo && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={media.url} alt="" className="mb-1 w-full rounded-xl border border-ink-hairline" />
+                  <img src={flyerRenderSrc(media.url) ?? media.url} alt="" className="mb-1 w-full rounded-xl border border-ink-hairline" />
                 )}
                 <div className="whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-gold px-3.5 py-2.5 text-small text-white">
                   {body.trim() || "Your message will appear here."}
