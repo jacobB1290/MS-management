@@ -42,6 +42,10 @@ export function PageScaffold({
       </div>
       <div
         ref={scrollRef}
+        // Stable hook for descendants that need to drive this one scroll region
+        // (e.g. Settings resets it to the top when you switch panes) without
+        // coupling to a Tailwind class name.
+        data-scroll-region
         className={cn(
           "flex-1 min-h-0 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]",
           GUTTER,
