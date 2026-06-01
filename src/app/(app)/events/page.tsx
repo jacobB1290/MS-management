@@ -1,12 +1,12 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import { CalendarDays } from "lucide-react"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { requireStaff } from "@/server/auth"
 import { Badge } from "@/components/ui/badge"
 import { EmptyState } from "@/components/ui/empty-state"
 import { eventDisplayDate, eventDisplayTime } from "@/lib/event-format"
 import { EventsToolbar } from "./events-toolbar"
+import { FlyerImage } from "./flyer-image"
 
 export const metadata: Metadata = { title: "Events" }
 
@@ -100,19 +100,7 @@ function EventCard({ event }: { event: EventRow }) {
       className="group flex flex-col overflow-hidden rounded-xl border border-ink-hairline bg-white shadow-sm transition-shadow duration-[var(--motion-medium)] hover:shadow-md motion-reduce:transition-none"
     >
       <div className="relative aspect-[4/5] overflow-hidden bg-surface">
-        {event.image_public_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={event.image_public_url}
-            alt={event.title}
-            loading="lazy"
-            className="h-full w-full object-cover transition-transform duration-[var(--motion-slow)] ease-[var(--ease-out-soft)] group-hover:scale-[1.03] motion-reduce:transition-none"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-gold/15 to-gold-dark/15 text-gold">
-            <CalendarDays size={32} strokeWidth={1.5} />
-          </div>
-        )}
+        <FlyerImage url={event.image_public_url} alt={event.title} className="group-hover:scale-[1.03]" />
         {status !== "published" && (
           <span className="absolute left-2 top-2">
             <Badge variant={STATUS_VARIANT[status] ?? "muted"} className="capitalize shadow-sm">

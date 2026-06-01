@@ -3,7 +3,7 @@ import { useState } from "react"
 import { CalendarDays } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ctaIsLive } from "@/server/google/eventMapping"
-import { eventDisplayDate, eventDisplayTime } from "@/lib/event-format"
+import { eventDisplayDate, eventDisplayTime, flyerRenderSrc } from "@/lib/event-format"
 
 /**
  * A faithful preview of how an event renders on ms.church: the flyer image is
@@ -31,6 +31,8 @@ export function EventPreview({
   ctaUrl,
 }: EventPreviewProps) {
   const [imgLoaded, setImgLoaded] = useState(false)
+  const [failed, setFailed] = useState(false)
+  const src = flyerRenderSrc(imageUrl)
   const displayDate = startsAt ? eventDisplayDate(startsAt) : "—"
   const time = startsAt ? eventDisplayTime(startsAt, endsAt, allDay) : null
   const showCta = Boolean(ctaUrl && ctaIsLive(ctaUrl) && ctaText)
@@ -52,13 +54,14 @@ export function EventPreview({
 
         {/* Flyer: the event's main content on the public site. */}
         <div className="relative mx-4 mb-4 aspect-[4/5] overflow-hidden rounded-lg bg-surface">
-          {imageUrl ? (
+          {src && !failed ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              key={imageUrl}
-              src={imageUrl}
+              key={src}
+              src={src}
               alt={title || "Event flyer"}
               onLoad={() => setImgLoaded(true)}
+              onError={() => setFailed(true)}
               className={cn(
                 "h-full w-full object-cover transition-opacity duration-[var(--motion-slow)] ease-[var(--ease-out-soft)] motion-reduce:transition-none",
                 imgLoaded ? "opacity-100" : "opacity-0",

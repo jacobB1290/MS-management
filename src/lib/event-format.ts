@@ -75,3 +75,15 @@ export function eventDisplayTime(
 export function isUpcoming(startIso: string, now: Date = new Date()): boolean {
   return new Date(startIso).getTime() >= now.getTime()
 }
+
+/**
+ * The URL to actually render a flyer from. Google Drive's `lh3` host is
+ * unreliable when hotlinked from the browser, so route those through our
+ * same-origin proxy (`/api/events/flyer`); other hosts (our Supabase bucket)
+ * load fine and pass through untouched.
+ */
+export function flyerRenderSrc(url: string | null | undefined): string | null {
+  if (!url) return null
+  const m = url.match(/lh3\.googleusercontent\.com\/d\/([A-Za-z0-9_-]+)/)
+  return m ? `/api/events/flyer?id=${m[1]}` : url
+}
