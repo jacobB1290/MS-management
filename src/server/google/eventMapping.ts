@@ -37,6 +37,13 @@ const CTA_REGEX = /\[CTA:\s*([^|]+)\s*\|\s*([^\]]+)\]/
 // Mirrors the website's strip (no `g` flag — only the first tag is removed):
 //   description.replace(/\[CTA:[^\]]+\]/, '')
 const CTA_STRIP_REGEX = /\[CTA:[^\]]+\]/
+// The site ALSO turns a plain link in the description into a button: a
+// "Label: https://…" pattern (label becomes the button text) or a bare URL
+// ("Learn more"). These mirror ms.church's home-scripts.ts verbatim so the CRM
+// surfaces the same button the public site would render.
+const LABELED_LINK_REGEX = /([A-Za-z][A-Za-z0-9 ]{0,30}?)\s*:\s*(https?:\/\/[^\s<>"']+)/
+const BARE_LINK_REGEX = /https?:\/\/[^\s<>"']+/
+const TRAILING_PUNCT = /[.,;)\]]+$/
 
 /**
  * Compose the description we store on the Google Calendar event: the human body
@@ -75,13 +82,39 @@ export function parseEventDescription(raw: string | null | undefined): {
   ctaUrl: string | null
 } {
   const text = raw ?? ""
-  const match = text.match(CTA_REGEX)
-  const cleaned = text.replace(CTA_STRIP_REGEX, "").trim()
-  return {
-    description: cleaned,
-    ctaText: match ? match[1].trim() : null,
-    ctaUrl: match ? match[2].trim() : null,
+
+  // 1) An explicit [CTA: text | url] tag wins.
+  const cta = text.match(CTA_REGEX)
+  if (cta) {
+    return {
+      description: text.replace(CTA_STRIP_REGEX, "").trim(),
+      ctaText: cta[1].trim(),
+      ctaUrl: cta[2].trim(),
+    }
   }
+
+  // 2) "Label: https://…" — the label becomes the button text. Pull the whole
+  //    "Label: url" out of the body so it isn't shown twice.
+  const labeled = text.match(LABELED_LINK_REGEX)
+  if (labeled) {
+    return {
+      description: text.replace(labeled[0], "").trim(),
+      ctaText: labeled[1].trim(),
+      ctaUrl: labeled[2].replace(TRAILING_PUNCT, ""),
+    }
+  }
+
+  // 3) A bare URL → a generic "Learn more" button.
+  const bare = text.match(BARE_LINK_REGEX)
+  if (bare) {
+    return {
+      description: text.replace(bare[0], "").trim(),
+      ctaText: "Learn more",
+      ctaUrl: bare[0].replace(TRAILING_PUNCT, ""),
+    }
+  }
+
+  return { description: text.trim(), ctaText: null, ctaUrl: null }
 }
 
 /**

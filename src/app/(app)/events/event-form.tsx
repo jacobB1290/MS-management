@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { FormField } from "@/components/ui/form-field"
 import { cn } from "@/lib/utils"
 import { uploadMedia } from "@/lib/media"
-import { ctaIsLive } from "@/server/google/eventMapping"
+import { ctaIsLive, parseEventDescription } from "@/server/google/eventMapping"
 import { EventPreview } from "./event-preview"
 
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"]
@@ -52,16 +52,24 @@ export function EventForm({ mode, initial }: EventFormProps) {
   const initStart = splitLocal(initial?.starts_at ?? null)
   const initEnd = splitLocal(initial?.ends_at ?? null)
 
+  // A synced event may keep its button as a link in the description (the
+  // ms.church "Label: url" convention) with no structured CTA yet. Lift it so
+  // the editor + preview show it as a button from the first paint.
+  const lifted =
+    !initial?.cta_url && initial?.description ? parseEventDescription(initial.description) : null
+
   const [title, setTitle] = useState(initial?.title ?? "")
-  const [description, setDescription] = useState(initial?.description ?? "")
+  const [description, setDescription] = useState(
+    lifted?.ctaUrl ? lifted.description : (initial?.description ?? ""),
+  )
   const [location, setLocation] = useState(initial?.location ?? "")
   const [allDay, setAllDay] = useState(initial?.all_day ?? false)
   const [startDate, setStartDate] = useState(initStart.date)
   const [startTime, setStartTime] = useState(initStart.time || "18:00")
   const [endDate, setEndDate] = useState(initEnd.date)
   const [endTime, setEndTime] = useState(initEnd.time)
-  const [ctaText, setCtaText] = useState(initial?.cta_text ?? "")
-  const [ctaUrl, setCtaUrl] = useState(initial?.cta_url ?? "")
+  const [ctaText, setCtaText] = useState(initial?.cta_text ?? lifted?.ctaText ?? "")
+  const [ctaUrl, setCtaUrl] = useState(initial?.cta_url ?? lifted?.ctaUrl ?? "")
   const [imageUrl, setImageUrl] = useState<string | null>(initial?.image_public_url ?? null)
   const [imagePath, setImagePath] = useState<string | null>(initial?.image_storage_path ?? null)
   const [uploading, setUploading] = useState(false)
@@ -103,6 +111,20 @@ export function EventForm({ mode, initial }: EventFormProps) {
         toast.error(`Upload failed: ${err instanceof Error ? err.message : String(err)}`),
       )
       .finally(() => setUploading(false))
+  }
+
+  // When the operator drops a link into the description (and hasn't set a CTA),
+  // lift it into the button on blur — the same parse the public site does, made
+  // visible here so they see the link become a button.
+  function liftDescriptionLink() {
+    if (ctaUrl.trim()) return
+    const parsed = parseEventDescription(description)
+    if (parsed.ctaUrl) {
+      setDescription(parsed.description)
+      setCtaText(parsed.ctaText ?? "")
+      setCtaUrl(parsed.ctaUrl)
+      toast.success("Turned the link in your description into a button.")
+    }
   }
 
   function buildPayload() {
@@ -162,7 +184,7 @@ export function EventForm({ mode, initial }: EventFormProps) {
   const ctaWarn = ctaUrl.trim() !== "" && !ctaIsLive(ctaUrl)
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
+    <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-12">
       {/* Editor */}
       <form onSubmit={handleSubmit} className="order-2 space-y-6 lg:order-1">
         <FormField label="Title" htmlFor="title" hint="The event name (also the image’s alt text).">
@@ -334,6 +356,7 @@ export function EventForm({ mode, initial }: EventFormProps) {
             id="description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
+            onBlur={liftDescriptionLink}
             rows={3}
             placeholder="A free community celebration with games, food, and an egg hunt."
           />
@@ -383,7 +406,7 @@ export function EventForm({ mode, initial }: EventFormProps) {
 
       {/* Live preview */}
       <div className="order-1 lg:order-2">
-        <div className="lg:sticky lg:top-4">
+        <div className="mx-auto max-w-[320px] lg:mx-0 lg:max-w-none lg:sticky lg:top-4">
           <p className="eyebrow mb-3">Preview · ms.church</p>
           <EventPreview
             title={title}

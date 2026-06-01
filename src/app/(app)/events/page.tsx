@@ -81,7 +81,7 @@ function EventSection({ title, events }: { title: string; events: EventRow[] }) 
   return (
     <section className="mb-8" aria-label={title}>
       <h2 className="eyebrow mb-3 mt-5">{title}</h2>
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
         {events.map((e) => (
           <EventCard key={e.id} event={e} />
         ))}

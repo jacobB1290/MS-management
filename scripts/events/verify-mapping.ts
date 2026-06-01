@@ -71,6 +71,24 @@ console.log("CTA edge cases:")
   )
 }
 
+console.log("Description link parsing (mirrors the site's button conventions):")
+{
+  const labeled = parseEventDescription("Come early! Get Directions: https://maps.example/x?a=1&b=2")
+  check("labeled link -> button text", labeled.ctaText === "Get Directions")
+  check("labeled link -> url", labeled.ctaUrl === "https://maps.example/x?a=1&b=2")
+  check("labeled link pulled out of the body", labeled.description === "Come early!")
+
+  const bare = parseEventDescription("More info https://ms.church/form")
+  check("bare url -> Learn more", bare.ctaText === "Learn more")
+  check("bare url -> url", bare.ctaUrl === "https://ms.church/form")
+
+  const explicit = parseEventDescription("Body [CTA: RSVP | https://x.com] and Directions: https://y.com")
+  check("explicit [CTA:] wins over a stray link", explicit.ctaText === "RSVP" && explicit.ctaUrl === "https://x.com")
+
+  const none = parseEventDescription("Just text, no link.")
+  check("no link -> no cta", none.ctaUrl === null && none.description === "Just text, no link.")
+}
+
 console.log("Drive image URL + attachment id extraction:")
 {
   check("lh3 render URL matches the site format", publicImageUrl("FILE123") === "https://lh3.googleusercontent.com/d/FILE123=w800")
