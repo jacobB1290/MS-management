@@ -5,18 +5,16 @@ import { Check, X } from "lucide-react"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { requireStaff } from "@/server/auth"
 import { getSpendSummary, formatMoney } from "@/server/billing/twilio"
-import {
-  getAiSpendSummary,
-  formatTokens,
-} from "@/server/billing/anthropic"
+import { getAiSpendSummary, formatTokens } from "@/server/billing/anthropic"
 import { getAiConfig } from "@/server/ai/config"
 import { getModelFamilies } from "@/server/ai/models"
 import { modelChoicesFrom } from "@/lib/ai-models"
 import { listMmsMedia } from "@/server/media/storage"
+import { getLastKnowledgeSync } from "@/server/ai/knowledgeSync"
 import { PageHeader } from "@/components/ui/page-header"
 import { PageScaffold } from "@/components/ui/page-scaffold"
 import { BackButton } from "@/components/ui/back-button"
-import { PageInfo } from "@/components/ui/page-info"
+import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar } from "@/components/ui/avatar"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -25,16 +23,16 @@ import { StoragePanel } from "./storage-panel"
 import { NotificationsPanel } from "./notifications-panel"
 import { AiModelsPanel } from "./ai-models-panel"
 import { ChurchKnowledgePanel } from "./church-knowledge-panel"
-import { getLastKnowledgeSync } from "@/server/ai/knowledgeSync"
+import { SettingsShell, type SettingsSection } from "./settings-shell"
 
 export const metadata: Metadata = { title: "Settings" }
 
 export default async function SettingsPage() {
-  // Only the user (local, cached) is awaited up front, so the shell + the
-  // instant sections (You, Notifications, Provider config) paint immediately.
-  // Every data-backed section streams in its own Suspense boundary below —
+  // Only the user (local, cached) is awaited up front, so the shell + its
+  // instant panes (Account, Notifications, System) paint immediately. Every
+  // data-backed pane streams in its own Suspense boundary, exactly as before —
   // the slow external calls (Twilio + Anthropic billing, the Models API,
-  // storage listing) no longer block the page from appearing.
+  // storage listing) never block the page from appearing.
   const user = await requireStaff()
   const isAdmin = user.role === "admin"
 
@@ -54,180 +52,212 @@ export default async function SettingsPage() {
     cronSecret: Boolean(process.env.CRON_SECRET),
   }
 
-  return (
-    <PageScaffold
-      header={<PageHeader eyebrow="Console" title="Settings" backSlot={<BackButton label="Back" />} />}
-    >
-      <div className="grid items-start gap-5 pt-6 lg:grid-cols-2">
-        <section className="rounded-lg border border-ink-hairline bg-white p-6">
-          <p className="eyebrow mb-3">You</p>
+  // Build the panes the shell navigates. Order is the rail order; admin-only
+  // panes are simply absent for members (the shell renders whatever it's given).
+  const sections: SettingsSection[] = [
+    {
+      id: "account",
+      content: (
+        <Card>
           <div className="flex items-center gap-4">
             <Avatar name={user.displayName ?? user.email} size="lg" />
-            <div>
-              <p className="font-medium text-ink">{user.displayName ?? user.email}</p>
-              <p className="text-small text-ink-faint">{user.email}</p>
+            <div className="min-w-0">
+              <p className="truncate font-medium text-ink">
+                {user.displayName ?? user.email}
+              </p>
+              <p className="truncate text-small text-ink-faint">{user.email}</p>
               <Badge variant="gold" className="mt-2 capitalize">
                 {user.role}
               </Badge>
             </div>
           </div>
-        </section>
-
-        <section className="rounded-lg border border-ink-hairline bg-white p-6">
-          <p className="eyebrow mb-3">Notifications</p>
+        </Card>
+      ),
+    },
+    {
+      id: "notifications",
+      content: (
+        <Card>
           <NotificationsPanel />
-        </section>
-
-        <Suspense fallback={<SectionSkeleton title="Spend" />}>
-          <SpendSection />
+        </Card>
+      ),
+    },
+    ...(isAdmin
+      ? [
+          {
+            id: "ai-models" as const,
+            content: (
+              <Suspense fallback={<CardSkeleton lines={6} />}>
+                <AiModelsCard />
+              </Suspense>
+            ),
+          },
+        ]
+      : []),
+    {
+      id: "knowledge",
+      content: (
+        <Suspense fallback={<CardSkeleton lines={4} />}>
+          <ChurchKnowledgeCard isAdmin={isAdmin} />
         </Suspense>
-
-        <Suspense fallback={<SectionSkeleton title="AI usage" />}>
-          <AiUsageSection />
-        </Suspense>
-
-        {isAdmin && (
-          <Suspense fallback={<SectionSkeleton title="AI models" />}>
-            <AiModelsSection />
+      ),
+    },
+    {
+      id: "usage",
+      content: (
+        <>
+          <Suspense fallback={<CardSkeleton title="Messaging spend" lines={3} />}>
+            <SpendCard />
           </Suspense>
-        )}
-
-        <Suspense fallback={<SectionSkeleton title="Church knowledge" />}>
-          <ChurchKnowledgeSection isAdmin={isAdmin} />
-        </Suspense>
-
-        <Suspense fallback={<SectionSkeleton title="Storage" />}>
-          <StorageSection />
-        </Suspense>
-
-        {isAdmin && (
-          <Suspense fallback={<SectionSkeleton title="Team" />}>
-            <TeamSection currentUserId={user.id} />
+          <Suspense fallback={<CardSkeleton title="AI usage" lines={2} />}>
+            <AiUsageCard />
           </Suspense>
-        )}
-
-        <section className="rounded-lg border border-ink-hairline bg-white p-6 lg:col-span-2">
-          <SectionTitle
-            label="About provider configuration"
-            info="Set the provider env vars in Vercel and redeploy. Until a given provider is configured, the matching send path records the attempt without contacting the carrier; useful for staging, never for real delivery."
-          >
-            Provider configuration
-          </SectionTitle>
-          <dl className="space-y-2">
-            <StatusRow
-              label="Twilio (account + auth)"
-              ready={status.twilio}
-              detail={status.twilio ? "Configured" : "TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN missing"}
-            />
-            <StatusRow
-              label="Twilio Messaging Service"
-              ready={status.twilioMessaging}
-              detail={status.twilioMessaging ? "Configured" : "TWILIO_MESSAGING_SERVICE_SID missing; campaign batches won’t auto-meter"}
-            />
-            <StatusRow
-              label="SendGrid API"
-              ready={status.sendgrid}
-              detail={status.sendgrid ? "Configured" : "SENDGRID_API_KEY + SENDGRID_FROM_EMAIL missing"}
-            />
-            <StatusRow
-              label="SendGrid event webhook"
-              ready={status.sendgridWebhook}
-              detail={status.sendgridWebhook ? "Public key configured" : "SENDGRID_WEBHOOK_PUBLIC_KEY missing; events won’t be verified"}
-            />
-            <StatusRow
-              label="Google Calendar — publish events"
-              ready={status.googleWrite}
-              detail={
-                status.googleWrite
-                  ? "OAuth connected; events + flyers publish to ms.church"
-                  : "GOOGLE_OAUTH_* missing; events save as drafts and aren’t pushed live"
-              }
-            />
-            <StatusRow
-              label="Google Calendar — read / sync"
-              ready={status.googleRead}
-              detail={
-                status.googleRead
-                  ? "Can pull events created directly in Google Calendar"
-                  : "Set GOOGLE_OAUTH_* or GOOGLE_CALENDAR_API_KEY to sync"
-              }
-            />
-            <StatusRow
-              label="Public form receiver"
-              ready={status.publicForm}
-              detail={status.publicForm ? "HMAC secret configured" : "PUBLIC_FORM_HMAC_SECRET missing"}
-            />
-            <StatusRow
-              label="Cron secret"
-              ready={status.cronSecret}
-              detail={status.cronSecret ? "Cron endpoints protected" : "CRON_SECRET missing; anyone can hit the cron endpoint"}
-            />
-          </dl>
-        </section>
-
-        <Suspense fallback={<SectionSkeleton title="Heartbeat" />}>
-          <HeartbeatSection />
+        </>
+      ),
+    },
+    {
+      id: "storage",
+      content: (
+        <Suspense fallback={<CardSkeleton lines={3} />}>
+          <StorageCard />
         </Suspense>
-      </div>
+      ),
+    },
+    ...(isAdmin
+      ? [
+          {
+            id: "team" as const,
+            content: (
+              <Suspense fallback={<CardSkeleton lines={3} />}>
+                <TeamCard currentUserId={user.id} />
+              </Suspense>
+            ),
+          },
+        ]
+      : []),
+    {
+      id: "system",
+      content: (
+        <>
+          <Card>
+            <CardLede
+              title="Provider configuration"
+              blurb="Set the provider env vars in Vercel and redeploy. Until a provider is configured, its send path records the attempt without contacting the carrier — useful for staging, never for real delivery."
+            />
+            <dl className="space-y-1">
+              <StatusRow
+                label="Twilio (account + auth)"
+                ready={status.twilio}
+                detail={status.twilio ? "Configured" : "TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN missing"}
+              />
+              <StatusRow
+                label="Twilio Messaging Service"
+                ready={status.twilioMessaging}
+                detail={status.twilioMessaging ? "Configured" : "TWILIO_MESSAGING_SERVICE_SID missing; campaign batches won’t auto-meter"}
+              />
+              <StatusRow
+                label="SendGrid API"
+                ready={status.sendgrid}
+                detail={status.sendgrid ? "Configured" : "SENDGRID_API_KEY + SENDGRID_FROM_EMAIL missing"}
+              />
+              <StatusRow
+                label="SendGrid event webhook"
+                ready={status.sendgridWebhook}
+                detail={status.sendgridWebhook ? "Public key configured" : "SENDGRID_WEBHOOK_PUBLIC_KEY missing; events won’t be verified"}
+              />
+              <StatusRow
+                label="Google Calendar — publish events"
+                ready={status.googleWrite}
+                detail={
+                  status.googleWrite
+                    ? "OAuth connected; events + flyers publish to ms.church"
+                    : "GOOGLE_OAUTH_* missing; events save as drafts and aren’t pushed live"
+                }
+              />
+              <StatusRow
+                label="Google Calendar — read / sync"
+                ready={status.googleRead}
+                detail={
+                  status.googleRead
+                    ? "Can pull events created directly in Google Calendar"
+                    : "Set GOOGLE_OAUTH_* or GOOGLE_CALENDAR_API_KEY to sync"
+                }
+              />
+              <StatusRow
+                label="Public form receiver"
+                ready={status.publicForm}
+                detail={status.publicForm ? "HMAC secret configured" : "PUBLIC_FORM_HMAC_SECRET missing"}
+              />
+              <StatusRow
+                label="Cron secret"
+                ready={status.cronSecret}
+                detail={status.cronSecret ? "Cron endpoints protected" : "CRON_SECRET missing; anyone can hit the cron endpoint"}
+              />
+            </dl>
+          </Card>
+          <Suspense fallback={<CardSkeleton title="Heartbeat" lines={1} />}>
+            <HeartbeatCard />
+          </Suspense>
+        </>
+      ),
+    },
+  ]
+
+  return (
+    <PageScaffold
+      header={<PageHeader eyebrow="Console" title="Settings" backSlot={<BackButton label="Back" />} />}
+    >
+      <SettingsShell sections={sections} />
     </PageScaffold>
   )
 }
 
-function SectionTitle({
-  children,
-  info,
-  label,
-}: {
-  children: ReactNode
-  info: ReactNode
-  label: string
-}) {
+/** Small titled header for the cards inside a multi-card pane (Usage, System),
+ *  one step below the pane title so the hierarchy reads page → pane → card. */
+function CardLede({ title, blurb }: { title: string; blurb?: string }) {
   return (
-    <div className="flex items-center gap-1 mb-3">
-      <p className="eyebrow">{children}</p>
-      <PageInfo label={label}>{info}</PageInfo>
+    <div className="mb-[var(--space-md)]">
+      <h3 className="text-body font-semibold text-ink">{title}</h3>
+      {blurb && (
+        <p className="mt-0.5 text-small leading-[var(--leading-prose)] text-ink-muted">
+          {blurb}
+        </p>
+      )}
     </div>
   )
 }
 
-/** Section-shaped placeholder shown while a streamed section's data loads. The
- *  card + title are real (no shift on those); only the body is a skeleton. */
-function SectionSkeleton({ title }: { title: string }) {
+/** Card-shaped placeholder while a streamed pane's data loads. */
+function CardSkeleton({ title, lines = 3 }: { title?: string; lines?: number }) {
   return (
-    <section className="rounded-lg border border-ink-hairline bg-white p-6">
-      <p className="eyebrow mb-3">{title}</p>
+    <Card>
+      {title && <CardLede title={title} />}
       <div className="space-y-2.5">
-        <Skeleton className="h-4 w-1/3" />
-        <Skeleton className="h-4 w-2/3" />
-        <Skeleton className="h-4 w-1/2" />
+        {Array.from({ length: lines }).map((_, i) => (
+          <Skeleton key={i} className={i % 2 === 0 ? "h-4 w-2/3" : "h-4 w-1/2"} />
+        ))}
       </div>
-    </section>
+    </Card>
   )
 }
 
-async function SpendSection() {
+async function SpendCard() {
   const spend = await getSpendSummary()
   return (
-    <section className="rounded-lg border border-ink-hairline bg-white p-6">
-      <SectionTitle
-        label="About spend"
-        info="Pulled live from Twilio (cached 5 min). These are the same numbers on the invoice, never estimated, and cover all Twilio usage on this account."
-      >
-        Spend
-      </SectionTitle>
-
+    <Card>
+      <CardLede
+        title="Messaging spend"
+        blurb="Live from Twilio, cached 5 minutes — the same figures on your invoice, never estimated."
+      />
       {!spend.configured ? (
         <p className="text-small text-ink-faint">
-          Connect Twilio (set TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN) to see
-          live spend.
+          Connect Twilio (set TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN) to see live spend.
         </p>
       ) : !spend.ok ? (
-        <p className="text-small text-danger">
-          Couldn&rsquo;t load Twilio usage: {spend.error}
-        </p>
+        <p className="text-small text-danger">Couldn&rsquo;t load Twilio usage: {spend.error}</p>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <SpendStat
               label="Balance"
               value={spend.balance != null ? formatMoney(spend.balance, spend.currency) : "—"}
@@ -235,7 +265,6 @@ async function SpendSection() {
             <SpendStat label="This month" value={formatMoney(spend.thisMonth, spend.currency)} />
             <SpendStat label="Last month" value={formatMoney(spend.lastMonth, spend.currency)} />
           </div>
-
           <dl className="mt-5 space-y-2 border-t border-ink-hairline pt-4 text-small">
             <p className="text-label text-ink-faint mb-1">This month by category</p>
             {spend.breakdown.map((row) => (
@@ -250,37 +279,30 @@ async function SpendSection() {
           </dl>
         </>
       )}
-    </section>
+    </Card>
   )
 }
 
-async function AiUsageSection() {
+async function AiUsageCard() {
   const spend = await getAiSpendSummary()
   return (
-    <section className="rounded-lg border border-ink-hairline bg-white p-6">
-      <SectionTitle
-        label="About AI usage"
-        info="Pulled live from Anthropic’s Cost and Usage APIs (cached 5 min). These are real billed amounts, never estimated, and cover all usage on the Anthropic organization. Anthropic exposes no prepaid balance via API, so none is shown."
-      >
-        AI usage
-      </SectionTitle>
-
+    <Card>
+      <CardLede
+        title="AI usage"
+        blurb="Real billed amounts from Anthropic’s Cost and Usage APIs, cached 5 minutes. No prepaid balance is exposed via API, so none is shown."
+      />
       {!spend.configured ? (
         <p className="text-small text-ink-faint">
-          Set ANTHROPIC_ADMIN_KEY (an sk-ant-admin… Admin API key) to see live AI
-          cost and usage.
+          Set ANTHROPIC_ADMIN_KEY (an sk-ant-admin… Admin API key) to see live AI cost and usage.
         </p>
       ) : !spend.ok ? (
-        <p className="text-small text-danger">
-          Couldn&rsquo;t load Anthropic usage: {spend.error}
-        </p>
+        <p className="text-small text-danger">Couldn&rsquo;t load Anthropic usage: {spend.error}</p>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <SpendStat label="This month" value={formatMoney(spend.thisMonth, spend.currency)} />
             <SpendStat label="Last month" value={formatMoney(spend.lastMonth, spend.currency)} />
           </div>
-
           {spend.models.length > 0 && (
             <dl className="mt-5 space-y-2 border-t border-ink-hairline pt-4 text-small">
               <p className="text-label text-ink-faint mb-1">This month by model</p>
@@ -302,27 +324,21 @@ async function AiUsageSection() {
           )}
         </>
       )}
-    </section>
+    </Card>
   )
 }
 
-async function AiModelsSection() {
+async function AiModelsCard() {
   const [config, modelFamilies] = await Promise.all([getAiConfig(), getModelFamilies()])
   const choices = modelChoicesFrom(modelFamilies)
   return (
-    <section className="rounded-lg border border-ink-hairline bg-white p-6">
-      <SectionTitle
-        label="About AI models"
-        info="Pick which Claude model each feature uses, and how much reasoning effort to spend. Changes take effect immediately, no redeploy. Effort applies to Opus and Sonnet; Haiku ignores it. Prompts are cached to keep cost down regardless of model."
-      >
-        AI models
-      </SectionTitle>
+    <Card>
       <AiModelsPanel config={config} choices={choices} />
-    </section>
+    </Card>
   )
 }
 
-async function ChurchKnowledgeSection({ isAdmin }: { isAdmin: boolean }) {
+async function ChurchKnowledgeCard({ isAdmin }: { isAdmin: boolean }) {
   const supabase = await createSupabaseServerClient()
   const [knowledgeRes, lastSync] = await Promise.all([
     supabase
@@ -342,19 +358,13 @@ async function ChurchKnowledgeSection({ isAdmin }: { isAdmin: boolean }) {
       }
     : null
   return (
-    <section className="rounded-lg border border-ink-hairline bg-white p-6">
-      <SectionTitle
-        label="About church knowledge"
-        info="Facts the AI draft assistant can look up when replying to people (service times, Bible studies, ministries, beliefs, how to visit). Synced daily from ms.church; you can also add entries by hand. The assistant decides when to use them and never invents details it can't find."
-      >
-        Church knowledge
-      </SectionTitle>
+    <Card>
       <ChurchKnowledgePanel entries={knowledge} lastSync={knowledgeSync} isAdmin={isAdmin} />
-    </section>
+    </Card>
   )
 }
 
-async function StorageSection() {
+async function StorageCard() {
   const supabase = await createSupabaseServerClient()
   const [media, dbRpc] = await Promise.all([
     listMmsMedia(),
@@ -362,38 +372,26 @@ async function StorageSection() {
   ])
   const dbBytes = Number((dbRpc.data as number | null) ?? 0)
   return (
-    <section className="rounded-lg border border-ink-hairline bg-white p-6">
-      <SectionTitle
-        label="About storage"
-        info="Two separate Supabase free-tier limits: about 500 MB for your data (contacts, messages, campaigns) and 1 GB for media files. Deleting a media file frees file space but breaks its preview in any past message that used it."
-      >
-        Storage
-      </SectionTitle>
+    <Card>
       <StoragePanel files={media.files} totalBytes={media.totalBytes} dbBytes={dbBytes} />
-    </section>
+    </Card>
   )
 }
 
-async function TeamSection({ currentUserId }: { currentUserId: string }) {
+async function TeamCard({ currentUserId }: { currentUserId: string }) {
   const supabase = await createSupabaseServerClient()
   const { data: team } = await supabase
     .from("app_users")
     .select("user_id, role, display_name, created_at")
     .order("created_at")
   return (
-    <section className="rounded-lg border border-ink-hairline bg-white p-6">
-      <SectionTitle
-        label="About team settings"
-        info="Sign-in is by invitation only. Admins can invite, demote, or remove people here. Removed people can still sign in but hit the no-access page."
-      >
-        Team
-      </SectionTitle>
+    <Card>
       <TeamPanel team={team ?? []} currentUserId={currentUserId} />
-    </section>
+    </Card>
   )
 }
 
-async function HeartbeatSection() {
+async function HeartbeatCard() {
   const supabase = await createSupabaseServerClient()
   const { data: heartbeat } = await supabase
     .from("heartbeat")
@@ -401,19 +399,14 @@ async function HeartbeatSection() {
     .eq("id", 1)
     .maybeSingle()
   return (
-    <section className="rounded-lg border border-ink-hairline bg-white p-6">
-      <SectionTitle
-        label="About the heartbeat"
-        info="A daily ping keeps the free-tier Supabase project from pausing."
-      >
-        Heartbeat
-      </SectionTitle>
+    <Card>
+      <CardLede title="Heartbeat" blurb="A daily ping keeps the free-tier database from pausing." />
       <p className="text-body" data-dynamic>
         {heartbeat?.last_run_at
           ? `Last run: ${format(new Date(heartbeat.last_run_at), "PPp")}`
           : "Never run."}
       </p>
-    </section>
+    </Card>
   )
 }
 
@@ -436,7 +429,7 @@ function StatusRow({
   label: string
   ready: boolean
   detail: string
-}) {
+}): ReactNode {
   return (
     <div className="flex items-start justify-between gap-3 py-1.5">
       <div className="flex items-start gap-2">
@@ -450,9 +443,7 @@ function StatusRow({
           <p className="text-small text-ink-faint">{detail}</p>
         </div>
       </div>
-      <Badge variant={ready ? "success" : "muted"}>
-        {ready ? "ready" : "pending"}
-      </Badge>
+      <Badge variant={ready ? "success" : "muted"}>{ready ? "ready" : "pending"}</Badge>
     </div>
   )
 }

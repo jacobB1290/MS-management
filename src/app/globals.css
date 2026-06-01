@@ -518,3 +518,22 @@ h1, h2, h3, h4, h5, h6 {
 .email-ai-preview li { margin: 0 0 var(--space-2xs); }
 .email-ai-preview a { color: var(--color-gold-dark); text-decoration: underline; }
 .email-ai-preview strong { font-weight: 600; }
+
+/* Settings (iOS/macOS-style panes). The active pane fades up on desktop; on the
+ * mobile drill-in it pushes in from the right (opening a category) and the list
+ * pops back from the left (returning). Deliberately small offsets — a gentle
+ * slide reads as more refined than a full-screen swipe, and the 12px stays
+ * within the page's side gutter so it never spawns a horizontal scrollbar. The
+ * reduced-motion rule above collapses the duration to ~0, so these no-op there. */
+@keyframes settings-pane-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes settings-push-in {
+  from { opacity: 0; transform: translateX(12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes settings-pop-in {
+  from { opacity: 0; transform: translateX(-12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
