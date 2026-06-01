@@ -64,7 +64,7 @@ export const PageHeader = React.forwardRef<HTMLElement, PageHeaderProps>(
               <span aria-hidden />
             )}
             {actions && (
-              <div className="flex items-center gap-[var(--space-sm)] shrink-0">
+              <div className="flex flex-wrap items-center justify-end gap-[var(--space-sm)]">
                 {actions}
               </div>
             )}
