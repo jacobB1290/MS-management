@@ -7,7 +7,7 @@
  * server-only `@/server/ai/config`, which re-exports everything here.
  */
 
-export type AiFeature = "drafting" | "tagging" | "triage" | "notes" | "optout"
+export type AiFeature = "drafting" | "tagging" | "triage" | "notes" | "optout" | "promote"
 export type AiEffort = "low" | "medium" | "high"
 export type AiModelClass = "opus" | "sonnet" | "haiku"
 export type AiFeatureConfig = { model: string; effort: AiEffort }
@@ -131,6 +131,10 @@ export const AI_DEFAULTS: Record<AiFeature, AiFeatureConfig> = {
   // switchable in Settings with no redeploy.
   notes: { model: AI_MODEL_FAMILIES.sonnet.latest, effort: "low" },
   optout: { model: AI_MODEL_FAMILIES.haiku.latest, effort: "low" },
+  // Event promotion reads the flyer (vision) and plans the whole campaign —
+  // message, audience, timing. The most capable model at high effort; it runs
+  // once per "Promote", not in a hot loop, so cost isn't the constraint.
+  promote: { model: AI_MODEL_FAMILIES.opus.latest, effort: "high" },
 }
 
 export const AI_FEATURE_META: Record<AiFeature, { label: string; description: string }> = {
@@ -155,6 +159,11 @@ export const AI_FEATURE_META: Record<AiFeature, { label: string; description: st
     label: "Opt-out detection",
     description: "Catches a plain-language “stop texting me” that the keyword filter misses.",
   },
+  promote: {
+    label: "Event promotion",
+    description:
+      "Reads an event’s flyer and drafts the whole promo campaign — message, the best audience, and when to send it.",
+  },
 }
 
 /** Ordered feature list for rendering the pickers. */
@@ -164,6 +173,7 @@ export const AI_FEATURES: readonly AiFeature[] = [
   "triage",
   "notes",
   "optout",
+  "promote",
 ]
 
 /**
@@ -203,6 +213,7 @@ export function normalizeConfig(input: unknown): Record<AiFeature, AiFeatureConf
     triage: coerce("triage", r.triage),
     notes: coerce("notes", r.notes),
     optout: coerce("optout", r.optout),
+    promote: coerce("promote", r.promote),
   }
 }
 

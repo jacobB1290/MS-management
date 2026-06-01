@@ -411,6 +411,17 @@ parses — no website change. Google Calendar is the public source of truth; the
   existing wall unchanged — SMS requires `marketing_consent_at` + not opted out;
   bulk email requires the unsubscribe group + postal address (see §6/§6.1). No
   new send path; consent timing is enforced exactly as for any campaign.
+- **Promote with AI (Opus):** "Promote" sends the operator to the composer with
+  `?ai=1`, which calls `POST /api/events/[id]/promote` →
+  `src/server/events/promote.ts`. Opus reads the **flyer image** (multimodal)
+  plus the event details and the real audience (tag counts, member/eligibility
+  totals) and returns a structured plan — channel, message, optimal audience,
+  and send timing — that fills the composer; the operator reviews and sends, and
+  the consent wall still gates the actual send. It's a registered AI feature
+  (`promote` in `src/lib/ai-models.ts`, default Opus/high, switchable in
+  Settings → AI models) using the same `output_config.format` json_schema +
+  `isAiEnabled`/`getFeatureConfig` pattern as the rest of `src/server/ai/`; no
+  `ANTHROPIC_API_KEY` → 503 and the composer falls back to the static pre-fill.
 - **Care:** don't publish throwaway future-dated test events on the live
   calendar — they appear publicly within ~5 minutes. Use mock mode or a separate
   `GOOGLE_CALENDAR_ID` while testing.

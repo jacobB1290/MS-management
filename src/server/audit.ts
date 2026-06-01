@@ -23,6 +23,7 @@ export type AuditAction =
   | "event.cancel"
   | "event.delete"
   | "event.sync"
+  | "event.promote"
   | "form.submitted"
   | "media.upload"
   | "media.delete"
