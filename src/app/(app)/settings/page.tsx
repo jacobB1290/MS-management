@@ -55,11 +55,11 @@ export default async function SettingsPage() {
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      <div className="shrink-0 px-4 md:px-8 pt-4 md:pt-6 pb-4 bg-bg max-w-3xl w-full">
+      <div className="shrink-0 px-4 md:px-8 pt-4 md:pt-6 pb-4 bg-bg max-w-3xl w-full mx-auto">
         <PageHeader eyebrow="Console" title="Settings" backSlot={<BackButton label="Back" />} />
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 md:px-8 pb-6 md:pb-8 max-w-3xl w-full">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 md:px-8 pb-6 md:pb-8 max-w-3xl w-full mx-auto">
         <section className="rounded-lg border border-ink-hairline bg-white p-6">
           <p className="eyebrow mb-3">You</p>
           <div className="flex items-center gap-4">

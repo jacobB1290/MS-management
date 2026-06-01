@@ -119,7 +119,7 @@ export default async function CampaignDetail({ params }: PageProps) {
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      <div className="shrink-0 px-4 md:px-8 pt-4 md:pt-6 pb-4 bg-bg max-w-4xl w-full">
+      <div className="shrink-0 px-4 md:px-8 pt-4 md:pt-6 pb-4 bg-bg max-w-4xl w-full mx-auto">
         <PageHeader
           eyebrow="Campaign"
           title={campaign.name}
@@ -138,7 +138,7 @@ export default async function CampaignDetail({ params }: PageProps) {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 md:px-8 pb-6 md:pb-8 max-w-4xl w-full">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 md:px-8 pb-6 md:pb-8 max-w-4xl w-full mx-auto">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Stat label="Total" value={counts.total} />
         <Stat label="Sent / delivered" value={counts.sent + counts.delivered} />
