@@ -24,6 +24,7 @@ export async function POST(request: NextRequest) {
           audience_filter: data.audience_filter as Json,
           scheduled_at: data.scheduled_at ?? null,
           status: data.scheduled_at ? "scheduled" : "draft",
+          event_id: data.event_id ?? null,
           created_by: user.id,
         }
       : {
@@ -34,6 +35,7 @@ export async function POST(request: NextRequest) {
           audience_filter: data.audience_filter as Json,
           scheduled_at: data.scheduled_at ?? null,
           status: data.scheduled_at ? "scheduled" : "draft",
+          event_id: data.event_id ?? null,
           created_by: user.id,
         }
 

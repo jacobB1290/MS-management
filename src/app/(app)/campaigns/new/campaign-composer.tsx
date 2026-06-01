@@ -1,7 +1,7 @@
 "use client"
 import { useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Plus, Loader2, X } from "lucide-react"
+import { Plus, Loader2, X, Megaphone } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -18,24 +18,39 @@ import {
 } from "@/lib/media"
 import { SendgridTemplateField } from "./sendgrid-template-field"
 
-interface ComposerProps {
-  tagOptions: { tag: string; count: number }[]
+/** Optional seed values when arriving from an event's "Promote" action. */
+export interface ComposerPrefill {
+  channel?: "sms" | "email"
+  name?: string
+  body?: string
+  mediaUrl?: string | null
+  subject?: string
+  eventId?: string
+  eventTitle?: string
 }
 
-export function CampaignComposer({ tagOptions }: ComposerProps) {
+interface ComposerProps {
+  tagOptions: { tag: string; count: number }[]
+  prefill?: ComposerPrefill
+}
+
+export function CampaignComposer({ tagOptions, prefill }: ComposerProps) {
   const router = useRouter()
-  const [channel, setChannel] = useState<"sms" | "email">("sms")
-  const [name, setName] = useState("")
-  const [body, setBody] = useState("")
+  const [channel, setChannel] = useState<"sms" | "email">(prefill?.channel ?? "sms")
+  const [name, setName] = useState(prefill?.name ?? "")
+  const [body, setBody] = useState(prefill?.body ?? "")
   const [templateId, setTemplateId] = useState("")
-  const [subject, setSubject] = useState("")
+  const [subject, setSubject] = useState(prefill?.subject ?? "")
   const [scheduledAt, setScheduledAt] = useState("")
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [audienceKind, setAudienceKind] = useState<"all" | "members" | "tags">("all")
   const [submitting, setSubmitting] = useState(false)
-  const [media, setMedia] = useState<{ url: string; isVideo: boolean } | null>(null)
+  const [media, setMedia] = useState<{ url: string; isVideo: boolean } | null>(
+    prefill?.mediaUrl ? { url: prefill.mediaUrl, isVideo: false } : null,
+  )
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const eventId = prefill?.eventId
 
   function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -93,6 +108,7 @@ export function CampaignComposer({ tagOptions }: ComposerProps) {
             media_url: media?.url ?? null,
             audience_filter: audience,
             scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null,
+            event_id: eventId ?? null,
           }
         : {
             channel,
@@ -101,6 +117,7 @@ export function CampaignComposer({ tagOptions }: ComposerProps) {
             email_subject: subject,
             audience_filter: audience,
             scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null,
+            event_id: eventId ?? null,
           }
     try {
       const res = await fetch("/api/campaigns", {
@@ -122,6 +139,17 @@ export function CampaignComposer({ tagOptions }: ComposerProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {prefill?.eventTitle && (
+        <div className="flex items-start gap-2.5 rounded-lg border border-gold/30 bg-gold/5 px-4 py-3">
+          <Megaphone size={16} className="mt-0.5 shrink-0 text-gold" />
+          <p className="text-small text-ink-muted">
+            Promoting <span className="font-medium text-ink">{prefill.eventTitle}</span>. We’ve
+            pre-filled the message{prefill.mediaUrl ? " and attached the flyer" : ""}; opted-out and
+            unconsented contacts are still excluded automatically.
+          </p>
+        </div>
+      )}
+
       <FormField label="Campaign name" htmlFor="name" hint="Internal; recipients don’t see this.">
         <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
       </FormField>
