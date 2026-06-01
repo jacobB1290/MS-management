@@ -14,6 +14,7 @@ import { getModelFamilies } from "@/server/ai/models"
 import { modelChoicesFrom } from "@/lib/ai-models"
 import { listMmsMedia } from "@/server/media/storage"
 import { PageHeader } from "@/components/ui/page-header"
+import { PageScaffold } from "@/components/ui/page-scaffold"
 import { BackButton } from "@/components/ui/back-button"
 import { PageInfo } from "@/components/ui/page-info"
 import { Badge } from "@/components/ui/badge"
@@ -54,12 +55,10 @@ export default async function SettingsPage() {
   }
 
   return (
-    <div className="flex flex-col h-full min-h-0">
-      <div className="shrink-0 px-4 md:px-8 pt-4 md:pt-6 pb-4 bg-bg max-w-3xl w-full mx-auto">
-        <PageHeader eyebrow="Console" title="Settings" backSlot={<BackButton label="Back" />} />
-      </div>
-
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 md:px-8 pb-6 md:pb-8 max-w-3xl w-full mx-auto">
+    <PageScaffold
+      header={<PageHeader eyebrow="Console" title="Settings" backSlot={<BackButton label="Back" />} />}
+    >
+      <div className="grid items-start gap-5 pt-6 lg:grid-cols-2">
         <section className="rounded-lg border border-ink-hairline bg-white p-6">
           <p className="eyebrow mb-3">You</p>
           <div className="flex items-center gap-4">
@@ -74,7 +73,7 @@ export default async function SettingsPage() {
           </div>
         </section>
 
-        <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
+        <section className="rounded-lg border border-ink-hairline bg-white p-6">
           <p className="eyebrow mb-3">Notifications</p>
           <NotificationsPanel />
         </section>
@@ -107,7 +106,7 @@ export default async function SettingsPage() {
           </Suspense>
         )}
 
-        <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
+        <section className="rounded-lg border border-ink-hairline bg-white p-6 lg:col-span-2">
           <SectionTitle
             label="About provider configuration"
             info="Set the provider env vars in Vercel and redeploy. Until a given provider is configured, the matching send path records the attempt without contacting the carrier; useful for staging, never for real delivery."
@@ -170,7 +169,7 @@ export default async function SettingsPage() {
           <HeartbeatSection />
         </Suspense>
       </div>
-    </div>
+    </PageScaffold>
   )
 }
 
@@ -195,7 +194,7 @@ function SectionTitle({
  *  card + title are real (no shift on those); only the body is a skeleton. */
 function SectionSkeleton({ title }: { title: string }) {
   return (
-    <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
+    <section className="rounded-lg border border-ink-hairline bg-white p-6">
       <p className="eyebrow mb-3">{title}</p>
       <div className="space-y-2.5">
         <Skeleton className="h-4 w-1/3" />
@@ -209,7 +208,7 @@ function SectionSkeleton({ title }: { title: string }) {
 async function SpendSection() {
   const spend = await getSpendSummary()
   return (
-    <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
+    <section className="rounded-lg border border-ink-hairline bg-white p-6">
       <SectionTitle
         label="About spend"
         info="Pulled live from Twilio (cached 5 min). These are the same numbers on the invoice, never estimated, and cover all Twilio usage on this account."
@@ -258,7 +257,7 @@ async function SpendSection() {
 async function AiUsageSection() {
   const spend = await getAiSpendSummary()
   return (
-    <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
+    <section className="rounded-lg border border-ink-hairline bg-white p-6">
       <SectionTitle
         label="About AI usage"
         info="Pulled live from Anthropic’s Cost and Usage APIs (cached 5 min). These are real billed amounts, never estimated, and cover all usage on the Anthropic organization. Anthropic exposes no prepaid balance via API, so none is shown."
@@ -311,7 +310,7 @@ async function AiModelsSection() {
   const [config, modelFamilies] = await Promise.all([getAiConfig(), getModelFamilies()])
   const choices = modelChoicesFrom(modelFamilies)
   return (
-    <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
+    <section className="rounded-lg border border-ink-hairline bg-white p-6">
       <SectionTitle
         label="About AI models"
         info="Pick which Claude model each feature uses, and how much reasoning effort to spend. Changes take effect immediately, no redeploy. Effort applies to Opus and Sonnet; Haiku ignores it. Prompts are cached to keep cost down regardless of model."
@@ -343,7 +342,7 @@ async function ChurchKnowledgeSection({ isAdmin }: { isAdmin: boolean }) {
       }
     : null
   return (
-    <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
+    <section className="rounded-lg border border-ink-hairline bg-white p-6">
       <SectionTitle
         label="About church knowledge"
         info="Facts the AI draft assistant can look up when replying to people (service times, Bible studies, ministries, beliefs, how to visit). Synced daily from ms.church; you can also add entries by hand. The assistant decides when to use them and never invents details it can't find."
@@ -363,7 +362,7 @@ async function StorageSection() {
   ])
   const dbBytes = Number((dbRpc.data as number | null) ?? 0)
   return (
-    <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
+    <section className="rounded-lg border border-ink-hairline bg-white p-6">
       <SectionTitle
         label="About storage"
         info="Two separate Supabase free-tier limits: about 500 MB for your data (contacts, messages, campaigns) and 1 GB for media files. Deleting a media file frees file space but breaks its preview in any past message that used it."
@@ -382,7 +381,7 @@ async function TeamSection({ currentUserId }: { currentUserId: string }) {
     .select("user_id, role, display_name, created_at")
     .order("created_at")
   return (
-    <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
+    <section className="rounded-lg border border-ink-hairline bg-white p-6">
       <SectionTitle
         label="About team settings"
         info="Sign-in is by invitation only. Admins can invite, demote, or remove people here. Removed people can still sign in but hit the no-access page."
@@ -402,7 +401,7 @@ async function HeartbeatSection() {
     .eq("id", 1)
     .maybeSingle()
   return (
-    <section className="mt-6 rounded-lg border border-ink-hairline bg-white p-6">
+    <section className="rounded-lg border border-ink-hairline bg-white p-6">
       <SectionTitle
         label="About the heartbeat"
         info="A daily ping keeps the free-tier Supabase project from pausing."

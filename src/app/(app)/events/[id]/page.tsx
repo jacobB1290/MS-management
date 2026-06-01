@@ -5,6 +5,7 @@ import { Mail, MessageSquare } from "lucide-react"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { requireStaff } from "@/server/auth"
 import { PageHeader } from "@/components/ui/page-header"
+import { PageScaffold } from "@/components/ui/page-scaffold"
 import { Badge } from "@/components/ui/badge"
 import { eventLongDate, eventDisplayTime } from "@/lib/event-format"
 import { EventForm, type EventFormInitial } from "../event-form"
@@ -27,11 +28,7 @@ export default async function EventDetailPage({ params }: PageProps) {
   const { id } = await params
   const supabase = await createSupabaseServerClient()
 
-  const { data: event } = await supabase
-    .from("events")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle()
+  const { data: event } = await supabase.from("events").select("*").eq("id", id).maybeSingle()
   if (!event) notFound()
 
   const { data: linkedCampaigns } = await supabase
@@ -54,59 +51,51 @@ export default async function EventDetailPage({ params }: PageProps) {
     image_public_url: event.image_public_url,
     image_storage_path: event.image_storage_path,
   }
-  const when = `${eventLongDate(event.starts_at)}${
-    eventDisplayTime(event.starts_at, event.ends_at, event.all_day)
-      ? ` · ${eventDisplayTime(event.starts_at, event.ends_at, event.all_day)}`
-      : ""
-  }`
+  const timeStr = eventDisplayTime(event.starts_at, event.ends_at, event.all_day)
+  const when = `${eventLongDate(event.starts_at)}${timeStr ? ` · ${timeStr}` : ""}`
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="w-full max-w-6xl mx-auto shrink-0 bg-bg px-4 pb-4 pt-4 md:px-8 md:pt-6">
-        <PageHeader
-          eyebrow="Event"
-          title={event.title}
-          backHref="/events"
-          backLabel="All events"
-          actions={<EventActions id={event.id} status={status} isAdmin={user.role === "admin"} />}
-        />
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <Badge variant={STATUS_VARIANT[status] ?? "muted"} className="capitalize">
-            {status}
-          </Badge>
-          <span className="text-small text-ink-muted">{when}</span>
-          {event.source === "gcal" && (
-            <span className="text-micro text-ink-faint">· created in Google Calendar</span>
-          )}
-        </div>
-      </div>
-
-      <div className="w-full max-w-6xl mx-auto flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pb-6 md:px-8 md:pb-8">
-        {linkedCampaigns && linkedCampaigns.length > 0 && (
-          <div className="mb-6 rounded-lg border border-ink-hairline bg-white p-4">
-            <p className="eyebrow mb-3">Promotions</p>
-            <ul className="space-y-1.5">
-              {linkedCampaigns.map((c) => (
-                <li key={c.id}>
+    <PageScaffold
+      header={
+        <>
+          <PageHeader
+            eyebrow="Event"
+            title={event.title}
+            backHref="/events"
+            backLabel="All events"
+            actions={<EventActions id={event.id} status={status} isAdmin={user.role === "admin"} />}
+          />
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Badge variant={STATUS_VARIANT[status] ?? "muted"} className="capitalize">
+              {status}
+            </Badge>
+            <span className="text-small text-ink-muted">{when}</span>
+            {event.source === "gcal" && (
+              <span className="text-micro text-ink-faint">· created in Google Calendar</span>
+            )}
+            {linkedCampaigns && linkedCampaigns.length > 0 && (
+              <span className="ml-1 flex flex-wrap items-center gap-1.5">
+                <span className="text-micro text-ink-faint">·</span>
+                {linkedCampaigns.map((c) => (
                   <Link
+                    key={c.id}
                     href={`/campaigns/${c.id}`}
                     prefetch
-                    className="inline-flex items-center gap-2 text-small text-ink hover:underline"
+                    className="inline-flex items-center gap-1 rounded-pill border border-ink-hairline bg-white px-2 py-0.5 text-micro text-ink-muted transition-colors hover:bg-surface motion-reduce:transition-none"
                   >
-                    {c.channel === "sms" ? <MessageSquare size={14} /> : <Mail size={14} />}
+                    {c.channel === "sms" ? <MessageSquare size={11} /> : <Mail size={11} />}
                     {c.name}
-                    <Badge variant="muted" className="ml-1">
-                      {c.status}
-                    </Badge>
                   </Link>
-                </li>
-              ))}
-            </ul>
+                ))}
+              </span>
+            )}
           </div>
-        )}
-
+        </>
+      }
+    >
+      <div className="pt-6">
         <EventForm mode="edit" initial={initial} />
       </div>
-    </div>
+    </PageScaffold>
   )
 }
