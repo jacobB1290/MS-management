@@ -153,13 +153,17 @@ export interface DropdownMenuContentProps
   extends React.HTMLAttributes<HTMLDivElement> {
   align?: "start" | "end"
   sideOffset?: number
+  /** Which way the menu opens, so the enter animation slides FROM the trigger.
+   *  Default "bottom" (opens below). Pass "top" when the caller anchors the menu
+   *  above its trigger (e.g. `className="bottom-full top-auto"`). */
+  side?: "top" | "bottom"
 }
 
 export const DropdownMenuContent = React.forwardRef<
   HTMLDivElement,
   DropdownMenuContentProps
 >(function DropdownMenuContent(
-  { className, align = "start", sideOffset = 6, children, style, ...props },
+  { className, align = "start", sideOffset = 6, side = "bottom", children, style, ...props },
   forwardedRef,
 ) {
   const { open, contentRef, menuId } = useDropdownMenuContext("DropdownMenuContent")
@@ -184,6 +188,9 @@ export const DropdownMenuContent = React.forwardRef<
         "bg-white border border-ink-hairline rounded-md",
         "shadow-[var(--shadow-md)]",
         "p-1.5 flex flex-col",
+        side === "top"
+          ? "animate-[menu-in-up_var(--motion-fast)_var(--ease-out-soft)_backwards]"
+          : "animate-[menu-in_var(--motion-fast)_var(--ease-out-soft)_backwards]",
         className,
       )}
       {...props}

@@ -41,13 +41,17 @@ export default async function EventsPage() {
   return (
     <PageScaffold
       header={
-        <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4 border-b border-ink-hairline pb-4 md:pb-5">
+        <div className="flex items-start justify-between gap-3 border-b border-ink-hairline pb-4 md:pb-5">
           <div className="min-w-0">
             <p className="eyebrow">Console</p>
             <h1 className="font-display text-title font-semibold leading-[var(--leading-snug)] tracking-[var(--tracking-tight)] text-ink">
               Events
             </h1>
-            <p className="mt-1 text-body text-ink-muted">
+            {/* The strapline is editorial polish for desktop; on mobile it would
+                only push content down, so it's hidden there. The toolbar stays
+                pinned top-right (items-start, no wrap) so the + sits in the same
+                corner as every other tab. */}
+            <p className="mt-1 hidden text-body text-ink-muted sm:block">
               What’s on at Morning Star, and what’s live on the public site.
             </p>
           </div>
@@ -69,7 +73,7 @@ export default async function EventsPage() {
               <SectionHeading>Upcoming</SectionHeading>
               <FeatureEventCard event={upcoming[0]} />
               {upcoming.length > 1 && (
-                <div className="mt-4 grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(190px,1fr))]">
+                <div className="mt-4 grid gap-3 sm:gap-4 [grid-template-columns:repeat(auto-fill,minmax(150px,1fr))] sm:[grid-template-columns:repeat(auto-fill,minmax(190px,1fr))]">
                   {upcoming.slice(1).map((e) => (
                     <EventCard key={e.id} event={e} />
                   ))}
@@ -81,7 +85,7 @@ export default async function EventsPage() {
           {past.length > 0 && (
             <section aria-label="Past" className="mt-12 border-t border-ink-hairline pt-6">
               <SectionHeading>Past</SectionHeading>
-              <div className="grid gap-4 opacity-90 [grid-template-columns:repeat(auto-fill,minmax(160px,1fr))]">
+              <div className="grid gap-3 opacity-90 sm:gap-4 [grid-template-columns:repeat(auto-fill,minmax(140px,1fr))] sm:[grid-template-columns:repeat(auto-fill,minmax(160px,1fr))]">
                 {past.map((e) => (
                   <EventCard key={e.id} event={e} compact />
                 ))}
@@ -121,17 +125,20 @@ function FeatureEventCard({ event }: { event: EventRow }) {
     <Link
       href={`/events/${event.id}`}
       prefetch
-      className="group flex flex-col overflow-hidden rounded-2xl border border-ink-hairline bg-white shadow-sm transition-shadow duration-[var(--motion-medium)] ease-[var(--ease-out-soft)] hover:shadow-md motion-reduce:transition-none sm:flex-row"
+      className="group flex overflow-hidden rounded-2xl border border-ink-hairline bg-white shadow-sm transition-shadow duration-[var(--motion-medium)] ease-[var(--ease-out-soft)] hover:shadow-md motion-reduce:transition-none"
     >
-      <div className="relative aspect-[4/5] w-full shrink-0 overflow-hidden bg-surface sm:aspect-auto sm:w-44 md:w-56">
+      {/* A portrait flyer thumb on mobile (so the hero card stays ~180px tall,
+          not a half-screen block), opening up to the full editorial panel on
+          sm+. */}
+      <div className="relative aspect-[4/5] w-28 shrink-0 overflow-hidden bg-surface sm:aspect-auto sm:w-44 md:w-56">
         <FlyerImage url={event.image_public_url} alt={event.title} iconSize={36} />
       </div>
-      <div className="flex flex-1 flex-col justify-center gap-1.5 p-6 md:p-8">
+      <div className="flex flex-1 flex-col justify-center gap-1 p-4 sm:gap-1.5 sm:p-6 md:p-8">
         <span className="eyebrow text-gold">Next up</span>
-        <span className="font-display text-hero leading-[0.95] text-gold">
+        <span className="font-display text-title leading-[0.95] text-gold sm:text-hero">
           {eventDisplayDate(event.starts_at)}
         </span>
-        <h3 className="font-display text-heading text-ink">{event.title}</h3>
+        <h3 className="font-display text-lead text-ink sm:text-heading">{event.title}</h3>
         <p className="text-small text-ink-muted">
           {eventLongDate(event.starts_at)}
           {time ? ` · ${time}` : ""}

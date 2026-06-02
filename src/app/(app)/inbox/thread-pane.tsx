@@ -891,7 +891,7 @@ export function ThreadPane({
           )}
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" sideOffset={0} className="bottom-full top-auto mb-2 min-w-[200px]">
+      <DropdownMenuContent align="start" side="top" sideOffset={0} className="bottom-full top-auto mb-2 min-w-[200px]">
         <DropdownMenuItem onClick={() => attachInputRef.current?.click()}>
           <Paperclip size={16} /> Attach files
         </DropdownMenuItem>
@@ -922,7 +922,7 @@ export function ThreadPane({
           )}
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" sideOffset={0} className="bottom-full top-auto mb-2 min-w-[200px]">
+      <DropdownMenuContent align="start" side="top" sideOffset={0} className="bottom-full top-auto mb-2 min-w-[200px]">
         <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
           <ImageIcon size={16} /> Photo or video
         </DropdownMenuItem>
