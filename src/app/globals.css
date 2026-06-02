@@ -532,11 +532,20 @@ h1, h2, h3, h4, h5, h6 {
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* Dropdown / overflow menus: a subtle grow-and-fade from the trigger edge so the
- * menu opens with intent instead of snapping in. Pair with an `origin-top-*`
- * utility on the content so it scales from the corner nearest its trigger.
- * Reduced motion collapses the duration to ~0 (end state only, no flash). */
+/* Dropdown / overflow menus: a crisp fade + short slide from the trigger so the
+ * menu opens with intent instead of snapping in. Two directions — `menu-in` for
+ * menus that open below their trigger (slides down into place), `menu-in-up` for
+ * ones anchored above it (`bottom-full`, rises up) — so the motion always reads
+ * as emerging FROM the trigger. Applied with `backwards` fill so the from-state
+ * holds before the first painted frame (no flash on mount, matching
+ * settings-pane-in above); reduced motion collapses the duration to ~0.
+ * Deliberately no scale: scaling a box of small menu text blurs the glyphs
+ * mid-transition, so a pure fade+slide stays sharp. */
 @keyframes menu-in {
-  from { opacity: 0; transform: scale(0.96) translateY(-4px); }
-  to   { opacity: 1; transform: scale(1) translateY(0); }
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes menu-in-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
