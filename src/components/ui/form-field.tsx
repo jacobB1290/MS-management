@@ -39,7 +39,7 @@ export const FormField = React.forwardRef<HTMLDivElement, FormFieldProps>(
     return (
       <div
         ref={ref}
-        className={cn("flex flex-col gap-[var(--space-xs)]", className)}
+        className={cn("flex min-w-0 flex-col gap-[var(--space-xs)]", className)}
         {...props}
       >
         <Label htmlFor={htmlFor}>

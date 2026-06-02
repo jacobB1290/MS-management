@@ -203,7 +203,7 @@ export function EventForm({ mode, initial }: EventFormProps) {
   )
 
   return (
-    <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_clamp(320px,26vw,400px)] xl:gap-12">
+    <div className="grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,1fr)_clamp(320px,26vw,400px)] xl:gap-12">
       {/* Editor. Source order = form first, so on mobile the fields lead (no more
           scrolling past a full-screen preview to reach Title); on xl the grid
           puts the form in the wide left column and the preview on the right. */}
@@ -245,7 +245,7 @@ export function EventForm({ mode, initial }: EventFormProps) {
             </button>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FormField label="Start date" htmlFor="start-date">
               <Input id="start-date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} data-dynamic required />
             </FormField>
@@ -258,7 +258,7 @@ export function EventForm({ mode, initial }: EventFormProps) {
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FormField label="End date" htmlFor="end-date" hint="Optional.">
               <Input id="end-date" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} data-dynamic />
             </FormField>
@@ -333,7 +333,7 @@ export function EventForm({ mode, initial }: EventFormProps) {
           <p className="-mt-1 text-small text-ink-faint">
             Shows as a button on the flyer. The public site only renders it for a full https link.
           </p>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FormField label="Button text" htmlFor="cta-text">
               <Input id="cta-text" value={ctaText} onChange={(e) => setCtaText(e.target.value)} placeholder="Reserve your seat" maxLength={40} />
             </FormField>

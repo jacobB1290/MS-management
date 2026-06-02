@@ -41,17 +41,18 @@ export default async function EventsPage() {
   return (
     <PageScaffold
       header={
-        <div className="flex items-start justify-between gap-3 border-b border-ink-hairline pb-4 md:pb-5">
-          <div className="min-w-0">
+        <div className="flex items-center justify-end gap-3 border-b border-ink-hairline pb-4 md:items-start md:justify-between md:pb-5">
+          {/* Below md the mobile topbar already shows "Events" (like every other
+              tab), so the in-page masthead would just duplicate it and add
+              height — hidden there. On md+ there's no topbar, so the masthead
+              carries the page identity. Either way the toolbar stays top-right,
+              in the same corner as the other tabs' + button. */}
+          <div className="hidden min-w-0 md:block">
             <p className="eyebrow">Console</p>
             <h1 className="font-display text-title font-semibold leading-[var(--leading-snug)] tracking-[var(--tracking-tight)] text-ink">
               Events
             </h1>
-            {/* The strapline is editorial polish for desktop; on mobile it would
-                only push content down, so it's hidden there. The toolbar stays
-                pinned top-right (items-start, no wrap) so the + sits in the same
-                corner as every other tab. */}
-            <p className="mt-1 hidden text-body text-ink-muted sm:block">
+            <p className="mt-1 text-body text-ink-muted">
               What’s on at Morning Star, and what’s live on the public site.
             </p>
           </div>
