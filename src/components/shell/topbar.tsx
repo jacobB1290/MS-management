@@ -20,6 +20,7 @@ interface TopbarProps {
 const SECTION_TITLES: Record<string, string> = {
   inbox: "Inbox",
   contacts: "Contacts",
+  events: "Events",
   campaigns: "Campaigns",
   settings: "Settings",
   audit: "Audit log",

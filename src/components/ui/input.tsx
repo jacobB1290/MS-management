@@ -10,7 +10,10 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
         ref={ref}
         type={type}
         className={cn(
-          "block w-full bg-white border border-ink-hairline rounded-md",
+          // min-w-0 lets the field shrink to its container instead of forcing
+          // overflow — notably iOS's native date/time controls, which carry a
+          // chunky intrinsic min-width and otherwise push the page sideways.
+          "block w-full min-w-0 bg-white border border-ink-hairline rounded-md",
           "h-11 px-3 text-body text-ink",
           "placeholder:text-ink-faint",
           "transition-colors duration-[var(--motion-fast)] ease-[var(--ease-standard)]",
