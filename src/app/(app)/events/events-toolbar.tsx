@@ -36,15 +36,22 @@ export function EventsToolbar() {
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex shrink-0 items-center gap-2">
       <button
         type="button"
         onClick={sync}
         disabled={syncing}
-        className="inline-flex items-center gap-1.5 rounded-pill border border-ink-hairline bg-white px-3 py-1.5 text-small text-ink-muted transition-colors duration-[var(--motion-fast)] hover:bg-surface disabled:opacity-50 motion-reduce:transition-none"
+        aria-label="Sync from Google Calendar"
+        title="Sync from Google Calendar"
+        className={cn(
+          "inline-flex items-center justify-center gap-1.5 rounded-pill border border-ink-hairline bg-white text-ink-muted transition-colors duration-[var(--motion-fast)] hover:bg-surface disabled:opacity-50 motion-reduce:transition-none",
+          // Icon-only 44px touch target on mobile (matches the back/+ sizing);
+          // expands to a labelled pill on sm+.
+          "h-11 w-11 sm:h-auto sm:w-auto sm:px-3.5 sm:py-2 sm:text-small",
+        )}
       >
-        <RefreshCw size={15} className={cn(syncing && "animate-spin")} />
-        {syncing ? "Syncing…" : "Sync"}
+        <RefreshCw size={16} className={cn(syncing && "animate-spin")} />
+        <span className="hidden sm:inline">{syncing ? "Syncing…" : "Sync"}</span>
       </button>
       <Link href="/events/new" aria-label="New event" className="btn-icon-action">
         <Plus size={20} strokeWidth={2.5} />

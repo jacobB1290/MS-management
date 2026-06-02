@@ -179,11 +179,12 @@ export const DropdownMenuContent = React.forwardRef<
       style={{ marginTop: sideOffset, ...style }}
       className={cn(
         "absolute z-40 top-full",
-        align === "end" ? "right-0" : "left-0",
+        align === "end" ? "right-0 origin-top-right" : "left-0 origin-top-left",
         "min-w-[180px]",
         "bg-white border border-ink-hairline rounded-md",
         "shadow-[var(--shadow-md)]",
         "p-1.5 flex flex-col",
+        "animate-[menu-in_var(--motion-fast)_var(--ease-out-soft)]",
         className,
       )}
       {...props}

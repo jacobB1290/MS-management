@@ -204,8 +204,10 @@ export function EventForm({ mode, initial }: EventFormProps) {
 
   return (
     <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_clamp(320px,26vw,400px)] xl:gap-12">
-      {/* Editor */}
-      <form onSubmit={handleSubmit} className="order-2 space-y-10 xl:order-1">
+      {/* Editor. Source order = form first, so on mobile the fields lead (no more
+          scrolling past a full-screen preview to reach Title); on xl the grid
+          puts the form in the wide left column and the preview on the right. */}
+      <form onSubmit={handleSubmit} className="space-y-10">
         <FieldGroup title="Basics">
           <FormField label="Title" htmlFor="title" hint="The event name (also the image’s alt text).">
             <Input
@@ -355,8 +357,9 @@ export function EventForm({ mode, initial }: EventFormProps) {
         </div>
       </form>
 
-      {/* Live preview — a window into the public site */}
-      <div className="order-1 xl:order-2">
+      {/* Live preview — a window into the public site. Below the form on mobile,
+          a sticky side panel on xl. */}
+      <div>
         <div className="mx-auto max-w-[340px] xl:mx-0 xl:max-w-none xl:sticky xl:top-4">
           <p className="motto mb-3 text-gold">On ms.church</p>
           <div className="rounded-2xl border border-gold/20 bg-surface/70 p-4">
