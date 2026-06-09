@@ -25,9 +25,9 @@ export type AiModelFamilies = Record<AiModelClass, { latest: string; blurb: stri
  * Ordered best/most-expensive first.
  */
 export const AI_MODEL_FAMILIES: AiModelFamilies = {
-  opus: { latest: "claude-opus-4-7", blurb: "Highest quality, highest cost" },
+  opus: { latest: "claude-opus-4-8", blurb: "Highest quality, highest cost" },
   sonnet: { latest: "claude-sonnet-4-6", blurb: "Balanced quality and cost" },
-  haiku: { latest: "claude-haiku-4-5-20251001", blurb: "Fastest and cheapest" },
+  haiku: { latest: "claude-haiku-4-5", blurb: "Fastest and cheapest" },
 }
 
 export const MODEL_CLASS_ORDER: readonly AiModelClass[] = ["opus", "sonnet", "haiku"]
