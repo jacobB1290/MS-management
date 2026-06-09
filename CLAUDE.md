@@ -61,13 +61,19 @@ Six core tables + three supporting. See `supabase/migrations/0001_init.sql`.
   `email_unsubscribed_at`, `consent_method`, `consent_at`, notes.
   - **Single source of truth for opt-out: `*_opted_out_at TIMESTAMPTZ NULL`.**
     `NULL` means opted in. No separate boolean.
+  - Denormalized inbox summary (added in `0030`): `last_message_*` +
+    `message_count`, maintained by a trigger on `messages` — never write them
+    directly. `contact_summary` is a thin view over these; the inbox orders by
+    the partial index on `last_message_at`.
 - `messages` — direction, body, media_url, channel (sms/mms),
   `twilio_sid UNIQUE` (idempotency), status, error, campaign_id, sent_by.
 - `campaigns` — channel (sms/email), body (SMS) or `brevo_template_id` (email),
   audience_filter (jsonb), status state machine. Email blasts also store
   `brevo_campaign_id` / `brevo_list_id` / `stats`.
 - `campaign_recipients` — composite PK, per-recipient status incl.
-  `skipped_opt_out` and `skipped_unsubscribed`.
+  `skipped_opt_out` and `skipped_unsubscribed`. `claimed_at` stamps a worker
+  claim; `claim_campaign_batch` re-claims `sending` rows stuck >10 min, so a
+  crashed batch re-sends (at-least-once) instead of wedging the campaign.
 - `email_events` — `provider_event_id UNIQUE` (idempotency; Brevo emits no
   per-event id, so the webhook synthesizes one); trigger auto-syncs
   unsubscribe/spam/hard_bounce back to `contacts.email_unsubscribed_at`.
