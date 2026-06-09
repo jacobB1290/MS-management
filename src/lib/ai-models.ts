@@ -40,7 +40,7 @@ export type AiModelFamilies = Record<AiModelClass, { latest: string; blurb: stri
  * │ does not parse, so it is filtered out of the picker.                     │
  * └─────────────────────────────────────────────────────────────────────────┘
  */
-const FABLE_MODEL_ID = "PASTE_FABLE_MODEL_ID_HERE"
+const FABLE_MODEL_ID = "claude-fable-5"
 /** Class prefix = the id minus its trailing `-<version…>`. Derived, not hardcoded. */
 const FABLE_PREFIX = FABLE_MODEL_ID.replace(/-\d.*$/, "")
 
