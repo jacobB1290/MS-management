@@ -14,7 +14,7 @@ export type AiFeature = "drafting" | "tagging" | "triage" | "notes" | "optout" |
  * see `effortLevelsForModel` for the per-model support matrix.
  */
 export type AiEffort = "low" | "medium" | "high" | "xhigh" | "max"
-export type AiModelClass = "opus" | "sonnet" | "haiku"
+export type AiModelClass = "opus" | "sonnet" | "haiku" | "fable"
 export type AiFeatureConfig = { model: string; effort: AiEffort }
 export type AiModelChoice = { id: string; label: string; blurb: string }
 /** The latest id (+ display blurb) for each model class. */
@@ -29,16 +29,34 @@ export type AiModelFamilies = Record<AiModelClass, { latest: string; blurb: stri
  * These values only matter offline; keep them reasonable, not necessarily current.
  * Ordered best/most-expensive first.
  */
+/**
+ * ┌─ PASTE-IN (one value) ────────────────────────────────────────────────┐
+ * │ The published fable model id. This is the ONLY thing left to fill in.   │
+ * │ It ships as a placeholder; replace the placeholder string with the real │
+ * │ id and the whole class lights up — picker option, "Fable x.y" label,    │
+ * │ effort tiers, and forward-resolution. With an ANTHROPIC_API_KEY set,     │
+ * │ live Models API discovery adopts the same id automatically, so this      │
+ * │ value only governs offline/demo. Until set, the placeholder is inert: it │
+ * │ does not parse, so it is filtered out of the picker.                     │
+ * └─────────────────────────────────────────────────────────────────────────┘
+ */
+const FABLE_MODEL_ID = "PASTE_FABLE_MODEL_ID_HERE"
+/** Class prefix = the id minus its trailing `-<version…>`. Derived, not hardcoded. */
+const FABLE_PREFIX = FABLE_MODEL_ID.replace(/-\d.*$/, "")
+
 export const AI_MODEL_FAMILIES: AiModelFamilies = {
+  fable: { latest: FABLE_MODEL_ID, blurb: "Newest flagship" },
   opus: { latest: "claude-opus-4-8", blurb: "Highest quality, highest cost" },
   sonnet: { latest: "claude-sonnet-4-6", blurb: "Balanced quality and cost" },
   haiku: { latest: "claude-haiku-4-5", blurb: "Fastest and cheapest" },
 }
 
-export const MODEL_CLASS_ORDER: readonly AiModelClass[] = ["opus", "sonnet", "haiku"]
+export const MODEL_CLASS_ORDER: readonly AiModelClass[] = ["fable", "opus", "sonnet", "haiku"]
 
 /** Map any Claude model id to its class by family prefix; null if unrecognized. */
 export function modelClass(model: string): AiModelClass | null {
+  // Guard on FABLE_PREFIX so the unset placeholder ("…HERE") never matches.
+  if (FABLE_PREFIX && model.startsWith(FABLE_PREFIX)) return "fable"
   if (model.startsWith("claude-opus")) return "opus"
   if (model.startsWith("claude-sonnet")) return "sonnet"
   if (model.startsWith("claude-haiku")) return "haiku"
@@ -73,7 +91,7 @@ export function resolveModel(model: string): string | null {
 export function parseModelVersion(
   model: string,
 ): { cls: AiModelClass; major: number; minor: number; date: number } | null {
-  const m = model.match(/^claude-(opus|sonnet|haiku)-(.+)$/)
+  const m = model.match(/^claude-(opus|sonnet|haiku|fable)-(.+)$/)
   if (!m) return null
   const segs = m[2].split("-").filter((s) => /^\d+$/.test(s))
   if (segs.length === 0) return null
@@ -100,11 +118,15 @@ export function deriveModelLabel(model: string): string {
 
 /** One picker option (the latest) per class, from a families map. */
 export function modelChoicesFrom(families: AiModelFamilies): AiModelChoice[] {
-  return MODEL_CLASS_ORDER.map((cls) => ({
-    id: families[cls].latest,
-    label: deriveModelLabel(families[cls].latest),
-    blurb: families[cls].blurb,
-  }))
+  return MODEL_CLASS_ORDER
+    // Skip a class whose id doesn't parse — e.g. the unset fable placeholder —
+    // so it never renders as a junk option (it appears the moment a real id is set).
+    .filter((cls) => parseModelVersion(families[cls].latest) !== null)
+    .map((cls) => ({
+      id: families[cls].latest,
+      label: deriveModelLabel(families[cls].latest),
+      blurb: families[cls].blurb,
+    }))
 }
 
 /** Picker options from the offline FALLBACK families. */
@@ -143,6 +165,9 @@ export function effortLevelsForModel(model: string): AiEffort[] {
   const v = parseModelVersion(model)
   if (!v) return []
   const { cls, major, minor } = v
+  // fable: flagship — ASSUMED to support the full effort range. Verify against
+  // the model's real support and trim this one line if it caps lower.
+  if (cls === "fable") return ["low", "medium", "high", "xhigh", "max"]
   if (cls === "haiku") return []
   if (cls === "sonnet") {
     return versionAtLeast(major, minor, 4, 6) ? ["low", "medium", "high"] : []
