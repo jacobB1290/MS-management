@@ -88,7 +88,11 @@ export default async function ContactsPage({ searchParams }: ContactsPageProps) 
       <div className="shrink-0 px-4 md:px-8 pt-4 pb-3 border-b border-ink-hairline bg-bg">
         {/* md+ masthead carries the page identity (below md the mobile topbar
             already says "Contacts"), matching Events and Campaigns. */}
-        <PageMasthead title="Contacts" className="mb-3" />
+        <PageMasthead
+          title="Contacts"
+          description="Everyone the church talks to, in one directory."
+          className="mb-3"
+        />
         <ContactsSearch initialQuery={q ?? ""} initialTag={tag ?? ""} tags={allTags}>
           <Link href="/contacts/new" aria-label="New contact" className="btn-icon-action">
             <Plus size={20} strokeWidth={2.5} />
@@ -158,24 +162,40 @@ function SectionHeader({ id, children }: { id?: string; children: React.ReactNod
 }
 
 // iOS-style row: round avatar, name, hairline divider inset to start after the
-// avatar (so the dividers line up under the text, not the whole row).
+// avatar (so the dividers line up under the text, not the whole row). On md+
+// the row earns its width: phone and (at xl) email ride along right-aligned in
+// muted ink, so the desktop directory reads as a directory instead of a
+// stretched phone list. Each is skipped when it would just repeat the name.
 function ContactRow({ contact, stopped = false }: { contact: Row; stopped?: boolean }) {
+  const shown = displayName(contact)
+  const phoneLabel = formatPhone(contact.phone)
   return (
     <Link
       href={`/contacts/${contact.id}`}
       prefetch
-      className="flex items-center gap-3 px-4 md:px-8 active:bg-white/60 transition-colors"
+      className="flex items-center gap-3 px-4 md:px-8 hover:bg-white/60 active:bg-white/60 transition-colors"
     >
       <Avatar name={contact.name ?? contact.phone} size="md" />
-      <div className="flex min-w-0 flex-1 items-center gap-2 border-b border-ink-hairline py-3">
+      <div className="flex min-w-0 flex-1 items-center gap-3 border-b border-ink-hairline py-3">
         <span className={stopped ? "truncate text-ink-muted" : "truncate font-medium text-ink"}>
-          {displayName(contact)}
+          {shown}
         </span>
-        {stopped && (
-          <span className="ml-auto shrink-0 text-micro font-semibold uppercase tracking-wide text-warning">
-            Stopped
+        <span className="ml-auto flex shrink-0 items-center gap-3 md:gap-6">
+          {/* Fixed-width slots (rendered even when empty) so phone and email
+              line up as quiet columns down the whole directory instead of
+              ragged per-row positions. */}
+          <span className="hidden md:block w-36 text-right text-small tabular-nums text-ink-muted">
+            {phoneLabel && phoneLabel !== shown ? phoneLabel : null}
           </span>
-        )}
+          <span className="hidden xl:block w-64 truncate text-small text-ink-faint">
+            {contact.email && contact.email !== shown ? contact.email : null}
+          </span>
+          {stopped && (
+            <span className="text-micro font-semibold uppercase tracking-wide text-warning">
+              Stopped
+            </span>
+          )}
+        </span>
       </div>
     </Link>
   )
