@@ -4,6 +4,7 @@ import * as React from "react"
 import { createPortal } from "react-dom"
 import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { MOTION_MEDIUM_MS, exitDurationMs } from "@/lib/motion"
 
 type SheetSide = "bottom" | "right" | "left" | "top"
 
@@ -137,7 +138,10 @@ export const SheetContent = React.forwardRef<HTMLDivElement, SheetContentProps>(
     }
     React.useEffect(() => {
       if (open) return
-      const t = setTimeout(() => setMounted(false), 220)
+      // Hold the sheet through its full close transition (--motion-medium).
+      // This was hardcoded to 220ms against a 300ms transition, which clipped
+      // the last 80ms of every close into a visible snap.
+      const t = setTimeout(() => setMounted(false), exitDurationMs(MOTION_MEDIUM_MS))
       return () => clearTimeout(t)
     }, [open])
 

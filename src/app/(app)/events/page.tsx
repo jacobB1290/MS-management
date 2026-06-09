@@ -146,7 +146,7 @@ function FeatureEventCard({ event }: { event: EventRow }) {
         </p>
         {status !== "published" && (
           <span className="mt-1">
-            <Badge variant={STATUS_VARIANT[status] ?? "muted"} className="capitalize">
+            <Badge variant={STATUS_VARIANT[status] ?? "muted"}>
               {status}
             </Badge>
           </span>
@@ -169,7 +169,7 @@ function EventCard({ event, compact = false }: { event: EventRow; compact?: bool
         <FlyerImage url={event.image_public_url} alt={event.title} className="group-hover:scale-[1.03]" />
         {status !== "published" && (
           <span className="absolute left-2 top-2">
-            <Badge variant={STATUS_VARIANT[status] ?? "muted"} className="capitalize shadow-sm">
+            <Badge variant={STATUS_VARIANT[status] ?? "muted"} className="shadow-sm">
               {status}
             </Badge>
           </span>

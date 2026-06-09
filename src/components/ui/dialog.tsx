@@ -3,6 +3,7 @@
 import * as React from "react"
 import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { MOTION_FAST_MS, exitDurationMs } from "@/lib/motion"
 
 interface DialogContextValue {
   open: boolean
@@ -50,13 +51,27 @@ export function Dialog({
     [isControlled, onOpenChange],
   )
 
+  // Animated lifecycle. showModal()/close() are hard cuts by nature, so the
+  // close is two-phase: mark the dialog data-closing (globals.css plays the
+  // panel + backdrop exit animation), then actually close once it has run.
+  // Reopening mid-exit cancels the pending close. Under reduced motion the
+  // hold collapses to 0 alongside the CSS.
   React.useEffect(() => {
     const dialog = dialogRef.current
     if (!dialog) return
-    if (open && !dialog.open) {
-      dialog.showModal()
-    } else if (!open && dialog.open) {
-      dialog.close()
+    let closeTimer: ReturnType<typeof setTimeout> | undefined
+    if (open) {
+      dialog.removeAttribute("data-closing")
+      if (!dialog.open) dialog.showModal()
+    } else if (dialog.open) {
+      dialog.setAttribute("data-closing", "")
+      closeTimer = setTimeout(() => {
+        dialog.removeAttribute("data-closing")
+        if (dialog.open) dialog.close()
+      }, exitDurationMs(MOTION_FAST_MS))
+    }
+    return () => {
+      if (closeTimer) clearTimeout(closeTimer)
     }
   }, [open])
 
@@ -140,11 +155,12 @@ export const DialogContent = React.forwardRef<
         "p-0 m-auto bg-transparent text-ink",
         "max-w-[min(92vw,520px)] w-full",
         "backdrop:bg-ink/40 backdrop:backdrop-blur-sm",
-        "open:animate-in",
       )}
     >
       <div
         className={cn(
+          // .dialog-panel hooks the enter/exit animations in globals.css.
+          "dialog-panel",
           "bg-surface rounded-lg shadow-[var(--shadow-xl)]",
           "border border-ink-hairline",
           "p-[var(--space-lg)]",

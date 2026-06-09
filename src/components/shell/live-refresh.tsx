@@ -58,9 +58,20 @@ export function LiveRefresh() {
       .on("postgres_changes", { event: "*", schema: "public", table: "contacts" }, schedule)
       .subscribe()
 
-    // Coming back to the tab: pull fresh server state once, immediately.
+    // Coming back to the tab after a real absence: pull fresh server state
+    // once. A quick glance away (< 2s) keeps the socket alive and the realtime
+    // handlers already covered anything that happened, so skip the round-trip
+    // — without this gate every app switch fired a full server re-render, which
+    // is exactly the "returning to the PWA feels heavy" jank. Mirrors the
+    // conversation list's own refocus reconcile.
+    let hiddenAt = 0
     const onVisible = () => {
-      if (document.visibilityState === "visible") router.refresh()
+      if (document.visibilityState === "hidden") {
+        hiddenAt = Date.now()
+      } else if (hiddenAt && Date.now() - hiddenAt > 2000) {
+        hiddenAt = 0
+        router.refresh()
+      }
     }
     document.addEventListener("visibilitychange", onVisible)
 

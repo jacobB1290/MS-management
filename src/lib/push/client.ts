@@ -33,7 +33,11 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
   if (!("serviceWorker" in navigator)) return null
   try {
     return await navigator.serviceWorker.register("/sw.js", { scope: "/" })
-  } catch {
+  } catch (err) {
+    // Surface the failure instead of swallowing it whole — a quota/HTTPS issue
+    // here means push silently never works on this device, and "silent" is the
+    // bug. Callers still degrade gracefully on the null.
+    console.error("[push] service worker registration failed:", err)
     return null
   }
 }

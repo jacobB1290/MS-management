@@ -242,6 +242,18 @@ export function ThreadPane({
   const composerControlsInline =
     channelToggleVisible && !activeBlocker && !(channel === "email" && emailHtml !== null)
 
+  // The send-shortcut hint: ⌘↵ is only true on Apple hardware — Windows/Linux
+  // staff get Ctrl+↵. Set after mount (hydration-safe); touch devices hide the
+  // keyboard hint entirely via the pointer-fine variant where it renders.
+  const [sendShortcut, setSendShortcut] = useState("⌘↵")
+  useEffect(() => {
+    const platform =
+      (navigator as { userAgentData?: { platform?: string } }).userAgentData?.platform ??
+      navigator.platform ??
+      ""
+    if (!/mac|iphone|ipad|ipod/i.test(platform)) setSendShortcut("Ctrl+↵")
+  }, [])
+
   // Sync local state when the parent feeds a fresh thread (URL `?c=` change).
   const [lastContactId, setLastContactId] = useState(contactProp.id)
   if (lastContactId !== contactProp.id) {
@@ -1314,7 +1326,10 @@ export function ThreadPane({
                 </>
               )}
               <p className="text-micro text-ink-faint">
-                Sends from the church email · Press <span className="font-mono">⌘↵</span> to send
+                Sends from the church email
+                <span className="hidden pointer-fine:inline">
+                  {" · "}Press <span className="font-mono">{sendShortcut}</span> to send
+                </span>
                 {!composerControlsInline && " · Tap + to attach files or use AI"}
               </p>
             </form>
@@ -1401,9 +1416,24 @@ export function ThreadPane({
                 </div>
               </div>
             </form>
-            <p className="mt-2 text-micro text-ink-faint">
-              Press <span className="font-mono">⌘↵</span> to send
-              {!composerControlsInline && " · Tap + to attach a photo or short video"}
+            <p
+              className={cn(
+                "mt-2 text-micro text-ink-faint",
+                // With inline controls the only content is the keyboard hint,
+                // which is meaningless on touch — drop the line entirely there
+                // instead of leaving a blank spacer row.
+                composerControlsInline && "hidden pointer-fine:block",
+              )}
+            >
+              <span className="hidden pointer-fine:inline">
+                Press <span className="font-mono">{sendShortcut}</span> to send
+              </span>
+              {!composerControlsInline && (
+                <>
+                  <span className="hidden pointer-fine:inline">{" · "}</span>
+                  Tap + to attach a photo or short video
+                </>
+              )}
             </p>
           </>
         )}
