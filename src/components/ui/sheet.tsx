@@ -122,6 +122,12 @@ export const SheetContent = React.forwardRef<HTMLDivElement, SheetContentProps>(
     const { open, setOpen, side, titleId, descriptionId } =
       useSheetContext("SheetContent")
     const [mounted, setMounted] = React.useState(open)
+    // Whether the DOM shows the open position. Starts false so the first
+    // painted frame sits off-screen (data-state=closed), then flips on the
+    // next frame — that flip is what makes the enter transition actually run.
+    // Without it the sheet mounted directly at its open position and only the
+    // backdrop faded: the panel itself popped in (and out — see below).
+    const [presented, setPresented] = React.useState(false)
     // Portal target. The Sheet must escape the inbox's sliding pane: that track
     // uses `transform` inside an `overflow-hidden` wrapper, and a position:fixed
     // element inside a transformed ancestor is positioned relative to THAT
@@ -136,12 +142,28 @@ export const SheetContent = React.forwardRef<HTMLDivElement, SheetContentProps>(
     if (open && !mounted) {
       setMounted(true)
     }
+    // Enter: commit one frame at the closed position, then flip to open on the
+    // next animation frame so the slide transition plays from off-screen.
+    React.useEffect(() => {
+      if (!open) return
+      let raf2 = 0
+      const raf1 = requestAnimationFrame(() => {
+        raf2 = requestAnimationFrame(() => setPresented(true))
+      })
+      return () => {
+        cancelAnimationFrame(raf1)
+        cancelAnimationFrame(raf2)
+      }
+    }, [open])
     React.useEffect(() => {
       if (open) return
       // Hold the sheet through its full close transition (--motion-medium).
       // This was hardcoded to 220ms against a 300ms transition, which clipped
-      // the last 80ms of every close into a visible snap.
-      const t = setTimeout(() => setMounted(false), exitDurationMs(MOTION_MEDIUM_MS))
+      // the close into a visible snap.
+      const t = setTimeout(() => {
+        setMounted(false)
+        setPresented(false)
+      }, exitDurationMs(MOTION_MEDIUM_MS))
       return () => clearTimeout(t)
     }, [open])
 
@@ -165,16 +187,20 @@ export const SheetContent = React.forwardRef<HTMLDivElement, SheetContentProps>(
 
     if (!mounted || !portalEl) return null
 
+    // What the DOM paints: closed until the post-mount frame flips `presented`,
+    // and closed again the moment `open` drops (the exit transition).
+    const shownState = open && presented ? "open" : "closed"
+
     return createPortal(
       <div className="fixed inset-0 z-50" role="presentation">
         <div
           aria-hidden="true"
           onClick={() => setOpen(false)}
-          data-state={open ? "open" : "closed"}
+          data-state={shownState}
           className={cn(
             "absolute inset-0 bg-ink/40 backdrop-blur-sm",
             "transition-opacity duration-[var(--motion-medium)] ease-[var(--ease-standard)]",
-            open ? "opacity-100" : "opacity-0",
+            shownState === "open" ? "opacity-100" : "opacity-0",
           )}
         />
         <div
@@ -183,12 +209,16 @@ export const SheetContent = React.forwardRef<HTMLDivElement, SheetContentProps>(
           aria-modal="true"
           aria-labelledby={titleId}
           aria-describedby={descriptionId}
-          data-state={open ? "open" : "closed"}
+          data-state={shownState}
           className={cn(
             "absolute bg-surface text-ink border-ink-hairline shadow-[var(--shadow-xl)]",
             "p-[var(--space-lg)] flex flex-col gap-[var(--space-md)]",
-            "transition-transform duration-[var(--motion-medium)] ease-[var(--ease-out-soft)]",
-            "will-change-transform",
+            // Tailwind v4's translate-x-full utilities set the CSS `translate`
+            // property, NOT `transform` — so transition-transform never
+            // animated them: the panel snapped while only the backdrop faded.
+            // Transition the property the utilities actually change.
+            "transition-[translate] duration-[var(--motion-medium)] ease-[var(--ease-out-soft)]",
+            "will-change-[translate]",
             sideClasses[side],
             !open && "pointer-events-none",
             className,
