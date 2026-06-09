@@ -205,7 +205,14 @@ export default async function SettingsPage() {
 
   return (
     <PageScaffold
-      header={<PageHeader eyebrow="Console" title="Settings" backSlot={<BackButton label="Back" />} />}
+      header={
+        <PageHeader
+          eyebrow="Console"
+          title="Settings"
+          backSlot={<BackButton label="Back" />}
+          backMobileOnly
+        />
+      }
     >
       <SettingsShell sections={sections} />
     </PageScaffold>

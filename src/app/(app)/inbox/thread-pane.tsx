@@ -1,5 +1,5 @@
 "use client"
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { InboxNavContext } from "./inbox-frame"
@@ -72,6 +72,19 @@ type Channel = "sms" | "email"
 /** Prefill the email subject with "Re: <last subject>" so a reply threads
  *  naturally; collapses any existing "Re:" prefixes and returns "" when the
  *  thread has no prior email to reply to. */
+// Static "store" for the platform send-shortcut: the value never changes after
+// load, so subscribe is a no-op — useSyncExternalStore is just the
+// hydration-safe way to read a client-only value without a hydration mismatch.
+const subscribeNever = () => () => {}
+const getSendShortcutServer = () => "⌘↵"
+function getSendShortcutClient(): string {
+  const platform =
+    (navigator as { userAgentData?: { platform?: string } }).userAgentData?.platform ??
+    navigator.platform ??
+    ""
+  return /mac|iphone|ipad|ipod/i.test(platform) ? "⌘↵" : "Ctrl+↵"
+}
+
 function deriveReplySubject(messages: Message[]): string {
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i]
@@ -243,16 +256,14 @@ export function ThreadPane({
     channelToggleVisible && !activeBlocker && !(channel === "email" && emailHtml !== null)
 
   // The send-shortcut hint: ⌘↵ is only true on Apple hardware — Windows/Linux
-  // staff get Ctrl+↵. Set after mount (hydration-safe); touch devices hide the
-  // keyboard hint entirely via the pointer-fine variant where it renders.
-  const [sendShortcut, setSendShortcut] = useState("⌘↵")
-  useEffect(() => {
-    const platform =
-      (navigator as { userAgentData?: { platform?: string } }).userAgentData?.platform ??
-      navigator.platform ??
-      ""
-    if (!/mac|iphone|ipad|ipod/i.test(platform)) setSendShortcut("Ctrl+↵")
-  }, [])
+  // staff get Ctrl+↵. useSyncExternalStore is the hydration-safe client-only
+  // read (server snapshot first paint, client snapshot after). Touch devices
+  // hide the keyboard hint entirely via the pointer-fine variant.
+  const sendShortcut = useSyncExternalStore(
+    subscribeNever,
+    getSendShortcutClient,
+    getSendShortcutServer,
+  )
 
   // Sync local state when the parent feeds a fresh thread (URL `?c=` change).
   const [lastContactId, setLastContactId] = useState(contactProp.id)

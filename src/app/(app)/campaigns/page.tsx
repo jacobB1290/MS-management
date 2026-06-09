@@ -6,6 +6,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { requireStaff } from "@/server/auth"
 import { Badge } from "@/components/ui/badge"
 import { EmptyState } from "@/components/ui/empty-state"
+import { PageMasthead } from "@/components/ui/page-masthead"
 import { cn } from "@/lib/utils"
 
 export const metadata: Metadata = { title: "Campaigns" }
@@ -30,11 +31,16 @@ export default async function CampaignsPage() {
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      {/* Header matches Inbox/Contacts: divider line + the action in the same
-          top-right spot, so the + doesn't move when switching tabs. Campaigns
-          has no search by design. */}
-      <div className="shrink-0 px-4 md:px-8 pt-4 pb-3 border-b border-ink-hairline bg-bg">
-        <div className="flex items-center justify-end">
+      {/* Header matches the other tabs: the + stays in the same top-right spot
+          across tab switches, and on md+ the masthead carries the page identity
+          (below md the mobile topbar already says "Campaigns"). Campaigns has
+          no search by design. */}
+      <div className="shrink-0 px-4 md:px-8 pt-4 pb-3 md:pb-4 border-b border-ink-hairline bg-bg">
+        <div className="flex items-center justify-end gap-3 md:items-start md:justify-between">
+          <PageMasthead
+            title="Campaigns"
+            description="One-off SMS and email announcements to a chosen audience."
+          />
           <Link href="/campaigns/new" aria-label="New campaign" className="btn-icon-action">
             <Plus size={20} strokeWidth={2.5} />
           </Link>

@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { requireStaff } from "@/server/auth"
 import { Badge } from "@/components/ui/badge"
 import { EmptyState } from "@/components/ui/empty-state"
+import { PageMasthead } from "@/components/ui/page-masthead"
 import { PageScaffold } from "@/components/ui/page-scaffold"
 import { eventDisplayDate, eventLongDate, eventDisplayTime } from "@/lib/event-format"
 import { EventsToolbar } from "./events-toolbar"
@@ -42,20 +43,13 @@ export default async function EventsPage() {
     <PageScaffold
       header={
         <div className="flex items-center justify-end gap-3 border-b border-ink-hairline pb-4 md:items-start md:justify-between md:pb-5">
-          {/* Below md the mobile topbar already shows "Events" (like every other
-              tab), so the in-page masthead would just duplicate it and add
-              height — hidden there. On md+ there's no topbar, so the masthead
-              carries the page identity. Either way the toolbar stays top-right,
-              in the same corner as the other tabs' + button. */}
-          <div className="hidden min-w-0 md:block">
-            <p className="eyebrow">Console</p>
-            <h1 className="font-display text-title font-semibold leading-[var(--leading-snug)] tracking-[var(--tracking-tight)] text-ink">
-              Events
-            </h1>
-            <p className="mt-1 text-body text-ink-muted">
-              What’s on at Morning Star, and what’s live on the public site.
-            </p>
-          </div>
+          {/* Shared masthead (hidden below md, where the topbar already titles
+              the page); the toolbar stays top-right, in the same corner as the
+              other tabs' + button. */}
+          <PageMasthead
+            title="Events"
+            description="What’s on at Morning Star, and what’s live on the public site."
+          />
           <EventsToolbar />
         </div>
       }

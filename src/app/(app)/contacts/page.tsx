@@ -6,6 +6,7 @@ import { getContactTagOccurrences } from "@/server/contacts/tags"
 import { Avatar } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { EmptyState } from "@/components/ui/empty-state"
+import { PageMasthead } from "@/components/ui/page-masthead"
 import { ContactsSearch } from "./contacts-search"
 import { ContactsIndex } from "./contacts-index"
 import { formatPhone } from "@/lib/utils"
@@ -85,6 +86,9 @@ export default async function ContactsPage({ searchParams }: ContactsPageProps) 
   return (
     <div className="flex flex-col h-full min-h-0">
       <div className="shrink-0 px-4 md:px-8 pt-4 pb-3 border-b border-ink-hairline bg-bg">
+        {/* md+ masthead carries the page identity (below md the mobile topbar
+            already says "Contacts"), matching Events and Campaigns. */}
+        <PageMasthead title="Contacts" className="mb-3" />
         <ContactsSearch initialQuery={q ?? ""} initialTag={tag ?? ""} tags={allTags}>
           <Link href="/contacts/new" aria-label="New contact" className="btn-icon-action">
             <Plus size={20} strokeWidth={2.5} />

@@ -15,16 +15,23 @@ export interface PageHeaderProps
   /** A custom back affordance (e.g. a history-aware button) for subviews with
    *  no single parent route. Takes the left slot in place of `backHref`. */
   backSlot?: React.ReactNode
+  /** Show the back affordance only below md. For pages reached from the user
+   *  menu (Settings, Audit) the desktop sidebar already provides the way out —
+   *  a Back arrow next to a persistent nav reads as misplaced mobile chrome. */
+  backMobileOnly?: boolean
   /** Optional context that appears in a ⓘ popover next to the title. */
   info?: React.ReactNode
 }
 
 export const PageHeader = React.forwardRef<HTMLElement, PageHeaderProps>(
   function PageHeader(
-    { className, title, eyebrow, actions, backHref, backLabel, backSlot, info, children, ...props },
+    { className, title, eyebrow, actions, backHref, backLabel, backSlot, backMobileOnly, info, children, ...props },
     ref,
   ) {
     const hasUtilityRow = Boolean(backHref || backSlot || actions)
+    // With a mobile-only back and no actions, the whole utility row is
+    // mobile-only — otherwise md+ would keep an empty strip above the title.
+    const utilityRowMobileOnly = Boolean(backMobileOnly && !actions)
     return (
       <header
         ref={ref}
@@ -40,9 +47,18 @@ export const PageHeader = React.forwardRef<HTMLElement, PageHeaderProps>(
             so the touch target does double duty instead of stacking a separate
             back band above a separate actions row. */}
         {hasUtilityRow && (
-          <div className="flex flex-wrap items-center justify-between gap-x-[var(--space-sm)] gap-y-2">
+          <div
+            className={cn(
+              "flex flex-wrap items-center justify-between gap-x-[var(--space-sm)] gap-y-2",
+              utilityRowMobileOnly && "md:hidden",
+            )}
+          >
             {backSlot ? (
-              backSlot
+              backMobileOnly && actions ? (
+                <span className="md:hidden">{backSlot}</span>
+              ) : (
+                backSlot
+              )
             ) : backHref ? (
               <Link
                 href={backHref}
