@@ -34,15 +34,22 @@ export async function createSupabaseServerClient(): Promise<SupabaseClient<Datab
 /**
  * Service-role client. Bypasses RLS. ONLY use server-side, in route handlers
  * or server actions, never in a Server Component that streams to the client.
+ *
+ * Module singleton: the admin client carries no cookies or session state, so
+ * one instance serves every caller. Constructing a fresh client (GoTrue +
+ * PostgREST instances) at each of the ~60 call sites was pure overhead.
  */
+let adminClient: SupabaseClient<Database> | undefined
+
 export function createSupabaseAdminClient(): SupabaseClient<Database> {
   if (isDemoEnabled()) return createDemoClient()
+  if (adminClient) return adminClient
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     throw new Error(
       "SUPABASE_SERVICE_ROLE_KEY is not set. Privileged ops require service role.",
     )
   }
-  return createServerClient<Database>(
+  adminClient = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY,
     {
@@ -50,4 +57,5 @@ export function createSupabaseAdminClient(): SupabaseClient<Database> {
       auth: { persistSession: false, autoRefreshToken: false },
     },
   )
+  return adminClient
 }

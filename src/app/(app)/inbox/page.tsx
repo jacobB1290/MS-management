@@ -1,8 +1,8 @@
 import type { Metadata } from "next"
 import { Suspense, cache } from "react"
-import { requireStaff } from "@/server/auth"
+import { requireStaff, getStaffDirectory } from "@/server/auth"
 import { isVoiceConfigured } from "@/server/comms/voice"
-import { createSupabaseServerClient, createSupabaseAdminClient } from "@/lib/supabase/server"
+import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { assertCanSendSms } from "@/server/comms/optOut"
 import { resolveOptInMode } from "@/server/comms/optInMode"
 import { isAiEnabled } from "@/server/ai/client"
@@ -75,13 +75,12 @@ async function ThreadLoader({
   currentUserId: string
 }) {
   const supabase = await createSupabaseServerClient()
-  const admin = createSupabaseAdminClient()
   // Load the last 80 messages — that's what fits in 2-3 screens. Older
   // messages can be paged in later via a "load older" affordance. 500
   // was wasteful and made the thread payload heavy on chatty contacts.
-  // Staff names (service-role read) let each outbound message show who sent
-  // it — works for every staff member regardless of app_users RLS.
-  const [contact, messagesRes, usersRes, replyGate] = await Promise.all([
+  // Staff names (cached service-role read) let each outbound message show who
+  // sent it — works for every staff member regardless of app_users RLS.
+  const [contact, messagesRes, senderNames, replyGate] = await Promise.all([
     loadContact(contactId),
     supabase
       .from("messages")
@@ -89,7 +88,7 @@ async function ThreadLoader({
       .eq("contact_id", contactId)
       .order("created_at", { ascending: false })
       .limit(80),
-    admin.from("app_users").select("user_id, display_name"),
+    getStaffDirectory(),
     // Authoritative reply gate: drives the "implied consent expired" banner so
     // a lapsed thread blocks the composer instead of failing on send.
     assertCanSendSms(contactId, "conversational_reply"),
@@ -97,10 +96,6 @@ async function ThreadLoader({
   if (!contact) return null
   const messages = (messagesRes.data ?? []).slice().reverse()
   const impliedExpired = !replyGate.ok && replyGate.reason === "implied_expired"
-  const senderNames: Record<string, string> = {}
-  for (const u of usersRes.data ?? []) {
-    if (u.display_name) senderNames[u.user_id] = u.display_name
-  }
   // The mobile contact sheet reuses ContactPanel, so the thread needs the same
   // panel inputs (voice + opt-in eligibility) to hand it.
   const optInMode = await loadOptInMode(contact)

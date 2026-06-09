@@ -68,16 +68,28 @@ export async function processCampaignBatch(
     return { processed: 0, campaignDone: false }
   }
 
+  // Send in small parallel waves instead of strictly one-by-one. Throughput
+  // metering stays Twilio's job (the Messaging Service queues to the 10DLC
+  // rate), so the only thing serial sends bought us was a batch that crawled:
+  // ~5 DB round-trips + 1 provider call each, sequentially, could push a
+  // 50-recipient batch past the cron route's own time budget. Five at a time
+  // keeps DB/API pressure modest and cuts the batch wall-clock ~5x.
+  const SEND_CONCURRENCY = 5
   let processed = 0
-  for (const row of rows) {
-    const sendResult = await sendSms({
-      contactId: row.contact_id,
-      body: campaign.body ?? "",
-      mediaUrl: campaign.media_url,
-      campaignId,
-    })
-    await recordRecipientOutcome(admin, campaignId, row.contact_id, sendResult)
-    processed += 1
+  for (let i = 0; i < rows.length; i += SEND_CONCURRENCY) {
+    const wave = rows.slice(i, i + SEND_CONCURRENCY)
+    await Promise.all(
+      wave.map(async (row) => {
+        const sendResult = await sendSms({
+          contactId: row.contact_id,
+          body: campaign.body ?? "",
+          mediaUrl: campaign.media_url,
+          campaignId,
+        })
+        await recordRecipientOutcome(admin, campaignId, row.contact_id, sendResult)
+      }),
+    )
+    processed += wave.length
   }
 
   return { processed, campaignDone: false }

@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server"
+import { NextResponse, type NextRequest, after } from "next/server"
 import { verifyTwilioRequest } from "@/server/webhooks/verify"
 import { createSupabaseAdminClient } from "@/lib/supabase/server"
 import { logAudit } from "@/server/audit"
@@ -8,6 +8,11 @@ import { sendPushToStaff } from "@/server/push/send"
 import { organizeConversation } from "@/server/ai/organizeInbound"
 import { sendWelcome, sendJoinConfirmation } from "@/server/comms/welcome"
 import { formatPhone } from "@/lib/utils"
+
+// The response itself is fast (verify + upsert + insert), but the post-response
+// follow-ups scheduled via after() — push fan-out and the AI organize pass —
+// keep the function alive and need headroom beyond the platform default.
+export const maxDuration = 60
 
 /**
  * Twilio inbound message webhook. Configure this URL in the Twilio
@@ -178,60 +183,70 @@ export async function POST(request: NextRequest) {
   })
 
   // Everything below only runs for a genuinely new inbound (not a Twilio retry
-  // of one we already stored). Both steps are best-effort and never fail the
-  // webhook.
+  // of one we already stored). It is all best-effort follow-up work — push
+  // fan-out, auto-replies, and the AI organize pass — so it runs AFTER the
+  // TwiML response is sent (`after()`): Twilio gets its ack in milliseconds
+  // instead of waiting out a multi-second Claude call, which kept the webhook
+  // inside Twilio's timeout and away from its retry loop.
   if (inserted?.id) {
-    const { data: c } = await admin
-      .from("contacts")
-      .select("name")
-      .eq("id", contactId)
-      .maybeSingle()
+    const insertedId = inserted.id
+    after(async () => {
+      const { data: c } = await admin
+        .from("contacts")
+        .select("name")
+        .eq("id", contactId)
+        .maybeSingle()
 
-    // Push-notify staff. Every inbound notifies regardless of segment, so a
-    // mis-sorted (or crisis) message can never be silently tucked away.
-    try {
-      const title = c?.name || formatPhone(phone) || "New message"
-      const preview = body.trim() || (mediaUrl ? "Sent a photo" : "New message")
-      await sendPushToStaff({
-        title,
-        body: preview.slice(0, 140),
-        url: `/inbox?c=${contactId}`,
-        tag: `contact-${contactId}`,
-      })
-    } catch {
-      /* swallow — delivery is best-effort */
-    }
-
-    // Control keywords carry no real content and own their own handling: STOP/
-    // START toggle consent above, JOIN is confirmed below, and HELP/INFO are
-    // answered by Twilio's Advanced Opt-Out at the carrier. The content-driven
-    // follow-ups (welcome, AI organize) skip all of them, so the CRM never piles
-    // a second auto-reply on top of Twilio's.
-    const isControl =
-      keyword === "stop" || keyword === "start" || isJoin || isHelp
-
-    // Auto-replies are best-effort: a failure here must never 500 the webhook,
-    // or Twilio would retry and re-send. A first-ever contact gets a one-time
-    // welcome — but a control-keyword first message is handled by its own path
-    // (STOP opts out; JOIN is confirmed below), so we don't also welcome those.
-    try {
-      if (created && !isControl) {
-        await sendWelcome({ contactId, source: "sms_inbound" })
+      // Push-notify staff. Every inbound notifies regardless of segment, so a
+      // mis-sorted (or crisis) message can never be silently tucked away.
+      try {
+        const title = c?.name || formatPhone(phone) || "New message"
+        const preview = body.trim() || (mediaUrl ? "Sent a photo" : "New message")
+        await sendPushToStaff({
+          title,
+          body: preview.slice(0, 140),
+          url: `/inbox?c=${contactId}`,
+          tag: `contact-${contactId}`,
+        })
+      } catch {
+        /* swallow — delivery is best-effort */
       }
-      if (isJoin) {
-        await sendJoinConfirmation(contactId)
-      }
-    } catch {
-      /* swallow — auto-reply delivery is best-effort */
-    }
 
-    // Background-organize the conversation: sort it into a segment + advance its
-    // status, add ministry-interest tags, update the running notes, and catch a
-    // plain-language opt-out. Non-destructive on the inbox (never hides from
-    // General) and entirely best-effort.
-    if (!isControl) {
-      await organizeConversation(contactId, { source: "sms_inbound", messageSid })
-    }
+      // Control keywords carry no real content and own their own handling: STOP/
+      // START toggle consent above, JOIN is confirmed below, and HELP/INFO are
+      // answered by Twilio's Advanced Opt-Out at the carrier. The content-driven
+      // follow-ups (welcome, AI organize) skip all of them, so the CRM never piles
+      // a second auto-reply on top of Twilio's.
+      const isControl =
+        keyword === "stop" || keyword === "start" || isJoin || isHelp
+
+      // Auto-replies are best-effort: a failure here must never break the
+      // follow-up chain. A first-ever contact gets a one-time welcome — but a
+      // control-keyword first message is handled by its own path (STOP opts
+      // out; JOIN is confirmed below), so we don't also welcome those.
+      try {
+        if (created && !isControl) {
+          await sendWelcome({ contactId, source: "sms_inbound" })
+        }
+        if (isJoin) {
+          await sendJoinConfirmation(contactId)
+        }
+      } catch {
+        /* swallow — auto-reply delivery is best-effort */
+      }
+
+      // Background-organize the conversation: sort it into a segment + advance
+      // its status, add ministry-interest tags, update the running notes, and
+      // catch a plain-language opt-out. Non-destructive on the inbox (never
+      // hides from General) and entirely best-effort.
+      if (!isControl) {
+        try {
+          await organizeConversation(contactId, { source: "sms_inbound", messageSid })
+        } catch (err) {
+          console.error("[twilio-inbound] organize failed:", err, { messageId: insertedId })
+        }
+      }
+    })
   }
 
   return new NextResponse(`<?xml version="1.0" encoding="UTF-8"?>\n<Response/>`, {

@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server"
+import { NextResponse, type NextRequest, after } from "next/server"
 import { verifyHmacRequest } from "@/server/webhooks/verify"
 import { createSupabaseAdminClient } from "@/lib/supabase/server"
 import { publicFormSubmissionSchema } from "@/server/validation/schemas"
@@ -9,6 +9,11 @@ import { sendWelcome } from "@/server/comms/welcome"
 import { formatPhone } from "@/lib/utils"
 
 const REPLAY_WINDOW_MS = 5 * 60 * 1000 // 5 minutes
+
+// The response is fast, but the post-response follow-ups scheduled via after()
+// (push fan-out, welcome, the AI organize pass) keep the function alive and
+// need headroom beyond the platform default.
+export const maxDuration = 60
 
 /**
  * Public website form receiver. The website POSTs JSON signed with
@@ -175,44 +180,56 @@ export async function POST(request: NextRequest) {
         .maybeSingle()
       messageId = inserted?.id ?? null
 
-      // Best-effort follow-ups, exactly as the SMS inbound webhook does. A
-      // failure here must never fail the submission — the contact, consent,
-      // and message are already persisted.
+      // Best-effort follow-ups, exactly as the SMS inbound webhook does, and —
+      // also like that webhook — run AFTER the response (`after()`): the
+      // website gets its ack immediately instead of waiting on push fan-out
+      // and the AI organize pass. A failure here can never fail the
+      // submission — the contact, consent, and message are already persisted.
       if (messageId) {
-        const { data: c } = await admin
-          .from("contacts")
-          .select("name, phone")
-          .eq("id", contactId)
-          .maybeSingle()
+        const seededMessageId = messageId
+        after(async () => {
+          const { data: c } = await admin
+            .from("contacts")
+            .select("name, phone")
+            .eq("id", contactId)
+            .maybeSingle()
 
-        try {
-          const title = c?.name || formatPhone(c?.phone ?? null) || "New form submission"
-          await sendPushToStaff({
-            title,
-            body: resolvedMessage.slice(0, 140),
-            url: `/inbox?c=${contactId}`,
-            tag: `contact-${contactId}`,
-          })
-        } catch {
-          /* swallow — delivery is best-effort */
-        }
+          try {
+            const title = c?.name || formatPhone(c?.phone ?? null) || "New form submission"
+            await sendPushToStaff({
+              title,
+              body: resolvedMessage.slice(0, 140),
+              url: `/inbox?c=${contactId}`,
+              tag: `contact-${contactId}`,
+            })
+          } catch {
+            /* swallow — delivery is best-effort */
+          }
 
-        // Background-organize the conversation (segment + status, tags, notes,
-        // opt-out). Non-destructive on the inbox and entirely best-effort.
-        await organizeConversation(contactId, { source: "public_form", messageSid: messageId })
+          // Background-organize the conversation (segment + status, tags, notes,
+          // opt-out). Non-destructive on the inbox and entirely best-effort.
+          try {
+            await organizeConversation(contactId, { source: "public_form", messageSid: seededMessageId })
+          } catch (err) {
+            console.error("[public-form] organize failed:", err, { messageId: seededMessageId })
+          }
+        })
       }
     }
 
     // First-ever contact: one-time welcome. Runs after the consent write and any
     // seeded inbound above, so it reads current marketing consent and (for the
     // invite variant) has a conversational basis to ask. Best-effort — a welcome
-    // failure must never fail an already-persisted submission.
+    // failure must never fail an already-persisted submission. Sent post-response
+    // for the same reason as the block above.
     if (created) {
-      try {
-        await sendWelcome({ contactId, source: "public_form" })
-      } catch {
-        /* swallow — welcome is best-effort */
-      }
+      after(async () => {
+        try {
+          await sendWelcome({ contactId, source: "public_form" })
+        } catch {
+          /* swallow — welcome is best-effort */
+        }
+      })
     }
   }
 

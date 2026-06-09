@@ -7,6 +7,7 @@ import { requireStaff } from "@/server/auth"
 import {
   resolveAudienceMode,
   summarizeAudience,
+  fetchAudienceContacts,
   type AudienceBreakdown,
 } from "@/server/comms/campaignAudience"
 import { formatMoney } from "@/server/billing/twilio"
@@ -103,17 +104,13 @@ export default async function CampaignDetail({ params }: PageProps) {
       campaign.audience_filter as Record<string, unknown> | null,
     )
     if (mode.mode !== "invalid") {
-      let q = supabase
-        .from("contacts")
-        .select(
-          "phone, email, sms_opted_out_at, email_unsubscribed_at, marketing_consent_at, marketing_opted_out_at",
-        )
-      if (mode.mode === "tags") q = q.overlaps("tags", mode.tags)
-      else if (mode.mode === "members") q = q.eq("is_member", true)
-      const { data: audienceRows } = await q
+      // Same paged fetcher as the start route, so the preview counts can never
+      // disagree with what staging will actually do (including past the
+      // 1,000-row PostgREST response cap).
+      const { rows: audienceRows } = await fetchAudienceContacts(supabase, mode)
       audienceBreakdown = summarizeAudience(
         campaign.channel as "sms" | "email",
-        audienceRows ?? [],
+        audienceRows,
       )
     }
   }

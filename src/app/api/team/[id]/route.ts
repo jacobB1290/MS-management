@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server"
+import { revalidateTag } from "next/cache"
 import { z } from "zod"
 import { createSupabaseAdminClient } from "@/lib/supabase/server"
 import { requireAdmin } from "@/server/auth"
@@ -37,6 +38,11 @@ export async function PATCH(
     .eq("user_id", id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
+  // Drop the cached role/display-name immediately (requireStaff and the
+  // thread-pane staff directory both read through these tags).
+  revalidateTag(`app_users:${id}`, "max")
+  revalidateTag("app_users", "max")
+
   await logAudit({
     action: "user.role_change",
     actorUserId: admin_user.id,
@@ -64,6 +70,11 @@ export async function DELETE(
   // /access-denied.
   const { error } = await admin.from("app_users").delete().eq("user_id", id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Their cached staff row must die NOW — a removed user keeping a warm
+  // 60-second requireStaff cache is an access-revocation hole.
+  revalidateTag(`app_users:${id}`, "max")
+  revalidateTag("app_users", "max")
 
   await logAudit({
     action: "user.role_change",
