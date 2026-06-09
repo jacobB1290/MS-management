@@ -98,6 +98,7 @@ export type Database = {
       campaign_recipients: {
         Row: {
           campaign_id: string
+          claimed_at: string | null
           contact_id: string
           error: string | null
           provider_id: string | null
@@ -106,6 +107,7 @@ export type Database = {
         }
         Insert: {
           campaign_id: string
+          claimed_at?: string | null
           contact_id: string
           error?: string | null
           provider_id?: string | null
@@ -114,6 +116,7 @@ export type Database = {
         }
         Update: {
           campaign_id?: string
+          claimed_at?: string | null
           contact_id?: string
           error?: string | null
           provider_id?: string | null
@@ -282,10 +285,16 @@ export type Database = {
           inbox_status_at: string | null
           is_member: boolean
           language: string
+          last_message_at: string | null
+          last_message_body: string | null
+          last_message_channel: string | null
+          last_message_direction: string | null
+          last_message_subject: string | null
           marketing_consent_at: string | null
           marketing_consent_method: string | null
           marketing_opt_in_requested_at: string | null
           marketing_opted_out_at: string | null
+          message_count: number
           name: string | null
           notes: string | null
           phone: string | null
@@ -309,10 +318,16 @@ export type Database = {
           inbox_status_at?: string | null
           is_member?: boolean
           language?: string
+          last_message_at?: string | null
+          last_message_body?: string | null
+          last_message_channel?: string | null
+          last_message_direction?: string | null
+          last_message_subject?: string | null
           marketing_consent_at?: string | null
           marketing_consent_method?: string | null
           marketing_opt_in_requested_at?: string | null
           marketing_opted_out_at?: string | null
+          message_count?: number
           name?: string | null
           notes?: string | null
           phone?: string | null
@@ -336,10 +351,16 @@ export type Database = {
           inbox_status_at?: string | null
           is_member?: boolean
           language?: string
+          last_message_at?: string | null
+          last_message_body?: string | null
+          last_message_channel?: string | null
+          last_message_direction?: string | null
+          last_message_subject?: string | null
           marketing_consent_at?: string | null
           marketing_consent_method?: string | null
           marketing_opt_in_requested_at?: string | null
           marketing_opted_out_at?: string | null
+          message_count?: number
           name?: string | null
           notes?: string | null
           phone?: string | null
@@ -688,6 +709,46 @@ export type Database = {
           phone: string | null
           sms_opted_out_at: string | null
           tags: string[] | null
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          email_unsubscribed_at?: string | null
+          id?: string | null
+          inbox_category?: string | null
+          inbox_status?: string | null
+          is_member?: boolean | null
+          language?: string | null
+          last_message_at?: string | null
+          last_message_body?: string | null
+          last_message_channel?: string | null
+          last_message_direction?: string | null
+          last_message_subject?: string | null
+          message_count?: number | null
+          name?: string | null
+          phone?: string | null
+          sms_opted_out_at?: string | null
+          tags?: string[] | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          email_unsubscribed_at?: string | null
+          id?: string | null
+          inbox_category?: string | null
+          inbox_status?: string | null
+          is_member?: boolean | null
+          language?: string | null
+          last_message_at?: string | null
+          last_message_body?: string | null
+          last_message_channel?: string | null
+          last_message_direction?: string | null
+          last_message_subject?: string | null
+          message_count?: number | null
+          name?: string | null
+          phone?: string | null
+          sms_opted_out_at?: string | null
+          tags?: string[] | null
         }
         Relationships: []
       }
