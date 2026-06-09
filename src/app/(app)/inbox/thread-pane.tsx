@@ -1,5 +1,5 @@
 "use client"
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { InboxNavContext } from "./inbox-frame"
@@ -72,6 +72,19 @@ type Channel = "sms" | "email"
 /** Prefill the email subject with "Re: <last subject>" so a reply threads
  *  naturally; collapses any existing "Re:" prefixes and returns "" when the
  *  thread has no prior email to reply to. */
+// Static "store" for the platform send-shortcut: the value never changes after
+// load, so subscribe is a no-op — useSyncExternalStore is just the
+// hydration-safe way to read a client-only value without a hydration mismatch.
+const subscribeNever = () => () => {}
+const getSendShortcutServer = () => "⌘↵"
+function getSendShortcutClient(): string {
+  const platform =
+    (navigator as { userAgentData?: { platform?: string } }).userAgentData?.platform ??
+    navigator.platform ??
+    ""
+  return /mac|iphone|ipad|ipod/i.test(platform) ? "⌘↵" : "Ctrl+↵"
+}
+
 function deriveReplySubject(messages: Message[]): string {
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i]
@@ -241,6 +254,16 @@ export function ThreadPane({
   // (blocker banner / email AI preview) so it never disappears.
   const composerControlsInline =
     channelToggleVisible && !activeBlocker && !(channel === "email" && emailHtml !== null)
+
+  // The send-shortcut hint: ⌘↵ is only true on Apple hardware — Windows/Linux
+  // staff get Ctrl+↵. useSyncExternalStore is the hydration-safe client-only
+  // read (server snapshot first paint, client snapshot after). Touch devices
+  // hide the keyboard hint entirely via the pointer-fine variant.
+  const sendShortcut = useSyncExternalStore(
+    subscribeNever,
+    getSendShortcutClient,
+    getSendShortcutServer,
+  )
 
   // Sync local state when the parent feeds a fresh thread (URL `?c=` change).
   const [lastContactId, setLastContactId] = useState(contactProp.id)
@@ -840,7 +863,7 @@ export function ThreadPane({
         setMessages((cur) =>
           cur.map((m) => (m.id === tempId ? { ...m, status: "mocked" } : m)),
         )
-        toast.message("Recorded without sending. SendGrid isn’t configured yet")
+        toast.message("Recorded without sending. Brevo isn’t configured yet")
       }
     } catch (err) {
       setMessages((cur) => cur.filter((m) => m.id !== tempId))
@@ -1314,7 +1337,10 @@ export function ThreadPane({
                 </>
               )}
               <p className="text-micro text-ink-faint">
-                Sends from the church email · Press <span className="font-mono">⌘↵</span> to send
+                Sends from the church email
+                <span className="hidden pointer-fine:inline">
+                  {" · "}Press <span className="font-mono">{sendShortcut}</span> to send
+                </span>
                 {!composerControlsInline && " · Tap + to attach files or use AI"}
               </p>
             </form>
@@ -1401,9 +1427,24 @@ export function ThreadPane({
                 </div>
               </div>
             </form>
-            <p className="mt-2 text-micro text-ink-faint">
-              Press <span className="font-mono">⌘↵</span> to send
-              {!composerControlsInline && " · Tap + to attach a photo or short video"}
+            <p
+              className={cn(
+                "mt-2 text-micro text-ink-faint",
+                // With inline controls the only content is the keyboard hint,
+                // which is meaningless on touch — drop the line entirely there
+                // instead of leaving a blank spacer row.
+                composerControlsInline && "hidden pointer-fine:block",
+              )}
+            >
+              <span className="hidden pointer-fine:inline">
+                Press <span className="font-mono">{sendShortcut}</span> to send
+              </span>
+              {!composerControlsInline && (
+                <>
+                  <span className="hidden pointer-fine:inline">{" · "}</span>
+                  Tap + to attach a photo or short video
+                </>
+              )}
             </p>
           </>
         )}
@@ -1474,7 +1515,7 @@ function MessageBubble({
   const pending = message.status === "sending" || message._optimistic
   const failed =
     isOut && (message.status === "failed" || message.status === "undelivered")
-  // SMS failures map to Twilio error codes; email failures carry a SendGrid
+  // SMS failures map to Twilio error codes; email failures carry a Brevo
   // string, so don't run them through the Twilio explainer.
   const failureReason = !failed
     ? null

@@ -57,7 +57,9 @@ export function MobileNav({
                       className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 inline-flex items-center justify-center rounded-pill bg-gold text-white text-[10px] font-semibold leading-none"
                       aria-label={`${badge} awaiting reply`}
                     >
-                      {badge > 9 ? "9+" : badge}
+                      {/* Same cap as the desktop sidebar badge — the two
+                          surfaces showed different numbers for one count. */}
+                      {badge > 99 ? "99+" : badge}
                     </span>
                   )}
                 </span>

@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server"
+import { revalidateTag } from "next/cache"
 import { z } from "zod"
 import { createSupabaseAdminClient } from "@/lib/supabase/server"
 import { requireAdmin } from "@/server/auth"
@@ -53,6 +54,10 @@ export async function POST(request: NextRequest) {
   if (roleErr) {
     return NextResponse.json({ error: roleErr.message }, { status: 500 })
   }
+
+  // New member must be visible to the cached staff lookups right away.
+  revalidateTag(`app_users:${invited.user.id}`, "max")
+  revalidateTag("app_users", "max")
 
   await logAudit({
     action: "user.invite",

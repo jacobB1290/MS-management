@@ -98,6 +98,7 @@ export type Database = {
       campaign_recipients: {
         Row: {
           campaign_id: string
+          claimed_at: string | null
           contact_id: string
           error: string | null
           provider_id: string | null
@@ -106,6 +107,7 @@ export type Database = {
         }
         Insert: {
           campaign_id: string
+          claimed_at?: string | null
           contact_id: string
           error?: string | null
           provider_id?: string | null
@@ -114,6 +116,7 @@ export type Database = {
         }
         Update: {
           campaign_id?: string
+          claimed_at?: string | null
           contact_id?: string
           error?: string | null
           provider_id?: string | null
@@ -159,6 +162,11 @@ export type Database = {
           name: string
           scheduled_at: string | null
           sendgrid_template_id: string | null
+          brevo_campaign_id: number | null
+          brevo_list_id: number | null
+          brevo_sync: Json | null
+          brevo_template_id: number | null
+          stats: Json | null
           started_at: string | null
           status: string
           updated_at: string
@@ -177,6 +185,11 @@ export type Database = {
           name: string
           scheduled_at?: string | null
           sendgrid_template_id?: string | null
+          brevo_campaign_id?: number | null
+          brevo_list_id?: number | null
+          brevo_sync?: Json | null
+          brevo_template_id?: number | null
+          stats?: Json | null
           started_at?: string | null
           status?: string
           updated_at?: string
@@ -195,6 +208,11 @@ export type Database = {
           name?: string
           scheduled_at?: string | null
           sendgrid_template_id?: string | null
+          brevo_campaign_id?: number | null
+          brevo_list_id?: number | null
+          brevo_sync?: Json | null
+          brevo_template_id?: number | null
+          stats?: Json | null
           started_at?: string | null
           status?: string
           updated_at?: string
@@ -254,6 +272,7 @@ export type Database = {
       contacts: {
         Row: {
           ai_tags: string[]
+          brevo_contact_id: string | null
           consent_at: string | null
           consent_method: string | null
           created_at: string
@@ -266,10 +285,16 @@ export type Database = {
           inbox_status_at: string | null
           is_member: boolean
           language: string
+          last_message_at: string | null
+          last_message_body: string | null
+          last_message_channel: string | null
+          last_message_direction: string | null
+          last_message_subject: string | null
           marketing_consent_at: string | null
           marketing_consent_method: string | null
           marketing_opt_in_requested_at: string | null
           marketing_opted_out_at: string | null
+          message_count: number
           name: string | null
           notes: string | null
           phone: string | null
@@ -280,6 +305,7 @@ export type Database = {
         }
         Insert: {
           ai_tags?: string[]
+          brevo_contact_id?: string | null
           consent_at?: string | null
           consent_method?: string | null
           created_at?: string
@@ -292,10 +318,16 @@ export type Database = {
           inbox_status_at?: string | null
           is_member?: boolean
           language?: string
+          last_message_at?: string | null
+          last_message_body?: string | null
+          last_message_channel?: string | null
+          last_message_direction?: string | null
+          last_message_subject?: string | null
           marketing_consent_at?: string | null
           marketing_consent_method?: string | null
           marketing_opt_in_requested_at?: string | null
           marketing_opted_out_at?: string | null
+          message_count?: number
           name?: string | null
           notes?: string | null
           phone?: string | null
@@ -306,6 +338,7 @@ export type Database = {
         }
         Update: {
           ai_tags?: string[]
+          brevo_contact_id?: string | null
           consent_at?: string | null
           consent_method?: string | null
           created_at?: string
@@ -318,10 +351,16 @@ export type Database = {
           inbox_status_at?: string | null
           is_member?: boolean
           language?: string
+          last_message_at?: string | null
+          last_message_body?: string | null
+          last_message_channel?: string | null
+          last_message_direction?: string | null
+          last_message_subject?: string | null
           marketing_consent_at?: string | null
           marketing_consent_method?: string | null
           marketing_opt_in_requested_at?: string | null
           marketing_opted_out_at?: string | null
+          message_count?: number
           name?: string | null
           notes?: string | null
           phone?: string | null
@@ -340,6 +379,7 @@ export type Database = {
           id: string
           occurred_at: string
           payload: Json | null
+          provider_event_id: string | null
           sendgrid_event_id: string | null
         }
         Insert: {
@@ -349,6 +389,7 @@ export type Database = {
           id?: string
           occurred_at?: string
           payload?: Json | null
+          provider_event_id?: string | null
           sendgrid_event_id?: string | null
         }
         Update: {
@@ -358,6 +399,7 @@ export type Database = {
           id?: string
           occurred_at?: string
           payload?: Json | null
+          provider_event_id?: string | null
           sendgrid_event_id?: string | null
         }
         Relationships: [
@@ -667,6 +709,46 @@ export type Database = {
           phone: string | null
           sms_opted_out_at: string | null
           tags: string[] | null
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          email_unsubscribed_at?: string | null
+          id?: string | null
+          inbox_category?: string | null
+          inbox_status?: string | null
+          is_member?: boolean | null
+          language?: string | null
+          last_message_at?: string | null
+          last_message_body?: string | null
+          last_message_channel?: string | null
+          last_message_direction?: string | null
+          last_message_subject?: string | null
+          message_count?: number | null
+          name?: string | null
+          phone?: string | null
+          sms_opted_out_at?: string | null
+          tags?: string[] | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          email_unsubscribed_at?: string | null
+          id?: string | null
+          inbox_category?: string | null
+          inbox_status?: string | null
+          is_member?: boolean | null
+          language?: string | null
+          last_message_at?: string | null
+          last_message_body?: string | null
+          last_message_channel?: string | null
+          last_message_direction?: string | null
+          last_message_subject?: string | null
+          message_count?: number | null
+          name?: string | null
+          phone?: string | null
+          sms_opted_out_at?: string | null
+          tags?: string[] | null
         }
         Relationships: []
       }

@@ -511,11 +511,14 @@ h1, h2, h3, h4, h5, h6 {
 .email-ai-preview > :first-child { margin-top: 0; }
 .email-ai-preview > :last-child { margin-bottom: 0; }
 .email-ai-preview p { margin: 0 0 var(--space-sm); }
-.email-ai-preview h2 { font-size: var(--text-h4); margin: var(--space-md) 0 var(--space-xs); }
-.email-ai-preview h3 { font-size: var(--text-body-lg); margin: var(--space-md) 0 var(--space-xs); }
+/* NOTE: these previously referenced --text-h4 / --text-body-lg / --space-2xs —
+ * token names from the ms.church site that were never ported here — so the
+ * preview's headings and list rhythm silently fell back to browser defaults. */
+.email-ai-preview h2 { font-size: var(--text-heading); margin: var(--space-md) 0 var(--space-xs); }
+.email-ai-preview h3 { font-size: var(--text-lead); margin: var(--space-md) 0 var(--space-xs); }
 .email-ai-preview ul,
 .email-ai-preview ol { margin: 0 0 var(--space-sm); padding-left: 1.4em; }
-.email-ai-preview li { margin: 0 0 var(--space-2xs); }
+.email-ai-preview li { margin: 0 0 calc(var(--space-xs) / 2); }
 .email-ai-preview a { color: var(--color-gold-dark); text-decoration: underline; }
 .email-ai-preview strong { font-weight: 600; }
 
@@ -548,4 +551,38 @@ h1, h2, h3, h4, h5, h6 {
 @keyframes menu-in-up {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Modal dialogs. The native <dialog> snaps by default — showModal() paints it
+ * fully formed and close() removes it instantly, both hard cuts. Open: the
+ * panel settles in with the same fade + small rise as the rest of the system
+ * (no scale — same glyph-sharpness reasoning as the menus) while the backdrop
+ * fades up; `backwards` fill holds the from-state before the first frame.
+ * Close: <Dialog> sets data-closing and waits out --motion-fast before calling
+ * close(), so panel and backdrop fade away instead of vanishing. The
+ * reduced-motion rule above collapses all of it to ~0. */
+@keyframes dialog-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes dialog-out {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(8px); }
+}
+@keyframes backdrop-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+dialog[open] > .dialog-panel {
+  animation: dialog-in var(--motion-medium) var(--ease-out-soft) backwards;
+}
+dialog[open]::backdrop {
+  animation: backdrop-in var(--motion-medium) var(--ease-standard) backwards;
+}
+dialog[data-closing] > .dialog-panel {
+  animation: dialog-out var(--motion-fast) var(--ease-standard) forwards;
+}
+dialog[data-closing]::backdrop {
+  animation: backdrop-in var(--motion-fast) var(--ease-standard) reverse forwards;
 }

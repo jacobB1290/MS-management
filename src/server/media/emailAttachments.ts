@@ -8,12 +8,10 @@ import {
 
 const BUCKET = "email-attachments"
 
-/** A SendGrid attachment payload (base64 content). */
-export interface SendGridAttachment {
+/** A Brevo attachment payload: a filename plus base64-encoded bytes. */
+export interface BrevoAttachment {
+  name: string
   content: string
-  filename: string
-  type: string
-  disposition: "attachment"
 }
 
 /** Lightweight metadata stored on the message row (no file bytes). */
@@ -25,23 +23,23 @@ export interface StoredAttachmentMeta {
 }
 
 export type ResolveAttachmentsResult =
-  | { ok: true; sendgrid: SendGridAttachment[]; meta: StoredAttachmentMeta[] }
+  | { ok: true; brevo: BrevoAttachment[]; meta: StoredAttachmentMeta[] }
   | { ok: false; reason: "invalid_name" | "unsupported_type" | "too_large" | "not_found"; detail?: string }
 
 /**
  * Download the uploaded attachments from the PRIVATE bucket and base64-encode
- * them for SendGrid, returning both the provider payload and the slimmed
- * metadata to persist on the message. Re-validates name, type, and the total
- * size cap server-side (the client cannot be trusted). Returns empty arrays for
- * no attachments.
+ * them for Brevo's transactional `attachment` array, returning both the provider
+ * payload and the slimmed metadata to persist on the message. Re-validates name,
+ * type, and the total size cap server-side (the client cannot be trusted).
+ * Returns empty arrays for no attachments.
  */
 export async function resolveEmailAttachments(
   attachments: EmailAttachment[],
 ): Promise<ResolveAttachmentsResult> {
-  if (attachments.length === 0) return { ok: true, sendgrid: [], meta: [] }
+  if (attachments.length === 0) return { ok: true, brevo: [], meta: [] }
 
   const admin = createSupabaseAdminClient()
-  const sendgrid: SendGridAttachment[] = []
+  const brevo: BrevoAttachment[] = []
   const meta: StoredAttachmentMeta[] = []
   let total = 0
 
@@ -64,14 +62,9 @@ export async function resolveEmailAttachments(
     }
 
     const filename = a.filename.replace(/[\r\n"]/g, "").slice(0, 255) || a.path
-    sendgrid.push({
-      content: bytes.toString("base64"),
-      filename,
-      type: a.type,
-      disposition: "attachment",
-    })
+    brevo.push({ name: filename, content: bytes.toString("base64") })
     meta.push({ path: a.path, filename, type: a.type, size: bytes.byteLength })
   }
 
-  return { ok: true, sendgrid, meta }
+  return { ok: true, brevo, meta }
 }

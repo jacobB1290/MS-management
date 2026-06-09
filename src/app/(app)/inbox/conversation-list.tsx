@@ -49,20 +49,29 @@ function inSegment(c: Conversation, segment: Segment): boolean {
  *  (or any message INSERT that bumps one row) re-renders only that row instead
  *  of reformatting the relative time and re-rendering all ~200 list rows. The
  *  parent passes stable refs (unchanged rows keep their object identity across
- *  setItems) and a stable onSelect, so memo skips untouched rows. */
+ *  setItems) and a stable onSelect, so memo skips untouched rows. `clock`
+ *  advances once a minute so the relative timestamps tick instead of freezing
+ *  at whatever they said when the list mounted. */
 const ConversationRow = memo(function ConversationRow({
   c,
   active,
   onSelect,
+  clock,
 }: {
   c: Conversation
   active: boolean
   onSelect: (id: string) => void
+  clock: number
 }) {
   const awaitingReply = isAwaitingReply(c)
-  const lastAt = c.last_message_at
-    ? formatDistanceToNow(new Date(c.last_message_at), { addSuffix: false })
-    : null
+  const lastAt = useMemo(
+    () =>
+      c.last_message_at
+        ? formatDistanceToNow(new Date(c.last_message_at), { addSuffix: false })
+        : null,
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- clock re-runs the format each minute
+    [c.last_message_at, clock],
+  )
   return (
     <li>
       {/* A real prefetching Link (not a button): prefetch pulls the full thread
@@ -157,6 +166,15 @@ export function ConversationList({
   const [query, setQuery] = useState("")
   const [segment, setSegment] = useState<Segment>("all")
   const [items, setItems] = useState<Conversation[]>(initial)
+
+  // Tick once a minute so every row's relative timestamp ("7 minutes") stays
+  // honest while the list sits open. One re-render of the visible rows per
+  // minute is nothing; quietly stale times read as a bug.
+  const [clock, setClock] = useState(0)
+  useEffect(() => {
+    const t = setInterval(() => setClock((n) => n + 1), 60_000)
+    return () => clearInterval(t)
+  }, [])
 
   // Reseed when the parent provides a fresh server-side snapshot.
   const [seedSig, setSeedSig] = useState(initial.length)
@@ -342,7 +360,10 @@ export function ConversationList({
             />
             <Input
               type="search"
-              placeholder="Search by name, phone, email"
+              // Short enough to never truncate at the list's narrowest width;
+              // it searches name, phone, and email all the same.
+              placeholder="Search conversations"
+              aria-label="Search conversations by name, phone, or email"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="pl-9 text-small rounded-pill"
@@ -369,6 +390,7 @@ export function ConversationList({
             c={c}
             active={c.id === activeId}
             onSelect={setOptimisticId}
+            clock={clock}
           />
         ))}
       </ol>

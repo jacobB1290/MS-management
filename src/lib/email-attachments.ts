@@ -5,10 +5,10 @@
  *
  * Email attachments are broader than MMS media (PDF/docs as well as images),
  * land in a PRIVATE Storage bucket (staff-only), and ride the email as real
- * SendGrid attachments — not a public URL like MMS.
+ * Brevo attachments, not a public URL like MMS.
  */
 
-/** SendGrid's hard limit is ~30 MB total; cap below it for headroom. */
+/** Cap total attachment bytes at 25 MB for provider + storage headroom. */
 export const MAX_ATTACHMENT_TOTAL_BYTES = 25 * 1024 * 1024
 /** Per-file ceiling so one giant file can't eat the whole budget. */
 export const MAX_ATTACHMENT_FILE_BYTES = 25 * 1024 * 1024

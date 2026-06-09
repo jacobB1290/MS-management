@@ -140,7 +140,7 @@ export const campaignCreateSchema = z
     z.object({
       channel: z.literal("email"),
       name: z.string().trim().min(1).max(120),
-      sendgrid_template_id: z.string().trim().min(1).max(60),
+      brevo_template_id: z.number().int().positive(),
       email_subject: z.string().trim().min(1).max(200),
       audience_filter: z.record(z.string(), z.unknown()).optional().default({}),
       scheduled_at: z.string().datetime().optional().nullable(),

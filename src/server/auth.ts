@@ -76,3 +76,24 @@ export const requireAdmin = cache(async (): Promise<StaffUser> => {
   if (user.role !== "admin") redirect("/access-denied")
   return user
 })
+
+/**
+ * id → display name for every staff member (used to label outbound messages
+ * with who sent them). The table has a handful of rows and changes only when
+ * the team changes, yet the thread loader fetched it on EVERY thread open.
+ * Cached for 5 minutes under the shared "app_users" tag, which the team
+ * endpoints revalidate on invite / role change / removal.
+ */
+export const getStaffDirectory = unstable_cache(
+  async (): Promise<Record<string, string>> => {
+    const admin = createSupabaseAdminClient()
+    const { data } = await admin.from("app_users").select("user_id, display_name")
+    const names: Record<string, string> = {}
+    for (const u of data ?? []) {
+      if (u.display_name) names[u.user_id] = u.display_name
+    }
+    return names
+  },
+  ["staff_directory"],
+  { revalidate: 300, tags: ["app_users"] },
+)

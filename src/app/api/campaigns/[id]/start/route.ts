@@ -3,8 +3,16 @@ import { createSupabaseAdminClient } from "@/lib/supabase/server"
 import { requireStaff } from "@/server/auth"
 import { logAudit } from "@/server/audit"
 import { processCampaignBatch } from "@/server/comms/campaignWorker"
-import { resolveAudienceMode, classifyRecipient } from "@/server/comms/campaignAudience"
+import {
+  resolveAudienceMode,
+  classifyRecipient,
+  fetchAudienceContacts,
+} from "@/server/comms/campaignAudience"
 import type { Json } from "@/lib/database.types"
+
+// Email blasts hand off to Brevo synchronously on start (list import + send);
+// give the route headroom beyond the default serverless limit.
+export const maxDuration = 60
 
 /**
  * Start a campaign. Builds the recipient list from audience_filter (honoring
@@ -44,20 +52,14 @@ export async function POST(
       { status: 400 },
     )
   }
-  let audienceQuery = admin
-    .from("contacts")
-    .select(
-      "id, phone, email, sms_opted_out_at, email_unsubscribed_at, marketing_consent_at, marketing_opted_out_at",
-    )
-  if (audience_mode.mode === "tags") {
-    audienceQuery = audienceQuery.overlaps("tags", audience_mode.tags)
-  } else if (audience_mode.mode === "members") {
-    audienceQuery = audienceQuery.eq("is_member", true)
-  }
-
-  const { data: audience, error: audienceErr } = await audienceQuery
+  // Paged fetch — PostgREST caps a single response at 1,000 rows, which would
+  // otherwise silently truncate a large audience at staging time.
+  const { rows: audience, error: audienceErr } = await fetchAudienceContacts(
+    admin,
+    audience_mode,
+  )
   if (audienceErr) {
-    return NextResponse.json({ error: audienceErr.message }, { status: 500 })
+    return NextResponse.json({ error: audienceErr }, { status: 500 })
   }
 
   // Stage EVERY matched contact with its classification — including those with

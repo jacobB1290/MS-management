@@ -1,14 +1,19 @@
 import "server-only"
 import { createSupabaseAdminClient } from "@/lib/supabase/server"
 import { sendSms } from "./sendSms"
-import { sendEmail } from "./sendEmail"
+import { advanceBrevoEmailCampaign } from "./brevoCampaign"
 import type { SendSmsResult } from "./sendSms"
-import type { SendEmailResult } from "./sendEmail"
 
 /**
- * Process up to `batchSize` queued recipients for the given campaign.
- * Atomically claims work via the SECURITY DEFINER RPC `app.claim_campaign_batch`
- * (SELECT FOR UPDATE SKIP LOCKED) so concurrent cron workers can't double-send.
+ * Advance a campaign by one unit of work. The two channels work differently:
+ *
+ *   - SMS: per-recipient send. Atomically claims a batch via the SECURITY
+ *     DEFINER RPC `claim_campaign_batch` (SELECT FOR UPDATE SKIP LOCKED) so
+ *     concurrent cron workers can't double-send, then sends each via Twilio.
+ *   - Email: bulk blast via Brevo's marketing lane. We don't loop per recipient;
+ *     `advanceBrevoEmailCampaign` hands a list to Brevo and is idempotent, so
+ *     calling it once finishes a small send and a repeat tick resumes a large
+ *     one still syncing.
  */
 export async function processCampaignBatch(
   campaignId: string,
@@ -18,7 +23,7 @@ export async function processCampaignBatch(
 
   const { data: campaign, error: cErr } = await admin
     .from("campaigns")
-    .select("id, channel, body, media_url, sendgrid_template_id, email_subject, status")
+    .select("id, channel, body, media_url, status")
     .eq("id", campaignId)
     .maybeSingle()
   if (cErr || !campaign) return { processed: 0, campaignDone: false }
@@ -26,7 +31,15 @@ export async function processCampaignBatch(
     return { processed: 0, campaignDone: true }
   }
 
-  // Atomic claim — no race window with concurrent workers.
+  if (campaign.channel === "email") {
+    const res = await advanceBrevoEmailCampaign(campaignId)
+    // Done unless the bulk import is still syncing (the only resumable state).
+    const campaignDone = res.ok ? res.phase !== "syncing" : true
+    const processed = res.ok && res.phase === "sent" ? res.count : 0
+    return { processed, campaignDone }
+  }
+
+  // ---- SMS: atomic per-recipient batch -------------------------------------
   const { data: claimed, error: claimErr } = await admin.rpc(
     "claim_campaign_batch" as never,
     { p_campaign_id: campaignId, p_batch_size: batchSize } as never,
@@ -55,25 +68,28 @@ export async function processCampaignBatch(
     return { processed: 0, campaignDone: false }
   }
 
+  // Send in small parallel waves instead of strictly one-by-one. Throughput
+  // metering stays Twilio's job (the Messaging Service queues to the 10DLC
+  // rate), so the only thing serial sends bought us was a batch that crawled:
+  // ~5 DB round-trips + 1 provider call each, sequentially, could push a
+  // 50-recipient batch past the cron route's own time budget. Five at a time
+  // keeps DB/API pressure modest and cuts the batch wall-clock ~5x.
+  const SEND_CONCURRENCY = 5
   let processed = 0
-  for (const row of rows) {
-    const sendResult: SendSmsResult | SendEmailResult =
-      campaign.channel === "sms"
-        ? await sendSms({
-            contactId: row.contact_id,
-            body: campaign.body ?? "",
-            mediaUrl: campaign.media_url,
-            campaignId,
-          })
-        : await sendEmail({
-            contactId: row.contact_id,
-            templateId: campaign.sendgrid_template_id ?? "",
-            subject: campaign.email_subject ?? "",
-            campaignId,
-          })
-
-    await recordRecipientOutcome(admin, campaignId, row.contact_id, sendResult)
-    processed += 1
+  for (let i = 0; i < rows.length; i += SEND_CONCURRENCY) {
+    const wave = rows.slice(i, i + SEND_CONCURRENCY)
+    await Promise.all(
+      wave.map(async (row) => {
+        const sendResult = await sendSms({
+          contactId: row.contact_id,
+          body: campaign.body ?? "",
+          mediaUrl: campaign.media_url,
+          campaignId,
+        })
+        await recordRecipientOutcome(admin, campaignId, row.contact_id, sendResult)
+      }),
+    )
+    processed += wave.length
   }
 
   return { processed, campaignDone: false }
@@ -83,16 +99,14 @@ async function recordRecipientOutcome(
   admin: ReturnType<typeof createSupabaseAdminClient>,
   campaignId: string,
   contactId: string,
-  result: SendSmsResult | SendEmailResult,
+  result: SendSmsResult,
 ) {
   if (result.ok) {
-    const providerId =
-      "providerSid" in result ? result.providerSid : result.providerId
     await admin
       .from("campaign_recipients")
       .update({
         status: "sent",
-        provider_id: providerId,
+        provider_id: result.providerSid,
         error: null,
         sent_at: new Date().toISOString(),
       })

@@ -43,6 +43,7 @@ export default async function AuditPage() {
           eyebrow="Console"
           title="Audit log"
           backSlot={<BackButton label="Back" />}
+          backMobileOnly
           info="Every privileged write is logged: sends, opt-out toggles, contact edits, campaign starts, logins, invites. Reads are not logged; the threat is unauthorized writes, not legitimate viewing."
         />
       </div>

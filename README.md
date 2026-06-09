@@ -14,7 +14,7 @@ cp .env.example .env.local       # fill in Supabase + provider keys
 npm run dev                      # http://localhost:3000
 ```
 
-Twilio and SendGrid keys are optional during development. Without them, the
+Twilio and Brevo keys are optional during development. Without them, the
 send pipeline runs in **mock mode**: messages are recorded in the DB with
 `status = 'mocked'` and the UI behaves exactly as if they sent. Drop in real
 keys and it sends real messages — no code change.
@@ -52,4 +52,4 @@ scripts/harness/         # Playwright visual regression suite
 ## Tech
 
 Next.js 16 · React 19 · Tailwind v4 · Supabase (Postgres + Auth + Realtime)
-· Twilio · SendGrid · Playwright. TypeScript strict throughout.
+· Twilio · Brevo · Playwright. TypeScript strict throughout.

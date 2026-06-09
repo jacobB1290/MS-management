@@ -1,5 +1,13 @@
-/* Service worker for web push notifications.
- * Kept minimal and push-only: it does not cache or intercept fetches. */
+/* Service worker for web push notifications + a static-asset cache.
+ *
+ * Caching is deliberately limited to content-hashed build assets and font
+ * files — things that are immutable by URL — so a standalone cold launch
+ * paints from disk instead of re-downloading the bundle every time. HTML,
+ * RSC payloads, and API responses are NEVER intercepted: freshness there is
+ * owned by the app (LiveRefresh / StaleReload), and a stale-shell bug class
+ * is not worth the extra bytes. */
+
+const STATIC_CACHE = "ms-static-v1"
 
 self.addEventListener("install", () => {
   // Activate immediately so a freshly registered SW can receive pushes.
@@ -7,7 +15,45 @@ self.addEventListener("install", () => {
 })
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(self.clients.claim())
+  event.waitUntil(
+    (async () => {
+      // Drop caches from older SW versions.
+      const keys = await caches.keys()
+      await Promise.all(
+        keys.filter((k) => k.startsWith("ms-static-") && k !== STATIC_CACHE).map((k) => caches.delete(k)),
+      )
+      await self.clients.claim()
+    })(),
+  )
+})
+
+/** Immutable-by-URL requests it is safe to serve cache-first, forever:
+ *  content-hashed Next build assets and font binaries/stylesheets. */
+function isCacheableStatic(url) {
+  if (url.origin === self.location.origin) {
+    return url.pathname.startsWith("/_next/static/")
+  }
+  return url.hostname === "fonts.gstatic.com" || url.hostname === "fonts.googleapis.com"
+}
+
+self.addEventListener("fetch", (event) => {
+  const request = event.request
+  if (request.method !== "GET") return
+  const url = new URL(request.url)
+  if (!isCacheableStatic(url)) return // fall through to the network untouched
+
+  event.respondWith(
+    (async () => {
+      const cache = await caches.open(STATIC_CACHE)
+      const hit = await cache.match(request)
+      if (hit) return hit
+      const response = await fetch(request)
+      if (response.ok && (response.type === "basic" || response.type === "cors")) {
+        cache.put(request, response.clone())
+      }
+      return response
+    })(),
+  )
 })
 
 self.addEventListener("push", (event) => {

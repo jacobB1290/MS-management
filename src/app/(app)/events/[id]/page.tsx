@@ -66,7 +66,7 @@ export default async function EventDetailPage({ params }: PageProps) {
             actions={<EventActions id={event.id} status={status} isAdmin={user.role === "admin"} />}
           />
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <Badge variant={STATUS_VARIANT[status] ?? "muted"} className="capitalize">
+            <Badge variant={STATUS_VARIANT[status] ?? "muted"}>
               {status}
             </Badge>
             <span className="text-small text-ink-muted">{when}</span>

@@ -7,6 +7,7 @@ import { requireStaff } from "@/server/auth"
 import {
   resolveAudienceMode,
   summarizeAudience,
+  fetchAudienceContacts,
   type AudienceBreakdown,
 } from "@/server/comms/campaignAudience"
 import { formatMoney } from "@/server/billing/twilio"
@@ -103,17 +104,13 @@ export default async function CampaignDetail({ params }: PageProps) {
       campaign.audience_filter as Record<string, unknown> | null,
     )
     if (mode.mode !== "invalid") {
-      let q = supabase
-        .from("contacts")
-        .select(
-          "phone, email, sms_opted_out_at, email_unsubscribed_at, marketing_consent_at, marketing_opted_out_at",
-        )
-      if (mode.mode === "tags") q = q.overlaps("tags", mode.tags)
-      else if (mode.mode === "members") q = q.eq("is_member", true)
-      const { data: audienceRows } = await q
+      // Same paged fetcher as the start route, so the preview counts can never
+      // disagree with what staging will actually do (including past the
+      // 1,000-row PostgREST response cap).
+      const { rows: audienceRows } = await fetchAudienceContacts(supabase, mode)
       audienceBreakdown = summarizeAudience(
         campaign.channel as "sms" | "email",
-        audienceRows ?? [],
+        audienceRows,
       )
     }
   }
@@ -182,7 +179,7 @@ export default async function CampaignDetail({ params }: PageProps) {
                 <dl className="space-y-2 text-small">
                   <div>
                     <dt className="text-label text-ink-faint">Template ID</dt>
-                    <dd className="font-mono text-ink">{campaign.sendgrid_template_id}</dd>
+                    <dd className="font-mono text-ink">{campaign.brevo_template_id}</dd>
                   </div>
                   <div>
                     <dt className="text-label text-ink-faint">Subject</dt>
@@ -220,6 +217,8 @@ export default async function CampaignDetail({ params }: PageProps) {
                 </p>
               </div>
             )}
+
+            {campaign.channel === "email" && <EmailStats stats={campaign.stats} />}
 
             <div className="rounded-lg border border-ink-hairline bg-white p-6">
               <p className="eyebrow mb-3">Timeline</p>
@@ -287,6 +286,39 @@ function Row({
     <div className="flex items-center justify-between">
       <dt className="text-ink-faint">{label}</dt>
       <dd className={`font-medium ${highlight === "danger" ? "text-danger" : "text-ink"}`}>{value}</dd>
+    </div>
+  )
+}
+
+/** Brevo campaign engagement (globalStats), cached on the campaign by the cron. */
+function EmailStats({ stats }: { stats: unknown }) {
+  const s = (stats ?? null) as {
+    sent?: number
+    delivered?: number
+    viewed?: number
+    uniqueViews?: number
+    clickers?: number
+    uniqueClicks?: number
+    unsubscriptions?: number
+    hardBounces?: number
+    softBounces?: number
+  } | null
+  if (!s) return null
+  const opens = s.uniqueViews ?? s.viewed ?? 0
+  const clicks = s.uniqueClicks ?? s.clickers ?? 0
+  const bounced = (s.hardBounces ?? 0) + (s.softBounces ?? 0)
+  return (
+    <div className="rounded-lg border border-ink-hairline bg-white p-6">
+      <p className="eyebrow mb-3">Email engagement</p>
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-small">
+        <Row label="Sent" value={s.sent ?? 0} />
+        <Row label="Delivered" value={s.delivered ?? 0} />
+        <Row label="Opens" value={opens} />
+        <Row label="Clicks" value={clicks} />
+        <Row label="Unsubscribed" value={s.unsubscriptions ?? 0} />
+        <Row label="Bounced" value={bounced} />
+      </dl>
+      <p className="mt-3 text-micro text-ink-faint">From Brevo. Refreshes as recipients engage.</p>
     </div>
   )
 }

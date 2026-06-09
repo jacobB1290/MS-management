@@ -44,8 +44,8 @@ export default async function SettingsPage() {
   const status = {
     twilio: Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN),
     twilioMessaging: Boolean(process.env.TWILIO_MESSAGING_SERVICE_SID),
-    sendgrid: Boolean(process.env.SENDGRID_API_KEY && process.env.SENDGRID_FROM_EMAIL),
-    sendgridWebhook: Boolean(process.env.SENDGRID_WEBHOOK_PUBLIC_KEY),
+    brevo: Boolean(process.env.BREVO_API_KEY),
+    brevoWebhook: Boolean(process.env.BREVO_WEBHOOK_TOKEN),
     googleWrite,
     googleRead: googleWrite || Boolean(process.env.GOOGLE_CALENDAR_API_KEY),
     publicForm: Boolean(process.env.PUBLIC_FORM_HMAC_SECRET),
@@ -156,14 +156,14 @@ export default async function SettingsPage() {
                 detail={status.twilioMessaging ? "Configured" : "TWILIO_MESSAGING_SERVICE_SID missing; campaign batches won’t auto-meter"}
               />
               <StatusRow
-                label="SendGrid API"
-                ready={status.sendgrid}
-                detail={status.sendgrid ? "Configured" : "SENDGRID_API_KEY + SENDGRID_FROM_EMAIL missing"}
+                label="Brevo API"
+                ready={status.brevo}
+                detail={status.brevo ? "Configured" : "BREVO_API_KEY missing; email runs in mock mode"}
               />
               <StatusRow
-                label="SendGrid event webhook"
-                ready={status.sendgridWebhook}
-                detail={status.sendgridWebhook ? "Public key configured" : "SENDGRID_WEBHOOK_PUBLIC_KEY missing; events won’t be verified"}
+                label="Brevo webhook"
+                ready={status.brevoWebhook}
+                detail={status.brevoWebhook ? "Token configured" : "BREVO_WEBHOOK_TOKEN missing; unsubscribes won’t sync"}
               />
               <StatusRow
                 label="Google Calendar — publish events"
@@ -205,7 +205,14 @@ export default async function SettingsPage() {
 
   return (
     <PageScaffold
-      header={<PageHeader eyebrow="Console" title="Settings" backSlot={<BackButton label="Back" />} />}
+      header={
+        <PageHeader
+          eyebrow="Console"
+          title="Settings"
+          backSlot={<BackButton label="Back" />}
+          backMobileOnly
+        />
+      }
     >
       <SettingsShell sections={sections} />
     </PageScaffold>
