@@ -256,7 +256,7 @@ export function ContactPanel({
             ? `They’ll be excluded from all future ${pending.channel === "sms" ? "messages" : "emails"} until they opt back in.`
             : pending?.channel === "sms"
               ? "Only do this if you opted them out manually, not if they texted STOP. Twilio blocks STOP replies at the carrier, and only the contact texting START can lift it; re-enabling here won’t deliver, and the next send will fail and re-flag them."
-              : "Only do this if you unsubscribed them manually. If they used an email unsubscribe link, SendGrid keeps suppressing them, so the next send is dropped and re-flags them; they must be removed from the SendGrid suppression group to truly re-enable."
+              : "Only do this if you unsubscribed them manually. If they used an email unsubscribe link, they stay blacklisted in Brevo and won’t receive mail until you remove them from Brevo’s suppression list; re-enabling here only clears the CRM flag."
         }
         confirmLabel={pending?.optedOut ? "Opt out" : "Re-enable"}
         destructive={pending?.optedOut ?? false}

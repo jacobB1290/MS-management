@@ -1,6 +1,6 @@
 "use client"
 import { useState } from "react"
-import { ExternalLink, Plus, Loader2, RefreshCw } from "lucide-react"
+import { ExternalLink, RefreshCw } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,10 +12,11 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog"
 
-const BUILDER_URL = "https://mc.sendgrid.com/dynamic-templates"
+// Designs are authored in Brevo's template editor; the CRM just picks one.
+const EDITOR_URL = "https://app.brevo.com/templates/listing"
 
-type SgTemplate = {
-  id: string
+type BrevoTpl = {
+  id: number
   name: string
   updatedAt: string | null
   subject: string | null
@@ -24,29 +25,26 @@ type SgTemplate = {
 type LoadState = {
   configured: boolean
   error?: string
-  templates: SgTemplate[]
+  templates: BrevoTpl[]
 }
 
-export function SendgridTemplateField({
+export function BrevoTemplateField({
   templateId,
   onTemplateId,
   onSubject,
-  campaignName,
 }: {
   templateId: string
   onTemplateId: (id: string) => void
   onSubject: (subject: string) => void
-  campaignName: string
 }) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [creating, setCreating] = useState(false)
   const [state, setState] = useState<LoadState>({ configured: true, templates: [] })
 
   async function load() {
     setLoading(true)
     try {
-      const res = await fetch("/api/sendgrid/templates")
+      const res = await fetch("/api/brevo/templates")
       const json = await res.json().catch(() => null)
       if (!json) {
         setState({ configured: true, error: `Error ${res.status}`, templates: [] })
@@ -69,33 +67,11 @@ export function SendgridTemplateField({
     void load()
   }
 
-  function selectTemplate(t: SgTemplate) {
-    onTemplateId(t.id)
+  function selectTemplate(t: BrevoTpl) {
+    onTemplateId(String(t.id))
     if (t.subject) onSubject(t.subject)
     setOpen(false)
     toast.success(`Using “${t.name}”.`)
-  }
-
-  async function createNew() {
-    setCreating(true)
-    try {
-      const res = await fetch("/api/sendgrid/templates", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: campaignName || "Untitled template" }),
-      })
-      const json = await res.json().catch(() => null)
-      if (!res.ok || !json?.id) {
-        toast.error(`Couldn't create: ${json?.error ?? res.status}`)
-        return
-      }
-      onTemplateId(json.id)
-      setOpen(false)
-      window.open(BUILDER_URL, "_blank", "noopener,noreferrer")
-      toast.success("Template created and ID filled. Design it in the SendGrid tab.")
-    } finally {
-      setCreating(false)
-    }
   }
 
   return (
@@ -104,8 +80,9 @@ export function SendgridTemplateField({
         <Input
           id="template"
           value={templateId}
-          onChange={(e) => onTemplateId(e.target.value)}
-          placeholder="d-abc123…"
+          inputMode="numeric"
+          onChange={(e) => onTemplateId(e.target.value.replace(/[^0-9]/g, ""))}
+          placeholder="e.g. 12"
           className="font-mono flex-1"
         />
         <Button type="button" variant="secondary" size="sm" onClick={openBrowse}>
@@ -113,48 +90,43 @@ export function SendgridTemplateField({
         </Button>
       </div>
       <a
-        href={BUILDER_URL}
+        href={EDITOR_URL}
         target="_blank"
         rel="noreferrer"
         className="mt-1.5 inline-flex items-center gap-1 text-small text-gold hover:underline underline-offset-2"
       >
-        Open SendGrid builder
+        Open Brevo template editor
         <ExternalLink size={12} />
       </a>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>SendGrid templates</DialogTitle>
+            <DialogTitle>Brevo templates</DialogTitle>
             <DialogDescription>
-              Pick one to fill the ID and subject, or create a new one and design
-              it in SendGrid.
+              Pick one to fill its ID and subject. Design new templates in Brevo,
+              then refresh this list.
             </DialogDescription>
           </DialogHeader>
 
           {!state.configured ? (
             <div className="text-small text-ink-muted">
               <p className="mb-3">
-                SendGrid isn’t connected yet. Add SENDGRID_API_KEY to list your
-                templates here. You can still design and copy an ID from the
-                builder.
+                Brevo isn’t connected yet. Add BREVO_API_KEY to list your templates
+                here. You can still design them in Brevo and paste an ID.
               </p>
               <a
-                href={BUILDER_URL}
+                href={EDITOR_URL}
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex items-center gap-1 text-gold hover:underline underline-offset-2"
               >
-                Open SendGrid builder <ExternalLink size={12} />
+                Open Brevo template editor <ExternalLink size={12} />
               </a>
             </div>
           ) : (
             <>
-              <div className="flex items-center justify-between gap-2">
-                <Button type="button" size="sm" onClick={createNew} disabled={creating}>
-                  {creating ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-                  {creating ? "Creating…" : "Create new template"}
-                </Button>
+              <div className="flex items-center justify-end gap-2">
                 <Button
                   type="button"
                   variant="ghost"
@@ -176,17 +148,17 @@ export function SendgridTemplateField({
                   </p>
                 ) : state.templates.length === 0 ? (
                   <p className="py-6 text-center text-small text-ink-faint">
-                    No templates yet. Create one above to get started.
+                    No templates yet. Design one in Brevo, then refresh.
                   </p>
                 ) : (
                   <ul className="divide-y divide-ink-hairline">
                     {state.templates.map((t) => {
-                      const selected = t.id === templateId
+                      const selected = String(t.id) === templateId
                       return (
                         <li key={t.id} className="flex items-center gap-3 py-2.5">
                           <div className="min-w-0 flex-1">
                             <p className="text-body text-ink truncate">{t.name}</p>
-                            <p className="text-micro text-ink-faint font-mono truncate">{t.id}</p>
+                            <p className="text-micro text-ink-faint font-mono truncate">#{t.id}</p>
                           </div>
                           <Button
                             type="button"

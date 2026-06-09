@@ -159,6 +159,11 @@ export type Database = {
           name: string
           scheduled_at: string | null
           sendgrid_template_id: string | null
+          brevo_campaign_id: number | null
+          brevo_list_id: number | null
+          brevo_sync: Json | null
+          brevo_template_id: number | null
+          stats: Json | null
           started_at: string | null
           status: string
           updated_at: string
@@ -177,6 +182,11 @@ export type Database = {
           name: string
           scheduled_at?: string | null
           sendgrid_template_id?: string | null
+          brevo_campaign_id?: number | null
+          brevo_list_id?: number | null
+          brevo_sync?: Json | null
+          brevo_template_id?: number | null
+          stats?: Json | null
           started_at?: string | null
           status?: string
           updated_at?: string
@@ -195,6 +205,11 @@ export type Database = {
           name?: string
           scheduled_at?: string | null
           sendgrid_template_id?: string | null
+          brevo_campaign_id?: number | null
+          brevo_list_id?: number | null
+          brevo_sync?: Json | null
+          brevo_template_id?: number | null
+          stats?: Json | null
           started_at?: string | null
           status?: string
           updated_at?: string
@@ -254,6 +269,7 @@ export type Database = {
       contacts: {
         Row: {
           ai_tags: string[]
+          brevo_contact_id: string | null
           consent_at: string | null
           consent_method: string | null
           created_at: string
@@ -280,6 +296,7 @@ export type Database = {
         }
         Insert: {
           ai_tags?: string[]
+          brevo_contact_id?: string | null
           consent_at?: string | null
           consent_method?: string | null
           created_at?: string
@@ -306,6 +323,7 @@ export type Database = {
         }
         Update: {
           ai_tags?: string[]
+          brevo_contact_id?: string | null
           consent_at?: string | null
           consent_method?: string | null
           created_at?: string
@@ -340,6 +358,7 @@ export type Database = {
           id: string
           occurred_at: string
           payload: Json | null
+          provider_event_id: string | null
           sendgrid_event_id: string | null
         }
         Insert: {
@@ -349,6 +368,7 @@ export type Database = {
           id?: string
           occurred_at?: string
           payload?: Json | null
+          provider_event_id?: string | null
           sendgrid_event_id?: string | null
         }
         Update: {
@@ -358,6 +378,7 @@ export type Database = {
           id?: string
           occurred_at?: string
           payload?: Json | null
+          provider_event_id?: string | null
           sendgrid_event_id?: string | null
         }
         Relationships: [

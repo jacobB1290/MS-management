@@ -27,27 +27,29 @@ stack, and we keep it cheap and clean.
 | Database / Auth / Realtime | Supabase (Postgres) |
 | Backend logic | Next.js Route Handlers + Supabase Edge Functions |
 | SMS / MMS | Twilio Programmable Messaging (Messaging Service + 10DLC) |
-| Email | SendGrid Email API (Dynamic Templates by ID; not Marketing Campaigns) |
+| Email | Brevo (Transactional API for 1:1; Marketing Campaign API for blasts). Replies handled in Google Workspace, not the CRM |
 | Testing harness | Playwright (visual + multi-viewport screenshots) |
 | Cron | GitHub Actions (heartbeat) |
 
 **Supabase project:** `nhrgbjkiiqpzwdgsvdrl` (region `us-west-1`). Free tier.
 
-**Non-choices on purpose:** Twilio Conversations API; SendGrid Marketing
-Campaigns; RCS; paid Supabase (until we want backups + warm-up).
+**Non-choices on purpose:** Twilio Conversations API; SendGrid (replaced by
+Brevo); Brevo Inbound Parsing (replies go to Google Workspace, not the CRM);
+RCS; paid Supabase (until we want backups + warm-up).
 
 ## 3. Architecture — four layers, hard wall between them
 
 1. **Operator UI** (Next.js). Never holds privileged keys. All privileged
    actions call a server endpoint or an Edge Function.
 2. **Server endpoints** (Route Handlers / Edge Functions). Only place that
-   touches Twilio/SendGrid secrets and the service-role Supabase key.
+   touches Twilio/Brevo secrets and the service-role Supabase key.
 3. **Database** (Supabase Postgres). RLS on every table, default-deny.
-4. **Pipes** (Twilio, SendGrid). Dumb send/receive. Never trusted as a
-   source of identity — verify their webhook signatures.
+4. **Pipes** (Twilio, Brevo). Dumb send/receive. Never trusted as a
+   source of identity — authenticate their webhooks (Twilio signs; Brevo does
+   not, so it is gated on a shared URL token).
 
 **Hard rule:** the browser never sees the service-role key, the Twilio auth
-token, or the SendGrid API key. Every send, every privileged DB write goes
+token, or the Brevo API key. Every send, every privileged DB write goes
 through a server-side path.
 
 ## 4. Data model
@@ -61,12 +63,14 @@ Six core tables + three supporting. See `supabase/migrations/0001_init.sql`.
     `NULL` means opted in. No separate boolean.
 - `messages` — direction, body, media_url, channel (sms/mms),
   `twilio_sid UNIQUE` (idempotency), status, error, campaign_id, sent_by.
-- `campaigns` — channel (sms/email), body or sendgrid_template_id,
-  audience_filter (jsonb), status state machine.
+- `campaigns` — channel (sms/email), body (SMS) or `brevo_template_id` (email),
+  audience_filter (jsonb), status state machine. Email blasts also store
+  `brevo_campaign_id` / `brevo_list_id` / `stats`.
 - `campaign_recipients` — composite PK, per-recipient status incl.
   `skipped_opt_out` and `skipped_unsubscribed`.
-- `email_events` — `sendgrid_event_id UNIQUE` (idempotency); trigger auto-syncs
-  unsubscribe/spamreport back to `contacts.email_unsubscribed_at`.
+- `email_events` — `provider_event_id UNIQUE` (idempotency; Brevo emits no
+  per-event id, so the webhook synthesizes one); trigger auto-syncs
+  unsubscribe/spam/hard_bounce back to `contacts.email_unsubscribed_at`.
 - `form_submissions` — immutable proof-of-opt-in.
 - `app_users` — `auth.users.id` → role (`admin` | `member`).
 - `audit_log` — write-only privileged action log.
@@ -93,13 +97,14 @@ These rules are load-bearing. Don't bend them.
 2. **The frontend uses only the publishable (anon) key.** Service-role key
    stays in server env. Never imported in a file under `src/app` that runs
    in a client component (`"use client"`).
-3. **Webhook signature verification before any DB write.** Twilio:
-   `X-Twilio-Signature` HMAC-SHA1 over URL + sorted params. SendGrid:
-   ECDSA on `(timestamp + body)`. Reject anything that doesn't validate.
+3. **Webhook authentication before any DB write.** Twilio:
+   `X-Twilio-Signature` HMAC-SHA1 over URL + sorted params. Brevo does NOT sign
+   webhooks, so it is gated on a secret URL token (`BREVO_WEBHOOK_TOKEN`,
+   constant-time compared). Reject anything that doesn't validate.
 4. **Phone normalization to E.164 on every entry point.** Use
    `src/server/validation/phone.ts`. The DB CHECK is a safety net, not the
    primary gate.
-5. **Idempotency.** `messages.twilio_sid` and `email_events.sendgrid_event_id`
+5. **Idempotency.** `messages.twilio_sid` and `email_events.provider_event_id`
    are `UNIQUE`. Always insert with `ON CONFLICT DO NOTHING` from webhooks.
 6. **Audit log for every privileged write** — sends, opt-out toggles,
    contact edits, campaign starts, logins. Use
@@ -117,17 +122,18 @@ Enforce these in `src/server/comms/*`, not just behind a disabled button.
   the STOP webhook → `sms_opted_out_at = now()` → and `sendSms()` refuses
   to send to a contact where `sms_opted_out_at IS NOT NULL`. UI shows a
   banner; the function is the wall.
-- **Email unsubscribe (CAN-SPAM).** Every bulk email includes a working
-  unsubscribe link (SendGrid unsubscribe group) and our physical mailing
-  address (`PHYSICAL_MAILING_ADDRESS` env). The SendGrid Event Webhook
-  mirrors unsubscribes back to `contacts.email_unsubscribed_at`. 1:1 inbox
-  email (`sendDirectEmail`) is a true personal reply and deliberately carries
-  NO List-Unsubscribe header — that header is what makes mail clients brand a
-  message as a mailing list, which is wrong for a 1:1 and hurts the
-  relationship. Opt-out is still enforced three ways: `assertCanSendEmail` (the
-  wall), the inbound webhook's plain-language STOP/unsubscribe reply, and the
-  in-CRM `email_unsubscribed_at` toggle. (`unsubscribeHeaders` /
-  `/api/email/unsubscribe` remain available for any future bulk-via-app path.)
+- **Email unsubscribe (CAN-SPAM).** Bulk blasts go out through Brevo's campaign
+  lane, which auto-includes a working unsubscribe link + hosts the unsubscribe
+  page; the physical mailing address (`PHYSICAL_MAILING_ADDRESS`) goes in the
+  Brevo template footer. Brevo's marketing webhook (`/api/webhook/brevo`) mirrors
+  `unsubscribe`/`spam`/`hard_bounce` back to `contacts.email_unsubscribed_at`.
+  1:1 inbox email (`sendDirectEmail`) is a true personal reply via Brevo's
+  transactional API and deliberately carries NO List-Unsubscribe header — that
+  header brands a message as a mailing list, which is wrong for a 1:1 and hurts
+  the relationship. Opt-out is enforced by `assertCanSendEmail` (the wall) and
+  the in-CRM `email_unsubscribed_at` toggle. Replies are NOT ingested into the
+  CRM — they go to `support@ms.church` in Gmail — so there is no inbound
+  STOP-keyword handler; a human there toggles the CRM flag if someone asks off.
 - **Consent capture.** Every contact has `consent_method` and `consent_at`.
   Form submissions are the canonical proof; CSV imports must explicitly
   record `consent_method = 'csv_import_<batch>'` and a real `consent_at`.
@@ -157,30 +163,33 @@ Do not copy the SMS mental model onto email.
   postal-address requirements, and we still respect `email_unsubscribed_at` and
   honor a plain-language "stop" reply, so we're covered even if a 1:1 drifts
   commercial.
-- **Campaign/bulk email** is **commercial** → the unsubscribe group
-  (`SENDGRID_UNSUBSCRIBE_GROUP_ID`) + postal address are **required**, and the
-  send path refuses without the group.
+- **Campaign/bulk email** is **commercial** → it ships through Brevo's campaign
+  lane, which **requires** a verified sender and auto-includes the unsubscribe
+  link; the postal address lives in the template footer. The send path also
+  enforces the free-tier daily send cap (`BREVO_DAILY_SEND_CAP`).
 
 **Responsibility split:**
 
-| Concern | CRM | SendGrid (the email pipe) |
+| Concern | CRM | Brevo (the email pipe) |
 |---|---|---|
-| Source of truth for opt-out | `contacts.email_unsubscribed_at` (`NULL` = subscribed); `assertCanSendEmail` is the wall | Suppression / unsubscribe **group** — drops a send even if our flag is stale |
+| Source of truth for opt-out | `contacts.email_unsubscribed_at` (`NULL` = subscribed); `assertCanSendEmail` is the wall | `emailBlacklisted` on the contact — drops a send even if our flag is stale |
 | Consent record | `consent_method` / `consent_at` | — |
-| Catch a reply that says "stop" | inbound webhook (`detectOptOutKeyword` on body + subject) | — (no auto reply-keyword handler) |
-| Unsubscribe link / one-click | bulk only: `/api/email/unsubscribe` (signed) + `List-Unsubscribe` header. 1:1 sends none (personal reply); opt-out via the wall + STOP reply + CRM toggle | hosts the group's unsubscribe page for bulk |
-| Bounce / spam / unsub events | `email_events` trigger mirrors back to the flag | Event Webhook posts the events |
+| Catch a reply that says "stop" | a human in `support@ms.church` (Gmail) toggles `email_unsubscribed_at` in the CRM | — (replies are not ingested) |
+| Unsubscribe link / one-click | none in app code | bulk: Brevo auto-includes + hosts the unsubscribe link. 1:1: none (personal reply) |
+| Bounce / spam / unsub events | `email_events` trigger mirrors back to the flag | marketing webhook (`/api/webhook/brevo`) posts `unsubscribe`/`spam`/`hard_bounce` |
 
 Re-enabling email in the CRM only clears the **local** flag; a contact who used
-a SendGrid unsubscribe link stays suppressed in the group until removed there
-(the next send drops and the `dropped` event self-heals the flag).
+a Brevo unsubscribe link stays `emailBlacklisted` in Brevo until removed there
+(Brevo won't deliver to them, and the next unsubscribe/bounce event re-heals our
+flag).
 
-**External setup needed:** domain auth (SPF/DKIM/DMARC) for deliverability;
-unsubscribe group; postal address; Event Webhook; and for two-way, the Inbound
-Parse + MX + token (see §13.1 and `docs/email-setup-runbook.md`). Heads-up: this
-is the US/CAN-SPAM model — **CASL (Canada) / GDPR (EU) are opt-IN**; if the
-church emails international contacts, revisit. Not legal advice — confirm with
-counsel.
+**External setup needed:** Brevo account + API key; a verified sender; domain
+auth (SPF/DKIM/DMARC via Brevo) for deliverability — without it Brevo rewrites
+the From to `@brevosend.com`; the postal address in the template footer; and the
+marketing webhook (`/api/webhook/brevo?token=…`). Full steps + the SendGrid
+teardown live in `docs/brevo-email-setup-runbook.md`. Heads-up: this is the
+US/CAN-SPAM model — **CASL (Canada) / GDPR (EU) are opt-IN**; if the church
+emails international contacts, revisit. Not legal advice — confirm with counsel.
 
 ## 7. Design language — carried from ms.church `website-V2`
 
@@ -297,15 +306,15 @@ See `.env.example`. Required (set in Vercel + locally):
 - `SUPABASE_SERVICE_ROLE_KEY` (server-only)
 - `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_MESSAGING_SERVICE_SID`,
   `TWILIO_PHONE_NUMBER`
-- `SENDGRID_API_KEY`, `SENDGRID_FROM_EMAIL`, `SENDGRID_FROM_NAME`,
-  `SENDGRID_UNSUBSCRIBE_GROUP_ID`
+- `BREVO_API_KEY`, `BREVO_FROM_EMAIL`, `BREVO_FROM_NAME`,
+  `BREVO_REPLY_TO_EMAIL`, `BREVO_WEBHOOK_TOKEN`
 - `PUBLIC_FORM_HMAC_SECRET` (HMAC the public website uses when posting
   form submissions to this app)
 - `APP_BASE_URL`, `PHYSICAL_MAILING_ADDRESS`
 
-Twilio + SendGrid creds can be empty during early UI development — the send
+Twilio + Brevo creds can be empty during early UI development — the send
 functions degrade to a logged-only mode so the inbox can be built and the
-harness can run without provisioning a real Twilio number first.
+harness can run without provisioning a real Twilio number or Brevo account first.
 
 ## 13. Build sequence (per project brief §9)
 
@@ -314,8 +323,9 @@ harness can run without provisioning a real Twilio number first.
 3. Inbound SMS webhook + outbound 1:1 send (the MVP)
 4. Contacts UI + public website form receiver
 5. Batch SMS via Messaging Service + central opt-out enforcement
-6. Email via SendGrid (campaigns: template by ID + Event Webhook; two-way 1:1
-   inbox email: `sendDirectEmail` + Inbound Parse webhook)
+6. Email via Brevo (blasts: campaign API by template id + marketing webhook;
+   1:1 inbox email: `sendDirectEmail` via the transactional API; replies handled
+   in Google Workspace, not ingested)
 7. Polish: search, reporting, CSV import/export
 
 ## 13.1 Live provider setup — done and remaining
@@ -345,31 +355,23 @@ opt-in via `detectMarketingJoin`). Inbound + status webhooks point at
   HELP auto-reply tells people to *call* `+1 208 567 1893`, so either configure
   inbound voice (forward to a staffed line or a voicemail TwiML) or point HELP
   at a staffed number.
-- **Email / SendGrid.** Set `SENDGRID_API_KEY`, `SENDGRID_FROM_EMAIL`,
-  `SENDGRID_UNSUBSCRIBE_GROUP_ID` (bulk email is refused without the group), and
-  configure the Event Webhook -> `/api/webhook/sendgrid` with
-  `SENDGRID_WEBHOOK_PUBLIC_KEY`. Re-enabling email in the CRM only clears the
-  local flag; a contact who used an email unsubscribe link stays suppressed in
-  SendGrid until removed from the suppression group (the next send is dropped and
-  the `dropped` event self-heals `email_unsubscribed_at`).
-- **Two-way email (inbox).** Outbound 1:1 email sends from the inbox composer
-  (channel toggle) via `sendDirectEmail` (`src/server/comms/sendEmail.ts`); it
-  works as soon as `SENDGRID_API_KEY` + `SENDGRID_FROM_EMAIL` are set (otherwise
-  mock-logged, like SMS). To RECEIVE replies into the inbox:
-  1. Pick an inbound subdomain and set `INBOUND_EMAIL_DOMAIN` (e.g.
-     `reply.ms.church`). Outbound mail then carries
-     `Reply-To: reply+<contactId>@<that domain>`.
-  2. In Vercel DNS, add an `MX` record on that subdomain pointing to
-     `mx.sendgrid.net` (priority 10).
-  3. In SendGrid, add the subdomain under **Settings → Inbound Parse** with the
-     destination URL `<APP_BASE_URL>/api/webhook/sendgrid-inbound?token=<SENDGRID_INBOUND_TOKEN>`.
-  4. Set `SENDGRID_INBOUND_TOKEN` to a long random secret (the webhook is
-     unsigned, so this URL token is its auth — `src/server/webhooks/verify.ts`).
-  Replies thread back by the `reply+<contactId>` token, falling back to the
-  sender's email (auto-creating a contact, exactly like inbound SMS). Until DNS +
-  Parse are live, sending works and receiving stays dormant. Inbound HTML is
-  stored in `messages.body_html` but the inbox renders the plain-text `body`
-  only (no sanitizer yet — sanitize before ever rendering the HTML).
+- **Email / Brevo.** Set `BREVO_API_KEY`, `BREVO_FROM_EMAIL`, `BREVO_FROM_NAME`,
+  `BREVO_REPLY_TO_EMAIL` (= `support@ms.church`). Authenticate the `ms.church`
+  domain in Brevo (SPF/DKIM/DMARC) or Brevo rewrites the From to `@brevosend.com`.
+  Register the marketing webhook (events `unsubscribed`/`hardBounce`/`spam`) at
+  `<APP_BASE_URL>/api/webhook/brevo?token=<BREVO_WEBHOOK_TOKEN>`; Brevo does not
+  sign webhooks, so that URL token is the auth. Bulk blasts hand a per-campaign
+  LIST to Brevo (never a per-recipient transactional loop) and respect the free
+  tier's 300/day shared cap via `BREVO_DAILY_SEND_CAP`. Full provisioning + the
+  SendGrid teardown: `docs/brevo-email-setup-runbook.md`.
+- **Two-way email — by design, NOT ingested.** Outbound 1:1 email sends from the
+  inbox composer (channel toggle) via `sendDirectEmail` (`src/server/comms/sendEmail.ts`),
+  working as soon as `BREVO_API_KEY` + `BREVO_FROM_EMAIL` are set (otherwise
+  mock-logged, like SMS). Outgoing mail carries `Reply-To: support@ms.church`, so
+  a recipient's reply lands in **Google Workspace (Gmail)** where a human answers
+  it — replies are deliberately NOT parsed back into the CRM (Brevo Inbound
+  Parsing is out of scope; the deferred path is in the email spec's Appendix A).
+  Keep the root `MX` on Google.
 
 ## 13.2 Events → Google Calendar (ms.church)
 
@@ -391,7 +393,7 @@ parses — no website change. Google Calendar is the public source of truth; the
   - `npm run verify:events` asserts our output against the site's verbatim
     regexes. **Run it after touching the mapping.** If ms.church changes how it
     reads the calendar, update the mapping + this verifier together.
-- **Auth + degrade-to-mock (like Twilio/SendGrid):** `src/server/google/auth.ts`.
+- **Auth + degrade-to-mock (like Twilio/Brevo):** `src/server/google/auth.ts`.
   Reads work with `GOOGLE_CALENDAR_API_KEY` *or* OAuth; writes (events + Drive
   uploads) need an OAuth refresh token for the church account
   (`GOOGLE_OAUTH_CLIENT_ID/SECRET/REFRESH_TOKEN`, scopes `calendar` +
@@ -409,7 +411,8 @@ parses — no website change. Google Calendar is the public source of truth; the
   the event (SMS body + flyer as MMS, or email subject) and links it via
   `campaigns.event_id`. The promo is **marketing**, so it goes through the
   existing wall unchanged — SMS requires `marketing_consent_at` + not opted out;
-  bulk email requires the unsubscribe group + postal address (see §6/§6.1). No
+  bulk email goes through Brevo's campaign lane with its hosted unsubscribe +
+  footer postal address (see §6/§6.1). No
   new send path; consent timing is enforced exactly as for any campaign.
 - **Promote with AI (Opus):** "Promote" sends the operator to the composer with
   `?ai=1`, which calls `POST /api/events/[id]/promote` →

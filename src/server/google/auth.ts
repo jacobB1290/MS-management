@@ -3,7 +3,7 @@ import "server-only"
 /**
  * Google credentials + access-token minting for the Events feature.
  *
- * Capability ladder (mirrors the Twilio/SendGrid degrade-to-mock pattern so the
+ * Capability ladder (mirrors the Twilio/Brevo degrade-to-mock pattern so the
  * whole feature + harness run before Google is wired up):
  *   - no creds                       -> mock mode (events save locally; publish is logged)
  *   - GOOGLE_CALENDAR_API_KEY only   -> read/sync the public calendar (no writes)

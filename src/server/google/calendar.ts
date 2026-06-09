@@ -17,7 +17,7 @@ import {
 
 /**
  * Thin Google Calendar v3 REST client (no SDK — same fetch style as the Twilio
- * and SendGrid clients). Reads prefer the OAuth token and fall back to the
+ * and Brevo clients). Reads prefer the OAuth token and fall back to the
  * read-only API key; writes require OAuth and degrade to a mock id when it's
  * absent, so the publish flow works end-to-end before Google is wired up.
  *

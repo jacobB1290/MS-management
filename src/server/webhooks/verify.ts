@@ -1,7 +1,6 @@
 import "server-only"
 import crypto from "node:crypto"
 import { verifyTwilioSignature } from "./twilio"
-import { verifySendGridSignature } from "./sendgrid"
 
 /**
  * Centralized webhook authentication. Each webhook route calls one of the
@@ -55,39 +54,17 @@ export function verifyTwilioRequest(
   return { ok: true }
 }
 
-export function verifySendGridRequest(
-  request: Request,
-  rawBody: string,
-): VerifyResult {
-  if (devBypassEnabled(request)) return { ok: true }
-
-  const publicKey = process.env.SENDGRID_WEBHOOK_PUBLIC_KEY
-  if (!publicKey) {
-    return { ok: false, status: 503, reason: "SendGrid webhook key not configured" }
-  }
-  const signature = request.headers.get("x-twilio-email-event-webhook-signature")
-  const timestamp = request.headers.get("x-twilio-email-event-webhook-timestamp")
-  const valid = verifySendGridSignature({
-    publicKey,
-    signature,
-    timestamp,
-    rawBody,
-  })
-  if (!valid) return { ok: false, status: 403, reason: "Invalid signature" }
-  return { ok: true }
-}
-
 /**
- * SendGrid Inbound Parse does NOT sign its requests the way the Event Webhook
- * does, so we gate it on a shared secret carried in the URL query string
- * (`?token=…`). Configure the Inbound Parse destination as
- * `<APP_BASE_URL>/api/webhook/sendgrid-inbound?token=<SENDGRID_INBOUND_TOKEN>`.
- * Constant-time compare; unset secret means the feature is off (503).
+ * Brevo does NOT cryptographically sign webhooks (unlike SendGrid's ECDSA Event
+ * Webhook), so the marketing webhook is authenticated by a long shared secret
+ * carried in the URL query string (`?token=…`). Configure the Brevo webhook
+ * destination as `<APP_BASE_URL>/api/webhook/brevo?token=<BREVO_WEBHOOK_TOKEN>`.
+ * Constant-time compare; an unset secret means the webhook is off (503).
  */
-export function verifySendGridInboundToken(token: string | null): VerifyResult {
-  const expected = process.env.SENDGRID_INBOUND_TOKEN
+export function verifyBrevoWebhookToken(token: string | null): VerifyResult {
+  const expected = process.env.BREVO_WEBHOOK_TOKEN
   if (!expected) {
-    return { ok: false, status: 503, reason: "Inbound email not configured" }
+    return { ok: false, status: 503, reason: "Brevo webhook not configured" }
   }
   if (!token) return { ok: false, status: 403, reason: "Missing token" }
   const a = Buffer.from(token)

@@ -840,7 +840,7 @@ export function ThreadPane({
         setMessages((cur) =>
           cur.map((m) => (m.id === tempId ? { ...m, status: "mocked" } : m)),
         )
-        toast.message("Recorded without sending. SendGrid isn’t configured yet")
+        toast.message("Recorded without sending. Brevo isn’t configured yet")
       }
     } catch (err) {
       setMessages((cur) => cur.filter((m) => m.id !== tempId))
@@ -1474,7 +1474,7 @@ function MessageBubble({
   const pending = message.status === "sending" || message._optimistic
   const failed =
     isOut && (message.status === "failed" || message.status === "undelivered")
-  // SMS failures map to Twilio error codes; email failures carry a SendGrid
+  // SMS failures map to Twilio error codes; email failures carry a Brevo
   // string, so don't run them through the Twilio explainer.
   const failureReason = !failed
     ? null

@@ -206,8 +206,8 @@ const contactSummary: Row[] = [
 ]
 
 const campaigns: Row[] = [
-  {"id":"camp1","name":"Easter Park Day — invite","channel":"sms","status":"draft","body":"Easter Park Day — Saturday, April 21 at 11 AM. https://ms.church/outreach#events","media_url":null,"sendgrid_template_id":null,"email_subject":null,"audience_filter":{"all":true},"event_id":"E01","scheduled_at":null,"started_at":null,"completed_at":null,"created_at":ago(30)},
-  {"id":"camp2","name":"Volunteer thank-you (draft)","channel":"email","status":"draft","body":null,"media_url":null,"sendgrid_template_id":"d-demo-template-001","email_subject":"Thank you for serving","audience_filter":{"tags":["volunteer"]},"event_id":null,"scheduled_at":null,"started_at":null,"completed_at":null,"created_at":ago(1440)},
+  {"id":"camp1","name":"Easter Park Day — invite","channel":"sms","status":"draft","body":"Easter Park Day — Saturday, April 21 at 11 AM. https://ms.church/outreach#events","media_url":null,"brevo_template_id":null,"email_subject":null,"audience_filter":{"all":true},"event_id":"E01","scheduled_at":null,"started_at":null,"completed_at":null,"created_at":ago(30)},
+  {"id":"camp2","name":"Volunteer thank-you (draft)","channel":"email","status":"draft","body":null,"media_url":null,"brevo_template_id":1,"email_subject":"Thank you for serving","audience_filter":{"tags":["volunteer"]},"event_id":null,"scheduled_at":null,"started_at":null,"completed_at":null,"created_at":ago(1440)},
 ]
 
 // Fixed (non-relative) dates so the JUL/APR date badges stay stable across

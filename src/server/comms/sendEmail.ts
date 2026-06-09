@@ -2,7 +2,7 @@ import "server-only"
 import { assertCanSendEmail } from "./optOut"
 import { logAudit } from "@/server/audit"
 import { createSupabaseAdminClient } from "@/lib/supabase/server"
-import { replyToAddress } from "./emailAddress"
+import { brevoConfigured, brevoReplyTo, sendTransactionalEmail } from "./brevo"
 import {
   sanitizeEmailContent,
   wrapPersonalEmail,
@@ -13,80 +13,20 @@ import {
 } from "./emailHtml"
 import {
   resolveEmailAttachments,
-  type SendGridAttachment,
+  type BrevoAttachment,
   type StoredAttachmentMeta,
 } from "@/server/media/emailAttachments"
 import type { EmailAttachment } from "@/lib/email-attachments"
 import type { Json } from "@/lib/database.types"
 
 /**
- * Canonical email send path. Uses SendGrid Dynamic Templates by ID; we
- * never compose marketing HTML in app code. Mock mode applies when keys
- * are absent.
- */
-export async function sendEmail(args: {
-  contactId: string
-  templateId: string
-  subject: string
-  dynamicData?: Record<string, unknown>
-  sentByUserId?: string | null
-  campaignId?: string | null
-}): Promise<SendEmailResult> {
-  // CAN-SPAM: bulk email MUST carry a working unsubscribe mechanism. We
-  // refuse rather than silently send without one. (1:1 transactional email
-  // without a campaign is also exempt from the strict bulk rules, so the
-  // group is only required when this send is part of a campaign.)
-  if (args.campaignId && !process.env.SENDGRID_UNSUBSCRIBE_GROUP_ID) {
-    return {
-      ok: false,
-      reason: "provider_failed",
-      detail:
-        "SENDGRID_UNSUBSCRIBE_GROUP_ID is not set — bulk email is refused for CAN-SPAM compliance.",
-    }
-  }
-
-  const check = await assertCanSendEmail(args.contactId)
-  if (!check.ok) return { ok: false, reason: check.reason }
-
-  const provider = await callSendGridOrMock({
-    to: check.email,
-    templateId: args.templateId,
-    subject: args.subject,
-    dynamicData: args.dynamicData ?? {},
-  })
-
-  await logAudit({
-    action: provider.error ? "message.send_failed" : "message.send",
-    actorUserId: args.sentByUserId ?? null,
-    targetTable: "contacts",
-    targetId: args.contactId,
-    diff: {
-      channel: "email",
-      template_id: args.templateId,
-      campaign_id: args.campaignId ?? null,
-      provider_id: provider.id,
-      mock: provider.mock,
-    },
-  })
-
-  if (provider.error) {
-    return { ok: false, reason: "provider_failed", detail: provider.error }
-  }
-  return { ok: true, providerId: provider.id, mock: provider.mock }
-}
-
-export type SendEmailResult =
-  | { ok: true; providerId: string | null; mock: boolean }
-  | { ok: false; reason: "not_found" | "no_channel" | "unsubscribed" | "provider_failed"; detail?: string }
-
-/**
  * Build the personalized parts of a 1:1 email from an operator's draft: the
  * smart-quoted plain body, the text/plain part with a warm human sign-off, and
- * the wrapped HTML document. The HTML is ALWAYS produced now — a plain typed
- * reply sends the same stylized personal email (letterhead + sign-off) as an
- * AI-beautified one, with text/plain as the multipart fallback. `wrappedHtml`
- * (what sends) and `previewHtml` (what staff preview) are identical, so the
- * preview is faithful to what actually sends.
+ * the wrapped HTML document. The HTML is ALWAYS produced — a plain typed reply
+ * sends the same stylized personal email (letterhead + sign-off) as an
+ * AI-beautified one, with text/plain as the fallback. `wrappedHtml` (what sends)
+ * and `previewHtml` (what staff preview) are identical, so the preview is
+ * faithful to what actually sends.
  */
 export async function composePersonalEmail(args: {
   contactId: string
@@ -96,7 +36,7 @@ export async function composePersonalEmail(args: {
 }): Promise<{
   cleanBody: string
   outgoingText: string
-  wrappedHtml: string | null
+  wrappedHtml: string
   previewHtml: string
   senderName: string | null
 }> {
@@ -114,9 +54,8 @@ export async function composePersonalEmail(args: {
   const sanitizedFragment = args.html ? sanitizeEmailContent(args.html) : null
   // A plain typed reply is rendered as paragraphs and sent as the SAME stylized
   // personal email as an AI-beautified one — the warm personal shell (letterhead
-  // + sign-off), NOT the bulk marketing template. The text/plain part below
-  // rides along as the multipart fallback. Preview and send share this HTML, so
-  // what staff preview is exactly what sends.
+  // + sign-off), NOT a bulk marketing template. The text/plain part rides along
+  // as the fallback. Preview and send share this HTML.
   const contentFragment = sanitizedFragment ?? plainTextToContentHtml(cleanBody)
   const preheader = htmlFragmentToText(contentFragment).replace(/\s+/g, " ").trim()
   const wrappedHtml = wrapPersonalEmail({
@@ -132,11 +71,12 @@ export async function composePersonalEmail(args: {
 /**
  * Canonical 1:1 conversational email send. Mirrors `sendSms`: enforces opt-out
  * at the function level, logs the outbound row into the SAME `messages` thread
- * (channel 'email'), then calls SendGrid — or records a mock when keys are
- * absent. Unlike `sendEmail`, this composes a plain-text transactional reply
- * (no Dynamic Template); it is a relationship message, not bulk marketing, so
- * no unsubscribe group is required. The tokenized Reply-To routes the contact's
- * reply back into this thread via the Inbound Parse webhook.
+ * (channel 'email'), then sends via Brevo's TRANSACTIONAL API — or records a
+ * mock when BREVO_API_KEY is absent. This is a relationship message, not bulk
+ * marketing, so it carries no List-Unsubscribe header (which would brand it as a
+ * mailing list and hurt the relationship); opt-out is still enforced by
+ * `assertCanSendEmail`. The Reply-To is the church's Google Workspace mailbox,
+ * so the recipient's reply lands in Gmail where a human answers it.
  */
 export async function sendDirectEmail(args: {
   contactId: string
@@ -170,7 +110,7 @@ export async function sendDirectEmail(args: {
     return { ok: false, reason: "attachment_failed", detail: resolved.reason }
   }
 
-  const replyTo = replyToAddress(args.contactId)
+  const replyTo = brevoReplyTo()
   const emailMeta = buildEmailMeta(replyTo, resolved.meta)
   const { data: inserted, error: insertErr } = await admin
     .from("messages")
@@ -193,21 +133,14 @@ export async function sendDirectEmail(args: {
     return { ok: false, reason: "db_insert_failed", detail: insertErr?.message }
   }
 
-  const provider = await sendPlainEmailOrMock({
+  const provider = await sendTransactionalOrMock({
     to: check.email,
     subject: args.subject,
-    body: outgoingText,
+    text: outgoingText,
     html: wrappedHtml,
     replyTo,
-    // A true 1:1 relationship email carries NO List-Unsubscribe header — that
-    // header is what makes Apple Mail/Gmail brand it as a mailing list, which
-    // is wrong for a personal reply and hurts the relationship. CAN-SPAM
-    // exempts transactional 1:1 mail; opt-out is still enforced by
-    // assertCanSendEmail (the wall), the inbound STOP-keyword webhook, and the
-    // in-CRM email_unsubscribed_at toggle. Bulk/campaign mail keeps its
-    // unsubscribe group on the `sendEmail` path.
-    headers: null,
-    attachments: resolved.sendgrid,
+    attachments: resolved.brevo,
+    idempotencyKey: inserted.id,
   })
 
   await admin
@@ -299,132 +232,37 @@ function buildEmailMeta(
   return Object.keys(meta).length > 0 ? meta : null
 }
 
-async function sendPlainEmailOrMock(args: {
-  to: string
-  subject: string
-  body: string
-  html: string | null
-  replyTo: string | null
-  headers: Record<string, string> | null
-  attachments: SendGridAttachment[]
-}): Promise<ProviderResult> {
-  const apiKey = process.env.SENDGRID_API_KEY
-  const fromEmail = process.env.SENDGRID_FROM_EMAIL
-  const fromName = process.env.SENDGRID_FROM_NAME || "Morning Star Christian Church"
-
-  if (!apiKey || !fromEmail) {
-    return { id: `MOCK_${crypto.randomUUID()}`, error: null, mock: true }
-  }
-
-  try {
-    // SendGrid requires content parts ordered text/plain before text/html.
-    const content: { type: string; value: string }[] = [
-      { type: "text/plain", value: args.body },
-    ]
-    if (args.html) content.push({ type: "text/html", value: args.html })
-
-    const payload = {
-      from: { email: fromEmail, name: fromName },
-      // Give the tokenized Reply-To a friendly display name so mail clients
-      // label it "Morning Star Church" rather than exposing the raw routing
-      // token (reply+<contactId>@…). The token still lives in the address and
-      // routes the reply back to the right conversation; this only prettifies
-      // how it's shown.
-      ...(args.replyTo ? { reply_to: { email: args.replyTo, name: fromName } } : {}),
-      personalizations: [{ to: [{ email: args.to }] }],
-      subject: args.subject,
-      content,
-      ...(args.attachments.length > 0 ? { attachments: args.attachments } : {}),
-      ...(args.headers ? { headers: args.headers } : {}),
-    }
-
-    const res = await fetch("https://api.sendgrid.com/v3/mail/send", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    })
-
-    if (!res.ok) {
-      const text = await res.text()
-      return { id: null, error: `SendGrid ${res.status}: ${text}`, mock: false }
-    }
-    return { id: res.headers.get("x-message-id"), error: null, mock: false }
-  } catch (err) {
-    return {
-      id: null,
-      error: err instanceof Error ? err.message : String(err),
-      mock: false,
-    }
-  }
-}
-
 interface ProviderResult {
   id: string | null
   error: string | null
   mock: boolean
 }
 
-async function callSendGridOrMock(args: {
+/** Send via Brevo transactional, or return a mock id when Brevo isn't configured. */
+async function sendTransactionalOrMock(args: {
   to: string
-  templateId: string
   subject: string
-  dynamicData: Record<string, unknown>
+  text: string
+  html: string | null
+  replyTo: string
+  attachments: BrevoAttachment[]
+  idempotencyKey: string
 }): Promise<ProviderResult> {
-  const apiKey = process.env.SENDGRID_API_KEY
-  const fromEmail = process.env.SENDGRID_FROM_EMAIL
-  const fromName = process.env.SENDGRID_FROM_NAME || "Morning Star Christian Church"
-  const unsubGroupId = process.env.SENDGRID_UNSUBSCRIBE_GROUP_ID
-
-  if (!apiKey || !fromEmail) {
+  if (!brevoConfigured()) {
     return { id: `MOCK_${crypto.randomUUID()}`, error: null, mock: true }
   }
 
-  try {
-    const physicalAddress =
-      process.env.PHYSICAL_MAILING_ADDRESS ?? "3080 N Wildwood St, Boise, ID 83713"
-    const payload = {
-      from: { email: fromEmail, name: fromName },
-      personalizations: [
-        {
-          to: [{ email: args.to }],
-          dynamic_template_data: {
-            ...args.dynamicData,
-            // CAN-SPAM: physical mailing address available to every template
-            mailing_address: physicalAddress,
-          },
-        },
-      ],
-      template_id: args.templateId,
-      subject: args.subject,
-      ...(unsubGroupId
-        ? { asm: { group_id: Number(unsubGroupId) } }
-        : {}),
-    }
+  const res = await sendTransactionalEmail({
+    to: [{ email: args.to }],
+    subject: args.subject,
+    htmlContent: args.html ?? undefined,
+    textContent: args.text,
+    replyTo: { email: args.replyTo },
+    ...(args.attachments.length > 0 ? { attachment: args.attachments } : {}),
+    // Safe-retry guard: a re-send of the same message row dedupes at Brevo.
+    headers: { "Idempotency-Key": args.idempotencyKey },
+  })
 
-    const res = await fetch("https://api.sendgrid.com/v3/mail/send", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    })
-
-    if (!res.ok) {
-      const text = await res.text()
-      return { id: null, error: `SendGrid ${res.status}: ${text}`, mock: false }
-    }
-    // SendGrid returns an X-Message-Id header on success.
-    const messageId = res.headers.get("x-message-id")
-    return { id: messageId, error: null, mock: false }
-  } catch (err) {
-    return {
-      id: null,
-      error: err instanceof Error ? err.message : String(err),
-      mock: false,
-    }
-  }
+  if (!res.ok) return { id: null, error: res.error, mock: false }
+  return { id: res.data.messageId ?? null, error: null, mock: false }
 }

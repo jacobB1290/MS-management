@@ -6,6 +6,10 @@ import { processCampaignBatch } from "@/server/comms/campaignWorker"
 import { resolveAudienceMode, classifyRecipient } from "@/server/comms/campaignAudience"
 import type { Json } from "@/lib/database.types"
 
+// Email blasts hand off to Brevo synchronously on start (list import + send);
+// give the route headroom beyond the default serverless limit.
+export const maxDuration = 60
+
 /**
  * Start a campaign. Builds the recipient list from audience_filter (honoring
  * opt-outs at row creation time so we have a permanent record of who was

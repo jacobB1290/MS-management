@@ -8,7 +8,7 @@ import { ATTACHMENT_EXT_BY_TYPE, MAX_ATTACHMENT_FILE_BYTES } from "@/lib/email-a
  * Email attachment upload. Staff-gated; the file is written to the PRIVATE
  * `email-attachments` bucket via the service-role key (the browser never
  * touches storage directly, and the bucket is never publicly readable — the
- * send path reads it back server-side and rides it as a real SendGrid
+ * send path reads it back server-side and rides it as a real Brevo
  * attachment). The object name is a random UUID. Returns metadata only (path,
  * filename, type, size) — never a URL.
  */

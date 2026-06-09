@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
       : {
           name: data.name,
           channel: data.channel,
-          sendgrid_template_id: data.sendgrid_template_id,
+          brevo_template_id: data.brevo_template_id,
           email_subject: data.email_subject,
           audience_filter: data.audience_filter as Json,
           scheduled_at: data.scheduled_at ?? null,

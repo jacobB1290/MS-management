@@ -17,7 +17,7 @@ import {
   uploadMedia,
 } from "@/lib/media"
 import { flyerRenderSrc } from "@/lib/event-format"
-import { SendgridTemplateField } from "./sendgrid-template-field"
+import { BrevoTemplateField } from "./brevo-template-field"
 
 /** Optional seed values when arriving from an event's "Promote" action. */
 export interface ComposerPrefill {
@@ -161,6 +161,11 @@ export function CampaignComposer({ tagOptions, prefill }: ComposerProps) {
       setSubmitting(false)
       return
     }
+    if (channel === "email" && !templateId.trim()) {
+      toast.error("Pick a Brevo template.")
+      setSubmitting(false)
+      return
+    }
     const payload =
       channel === "sms"
         ? {
@@ -175,7 +180,7 @@ export function CampaignComposer({ tagOptions, prefill }: ComposerProps) {
         : {
             channel,
             name,
-            sendgrid_template_id: templateId,
+            brevo_template_id: Number(templateId),
             email_subject: subject,
             audience_filter: audience,
             scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null,
@@ -334,15 +339,14 @@ export function CampaignComposer({ tagOptions, prefill }: ComposerProps) {
 
           <TabsContent value="email" className="mt-5 space-y-5">
             <FormField
-              label="SendGrid template ID"
+              label="Brevo template"
               htmlFor="template"
-              hint="Pick one of your SendGrid templates or open the builder to design a new one."
+              hint="Pick one of your Brevo templates, or design a new one in Brevo and refresh."
             >
-              <SendgridTemplateField
+              <BrevoTemplateField
                 templateId={templateId}
                 onTemplateId={setTemplateId}
                 onSubject={setSubject}
-                campaignName={name}
               />
             </FormField>
             <FormField label="Subject" htmlFor="subject">
@@ -464,7 +468,7 @@ export function CampaignComposer({ tagOptions, prefill }: ComposerProps) {
                 {subject.trim() || "Subject line"}
               </p>
               <p className="mt-1 text-small text-ink-muted">
-                {templateId ? "Rendered from your SendGrid template." : "Pick a template to preview."}
+                {templateId ? "Rendered from your Brevo template." : "Pick a template to preview."}
               </p>
             </div>
           )}

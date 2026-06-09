@@ -1,7 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { createSupabaseAdminClient } from "@/lib/supabase/server"
 import { processCampaignBatch } from "@/server/comms/campaignWorker"
+import { refreshBrevoCampaignStats } from "@/server/comms/brevoCampaign"
 import { backfillMessagePrices } from "@/server/billing/twilio"
+
+// Email blasts can take a few seconds to hand off to Brevo (list import + send).
+export const maxDuration = 60
 
 /**
  * Vercel Cron / external scheduler hits this every minute. Picks up any
@@ -48,6 +52,21 @@ export async function GET(request: NextRequest) {
   // Settle prices Twilio finalized after the status callback fired (or that we
   // missed). Bounded and idempotent — no-ops once everything is priced.
   const priced = await backfillMessagePrices(50)
+
+  // Refresh Brevo engagement stats for email blasts sent in the last week, so the
+  // campaign detail page shows live opens/clicks/unsubscribes without a per-load
+  // API call. Bounded; no-ops in mock mode.
+  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  const { data: recentEmail } = await admin
+    .from("campaigns")
+    .select("id")
+    .eq("channel", "email")
+    .not("brevo_campaign_id", "is", null)
+    .gte("completed_at", weekAgo)
+    .limit(10)
+  for (const c of recentEmail ?? []) {
+    await refreshBrevoCampaignStats(c.id)
+  }
 
   return NextResponse.json({ ok: true, campaigns: summary, priced, ran_at: nowIso })
 }
