@@ -3,6 +3,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/server"
 import {
   normalizeConfig,
   resolveModelIn,
+  clampEffort,
   AI_DEFAULTS,
   AI_FEATURES,
   AI_SETTINGS_KEY,
@@ -44,7 +45,11 @@ export async function getAiConfig(): Promise<Record<AiFeature, AiFeatureConfig>>
     const families = await getModelFamilies()
     const out = {} as Record<AiFeature, AiFeatureConfig>
     for (const f of AI_FEATURES) {
-      out[f] = { ...base[f], model: resolveModelIn(base[f].model, families) ?? base[f].model }
+      // Resolve to the live-latest model, then clamp the stored effort to what
+      // THAT model supports — a feature pinned to `max` whose class upgraded to
+      // a version without it (or got switched to Sonnet) is served a safe tier.
+      const model = resolveModelIn(base[f].model, families) ?? base[f].model
+      out[f] = { model, effort: clampEffort(model, base[f].effort) }
     }
     return out
   } catch {

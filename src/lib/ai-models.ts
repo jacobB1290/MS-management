@@ -8,7 +8,12 @@
  */
 
 export type AiFeature = "drafting" | "tagging" | "triage" | "notes" | "optout" | "promote"
-export type AiEffort = "low" | "medium" | "high"
+/**
+ * Reasoning-effort tiers, lowest → highest. `xhigh` sits between `high` and
+ * `max` (it is NOT an alias for high). Not every model accepts every tier —
+ * see `effortLevelsForModel` for the per-model support matrix.
+ */
+export type AiEffort = "low" | "medium" | "high" | "xhigh" | "max"
 export type AiModelClass = "opus" | "sonnet" | "haiku"
 export type AiFeatureConfig = { model: string; effort: AiEffort }
 export type AiModelChoice = { id: string; label: string; blurb: string }
@@ -105,13 +110,71 @@ export function modelChoicesFrom(families: AiModelFamilies): AiModelChoice[] {
 /** Picker options from the offline FALLBACK families. */
 export const AI_MODEL_CHOICES: readonly AiModelChoice[] = modelChoicesFrom(AI_MODEL_FAMILIES)
 
+/** All five tiers, ascending. The picker filters this per selected model. */
 export const AI_EFFORT_CHOICES: readonly { id: AiEffort; label: string }[] = [
   { id: "low", label: "Low" },
   { id: "medium", label: "Medium" },
   { id: "high", label: "High" },
+  { id: "xhigh", label: "Extra high" },
+  { id: "max", label: "Max" },
 ]
 
-const EFFORT_IDS = new Set<AiEffort>(["low", "medium", "high"])
+/** Canonical low→high ordering, used for clamping a stored tier to a model. */
+export const EFFORT_ORDER: readonly AiEffort[] = ["low", "medium", "high", "xhigh", "max"]
+
+const EFFORT_IDS = new Set<AiEffort>(EFFORT_ORDER)
+
+/** major.minor >= m.n */
+function versionAtLeast(major: number, minor: number, m: number, n: number): boolean {
+  return major > m || (major === m && minor >= n)
+}
+
+/**
+ * The reasoning-effort tiers a given model accepts, ascending. Empty = the
+ * model has no effort control (the call sites then omit the parameter; sending
+ * it would 400). The matrix mirrors Anthropic's effort support:
+ *   - low / medium / high : Opus 4.5+ and Sonnet 4.6+ (NOT Sonnet 4.5, NOT Haiku)
+ *   - max                 : Opus 4.6 and later only (never Sonnet or Haiku)
+ *   - xhigh               : Opus 4.7 and later only (between high and max)
+ * Parsed from the model id, so a future Opus 4.9 inherits the full set without
+ * a code change, matching how the model families auto-update.
+ */
+export function effortLevelsForModel(model: string): AiEffort[] {
+  const v = parseModelVersion(model)
+  if (!v) return []
+  const { cls, major, minor } = v
+  if (cls === "haiku") return []
+  if (cls === "sonnet") {
+    return versionAtLeast(major, minor, 4, 6) ? ["low", "medium", "high"] : []
+  }
+  // Opus: effort starts at 4.5; max at 4.6; xhigh at 4.7.
+  if (cls === "opus") {
+    if (!versionAtLeast(major, minor, 4, 5)) return []
+    const tiers: AiEffort[] = ["low", "medium", "high"]
+    if (versionAtLeast(major, minor, 4, 7)) tiers.push("xhigh")
+    if (versionAtLeast(major, minor, 4, 6)) tiers.push("max")
+    return tiers
+  }
+  return []
+}
+
+/**
+ * Clamp a stored effort to one the model actually supports: keep it if valid,
+ * otherwise drop to the highest supported tier at or below it. This is the wall
+ * that stops a config left on `max` from 400ing after its model is switched to
+ * Sonnet (high-max) or to an Opus version without `xhigh`.
+ */
+export function clampEffort(model: string, effort: AiEffort): AiEffort {
+  const levels = effortLevelsForModel(model)
+  if (levels.length === 0) return effort // unused: call sites omit effort here
+  if (levels.includes(effort)) return effort
+  const wantIdx = EFFORT_ORDER.indexOf(effort)
+  let best = levels[0]
+  for (const l of levels) {
+    if (EFFORT_ORDER.indexOf(l) <= wantIdx) best = l // levels ascending → largest ≤ want
+  }
+  return best
+}
 
 /**
  * Defaults when nothing is stored. Drafting = Sonnet at medium effort (tone
@@ -177,12 +240,13 @@ export const AI_FEATURES: readonly AiFeature[] = [
 ]
 
 /**
- * Extended thinking / reasoning effort is an Opus + Sonnet capability. Haiku
- * ignores it, so the picker disables the effort control (and the call sites
- * omit the parameter) whenever a Haiku model is selected.
+ * Whether the model accepts the effort parameter at all. Derived from the
+ * per-tier matrix so it stays in lockstep with `effortLevelsForModel` — Haiku
+ * (and the pre-effort Opus/Sonnet versions) report false, so the picker
+ * disables the control and the call sites omit the parameter.
  */
 export function modelSupportsEffort(model: string): boolean {
-  return model.startsWith("claude-opus") || model.startsWith("claude-sonnet")
+  return effortLevelsForModel(model).length > 0
 }
 
 /** Friendly label for any model id, falling back to the raw id. */
@@ -197,10 +261,14 @@ function coerce(feature: AiFeature, raw: unknown): AiFeatureConfig {
   // Forward-resolve to the latest of the stored model's class, so a config left
   // on a superseded version follows the family upgrade automatically.
   const model = (typeof r.model === "string" ? resolveModel(r.model) : null) ?? def.model
-  const effort =
+  const rawEffort =
     typeof r.effort === "string" && EFFORT_IDS.has(r.effort as AiEffort)
       ? (r.effort as AiEffort)
       : def.effort
+  // Clamp to what the (offline-resolved) model supports; getAiConfig re-clamps
+  // against the live-latest model, so a stored tier the model can't take never
+  // reaches the provider.
+  const effort = clampEffort(model, rawEffort)
   return { model, effort }
 }
 

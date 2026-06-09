@@ -8,7 +8,8 @@ import {
   AI_EFFORT_CHOICES,
   AI_FEATURE_META,
   AI_FEATURES,
-  modelSupportsEffort,
+  effortLevelsForModel,
+  clampEffort,
   type AiFeature,
   type AiFeatureConfig,
   type AiModelChoice,
@@ -34,7 +35,14 @@ export function AiModelsPanel({
   )
 
   function update(feature: AiFeature, patch: Partial<AiFeatureConfig>) {
-    setDraft((d) => ({ ...d, [feature]: { ...d[feature], ...patch } }))
+    setDraft((d) => {
+      const next = { ...d[feature], ...patch }
+      // Switching the model can strip the current effort tier (e.g. Opus→Sonnet
+      // drops `xhigh`/`max`). Clamp so the select never holds an option the new
+      // model can't take — and so we never persist an unsupported tier.
+      if (patch.model) next.effort = clampEffort(next.model, next.effort)
+      return { ...d, [feature]: next }
+    })
   }
 
   async function save() {
@@ -62,7 +70,13 @@ export function AiModelsPanel({
       {AI_FEATURES.map((feature) => {
         const meta = AI_FEATURE_META[feature]
         const fc = draft[feature]
-        const effortOn = modelSupportsEffort(fc.model)
+        const levels = effortLevelsForModel(fc.model)
+        const effortOn = levels.length > 0
+        // When supported, show only this model's tiers; when not, show the full
+        // (disabled) list so the control still reads as an effort selector.
+        const effortOptions = effortOn
+          ? AI_EFFORT_CHOICES.filter((x) => levels.includes(x.id))
+          : AI_EFFORT_CHOICES
         return (
           <div
             key={feature}
@@ -98,7 +112,7 @@ export function AiModelsPanel({
                   update(feature, { effort: e.target.value as AiFeatureConfig["effort"] })
                 }
               >
-                {AI_EFFORT_CHOICES.map((x) => (
+                {effortOptions.map((x) => (
                   <option key={x.id} value={x.id}>
                     {x.label}
                   </option>
@@ -114,7 +128,8 @@ export function AiModelsPanel({
           {saving ? "Saving…" : "Save models"}
         </Button>
         <p className="text-small text-ink-faint">
-          Effort tunes reasoning depth on Opus and Sonnet. Haiku ignores it.
+          Effort tunes reasoning depth (Low → Max). Opus exposes the full range;
+          Sonnet stops at High; Haiku ignores it.
         </p>
       </div>
     </div>
