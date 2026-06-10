@@ -62,3 +62,21 @@ short: navigate, settle, screenshot. Use the helpers in `helpers.ts`:
 
 If a new dynamic element creeps in, add the selector to `MASKS` in
 `helpers.ts` rather than masking ad-hoc in every scenario.
+
+## Design-system conformance (`50-conformance.spec.ts`)
+
+Screenshots catch "something changed"; the conformance spec catches
+"something broke the system" — and names the rule it broke. It asserts the
+CLAUDE.md §7.1 invariants structurally:
+
+- exactly one `h1` per page, display face, at the `--text-heading` tier;
+- every top-level tab starts its header at the same left gutter (≤1px drift);
+- italics appear only inside `.motto`;
+- primary tap targets are ≥44px;
+- every `h1/h2/h3` font-size is a member of the token type scale.
+
+These assertions are the quality gate for delegated or generated work: a
+change that drifts off the system fails with a named invariant instead of a
+pixel diff someone might be tempted to re-baseline away. When a new
+system-level rule lands in CLAUDE.md §7.1, add its assertion here in the same
+PR — the harness should always be able to say "no" on the system's behalf.

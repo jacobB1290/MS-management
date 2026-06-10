@@ -248,7 +248,9 @@ export function SettingsShell({ sections }: { sections: SettingsSection[] }) {
           )}
         >
           <header className="mb-[var(--space-lg)]">
-            <h2 className="font-display text-heading font-semibold leading-[var(--leading-snug)] tracking-[var(--tracking-tight)] text-ink">
+            {/* One tier below the page title ("Settings", --text-heading) so
+                the pane heading reads as a section, not a second page title. */}
+            <h2 className="font-display text-lead font-semibold leading-[var(--leading-snug)] tracking-[var(--tracking-tight)] text-ink">
               {activeMeta.label}
             </h2>
             <p className="mt-1.5 max-w-[62ch] text-small leading-[var(--leading-prose)] text-ink-muted">

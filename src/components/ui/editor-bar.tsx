@@ -45,8 +45,9 @@ export function EditorBar({
             aria-live="polite"
             className={cn(
               // Below sm the buttons own the bar; a truncated whisper fragment
-              // reads worse than none.
-              "hidden min-w-0 truncate font-display text-small italic text-ink-faint sm:block",
+              // reads worse than none. Sentence-case sans, like every other
+              // helper line — italics belong to the .motto phrase alone.
+              "hidden min-w-0 truncate text-small text-ink-faint sm:block",
               "transition-opacity duration-[var(--motion-medium)] ease-[var(--ease-standard)] motion-reduce:transition-none",
               whisper ? "opacity-100" : "opacity-0",
             )}

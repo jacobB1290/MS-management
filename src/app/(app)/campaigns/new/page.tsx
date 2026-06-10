@@ -25,7 +25,6 @@ export default async function NewCampaignPage({ searchParams }: NewCampaignPageP
     <PageScaffold
       header={
         <PageHeader
-          eyebrow="Outreach"
           title="New campaign"
           backHref="/campaigns"
           backLabel="All campaigns"

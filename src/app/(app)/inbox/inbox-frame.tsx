@@ -1,22 +1,17 @@
 "use client"
 import { createContext, useCallback, useContext, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ConversationList } from "./conversation-list"
 import { ChromeContext } from "@/components/shell/chrome-context"
 import { cn } from "@/lib/utils"
-import type { Tables } from "@/lib/database.types"
-
-type Conversation = Pick<
-  Tables<"contact_summary">,
-  "id" | "name" | "phone" | "email" | "tags" |
-  "sms_opted_out_at" | "email_unsubscribed_at" | "is_member" |
-  "inbox_category" | "inbox_status" |
-  "last_message_at" | "last_message_body" | "last_message_direction" |
-  "last_message_channel" | "message_count"
->
 
 interface InboxFrameProps {
-  conversations: Conversation[]
+  /**
+   * The conversation rail, passed as a server-rendered slot (wrapped in
+   * Suspense by the layout) so the inbox SHELL paints the instant you tap the
+   * tab and the list streams in behind it — instead of the whole route
+   * blocking on the contact_summary read.
+   */
+  list: React.ReactNode
   children: React.ReactNode
 }
 
@@ -34,7 +29,7 @@ export const InboxNavContext = createContext<{ closeThread: () => void } | null>
 // transition below and the app-shell chrome collapse (same token).
 const SLIDE_MS = 300
 
-export function InboxFrame({ conversations, children }: InboxFrameProps) {
+export function InboxFrame({ list, children }: InboxFrameProps) {
   // useSearchParams stays in sync with the URL without remounting the list.
   const sp = useSearchParams()
   const router = useRouter()
@@ -93,7 +88,7 @@ export function InboxFrame({ conversations, children }: InboxFrameProps) {
               desktop. w-full (not w-screen) so it fits the inbox area even when
               the app sidebar is showing at tablet widths. */}
           <div className="flex min-h-0 w-full shrink-0 flex-col border-r border-ink-hairline bg-surface lg:w-80 xl:w-96">
-            <ConversationList conversations={conversations} selectedId={selectedId} />
+            {list}
           </div>
 
           {/* Thread pane: a full inbox-pane on mobile, the flexible remainder on desktop. */}

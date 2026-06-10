@@ -13,7 +13,6 @@ export default async function NewEventPage() {
     <PageScaffold
       header={
         <PageHeader
-          eyebrow="Events"
           title="New event"
           backHref="/events"
           backLabel="All events"

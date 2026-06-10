@@ -1,6 +1,6 @@
 "use client"
 import { memo, useEffect, useMemo, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { formatDistanceToNow } from "date-fns"
 import { Search, ListFilter, Check, Mail } from "lucide-react"
@@ -143,14 +143,17 @@ const ConversationRow = memo(function ConversationRow({
 
 interface ConversationListProps {
   conversations: Conversation[]
-  selectedId?: string
 }
 
 export function ConversationList({
   conversations: initial,
-  selectedId,
 }: ConversationListProps) {
   const router = useRouter()
+  // Selection comes straight from the URL. The list used to receive it from
+  // InboxFrame, but now it streams in as a server slot — reading the search
+  // params here keeps it in sync without threading props through the boundary.
+  const sp = useSearchParams()
+  const selectedId = sp.get("c") ?? undefined
   // Optimistic selection: a tap flips the active row immediately, ahead of the
   // route change, so the highlight never lags the navigation. We follow the
   // server's selection whenever it actually changes (back button, deep link),

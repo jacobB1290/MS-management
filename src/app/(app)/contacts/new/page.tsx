@@ -16,9 +16,8 @@ export default async function NewContactPage() {
     .sort()
   return (
     <div className="flex flex-col h-full min-h-0">
-      <div className="shrink-0 px-4 md:px-8 pt-4 md:pt-6 pb-4 bg-bg max-w-2xl w-full">
+      <div className="shrink-0 px-4 md:px-8 pt-4 md:pt-5 pb-4 bg-bg max-w-2xl w-full mx-auto">
         <PageHeader
-          eyebrow="Directory"
           title="New contact"
           backHref="/contacts"
           backLabel="All contacts"
@@ -26,7 +25,7 @@ export default async function NewContactPage() {
         />
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 md:px-8 pb-6 md:pb-8 max-w-2xl w-full">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 md:px-8 pb-6 md:pb-8 max-w-2xl w-full mx-auto">
         <div className="rounded-lg border border-ink-hairline bg-white p-6 md:p-8">
           <ContactForm tagSuggestions={tagSuggestions} />
         </div>

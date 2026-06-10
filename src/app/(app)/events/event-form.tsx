@@ -244,7 +244,7 @@ export function EventForm({ mode, initial, status }: EventFormProps) {
               className={cn(
                 "h-auto py-1.5 font-display text-title font-semibold",
                 "leading-[var(--leading-snug)] tracking-[var(--tracking-tight)]",
-                "placeholder:font-normal placeholder:italic placeholder:text-ink-fade",
+                "placeholder:font-normal placeholder:text-ink-fade",
               )}
             />
           </FormField>
@@ -407,7 +407,9 @@ export function EventForm({ mode, initial, status }: EventFormProps) {
             editor. It is also the flyer surface: tap it or drop an image on it. */}
         <aside className="hidden xl:block">
           <div className="sticky top-4">
-            <p className="motto mb-4 text-gold">On ms.church</p>
+            {/* Rail labels speak in the small-caps eyebrow voice, matching the
+                campaign composer's rail — italics belong to .motto phrases. */}
+            <p className="eyebrow mb-4">On ms.church</p>
             <FlyerCard {...flyerCardProps} className="w-full max-w-[320px]" />
             <p className="mt-4 max-w-[320px] text-micro leading-[var(--leading-prose)] text-ink-faint">
               This is how the event appears in the ms.church events carousel once published.
