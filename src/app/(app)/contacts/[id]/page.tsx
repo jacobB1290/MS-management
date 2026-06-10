@@ -152,7 +152,9 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
 
             <div className="px-4 py-3.5 flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <dt className="eyebrow mb-1">Marketing messages</dt>
+                {/* One word — the longer label wrapped to two lines on mobile
+                    and crowded the value text beside the row action. */}
+                <dt className="eyebrow mb-1">Marketing</dt>
                 <dd className="text-small text-ink-muted">
                   {smsOptedOut
                     ? "Globally opted out of SMS. They must text START first"

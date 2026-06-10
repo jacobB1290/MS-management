@@ -17,8 +17,12 @@ export interface EditorSectionProps {
 
 /**
  * The editorial section device shared by the composition surfaces: a Playfair
- * heading (optionally numbered in italic gold) on a gold rule that dissolves
- * to the right. Sections breathe; fields inside sit flush on the cream canvas.
+ * heading, optionally numbered in gold, separated from its neighbors by
+ * whitespace alone. No rule — on the editors a line is reserved for meaning
+ * (a meter track, a card edge); section structure is carried by the serif
+ * heading and the breathing room around it. Sits at the section tier
+ * (--text-lead), one step under the page title, beside SectionHeading and
+ * CardTitle.
  */
 export function EditorSection({
   title,
@@ -30,22 +34,20 @@ export function EditorSection({
 }: EditorSectionProps) {
   return (
     <section className={cn("min-w-0", className)}>
-      <header className="flex items-baseline gap-[var(--space-sm)]">
-        {step && (
-          <span
-            aria-hidden
-            className="font-display text-heading italic leading-none text-gold/60"
-          >
-            {step}
-          </span>
-        )}
-        <h2 className="shrink-0 font-display text-heading font-medium leading-none text-ink">
-          {title}
-        </h2>
-        <span
-          aria-hidden
-          className="h-px min-w-[var(--space-md)] flex-1 self-center bg-gradient-to-r from-gold/40 to-transparent"
-        />
+      <header className="flex items-baseline justify-between gap-[var(--space-sm)]">
+        <div className="flex min-w-0 items-baseline gap-[var(--space-sm)]">
+          {step && (
+            <span
+              aria-hidden
+              className="font-display text-lead leading-none text-gold/60"
+            >
+              {step}
+            </span>
+          )}
+          <h2 className="shrink-0 font-display text-lead font-semibold leading-none text-ink">
+            {title}
+          </h2>
+        </div>
         {aside && <span className="shrink-0 self-center">{aside}</span>}
       </header>
       {note && (

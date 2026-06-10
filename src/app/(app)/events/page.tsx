@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { EmptyState } from "@/components/ui/empty-state"
 import { PageMasthead } from "@/components/ui/page-masthead"
 import { PageScaffold } from "@/components/ui/page-scaffold"
+import { SectionHeading } from "@/components/ui/section-heading"
 import { eventDisplayDate, eventLongDate, eventDisplayTime } from "@/lib/event-format"
 import { EventsToolbar } from "./events-toolbar"
 import { FlyerImage } from "./flyer-image"
@@ -42,16 +43,11 @@ export default async function EventsPage() {
   return (
     <PageScaffold
       header={
-        <div className="flex items-center justify-end gap-3 border-b border-ink-hairline pb-4 md:items-start md:justify-between md:pb-5">
-          {/* Shared masthead (hidden below md, where the topbar already titles
-              the page); the toolbar stays top-right, in the same corner as the
-              other tabs' + button. */}
-          <PageMasthead
-            title="Events"
-            description="What’s on at Morning Star, and what’s live on the public site."
-          />
-          <EventsToolbar />
-        </div>
+        <PageMasthead
+          title="Events"
+          description="What’s on at Morning Star, and what’s live on the public site."
+          actions={<EventsToolbar />}
+        />
       }
     >
       {upcoming.length === 0 && past.length === 0 ? (
@@ -101,15 +97,6 @@ function partitionEvents(rows: EventRow[]): { upcoming: EventRow[]; past: EventR
     .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime())
   const past = rows.filter((e) => new Date(e.starts_at).getTime() < now)
   return { upcoming, past }
-}
-
-function SectionHeading({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="mb-4 flex items-center gap-3">
-      <h2 className="font-display text-lead font-medium text-ink">{children}</h2>
-      <span className="h-px flex-1 bg-ink-hairline" />
-    </div>
-  )
 }
 
 /** The soonest upcoming event, given a wide editorial treatment. */

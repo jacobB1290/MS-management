@@ -42,7 +42,9 @@ export function PageScaffold({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="shrink-0 bg-bg">
-        <div className={cn(GUTTER, "pt-4 md:pt-6")}>{header}</div>
+        {/* pt matches the compact masthead rhythm — chrome stays tight so the
+            content owns the screen (same value the contacts header uses). */}
+        <div className={cn(GUTTER, "pt-4 md:pt-5")}>{header}</div>
         {headerBand}
       </div>
       <div

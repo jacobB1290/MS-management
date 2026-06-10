@@ -39,7 +39,9 @@ export const EmptyState = React.forwardRef<HTMLDivElement, EmptyStateProps>(
         )}
         <h3
           className={cn(
-            "font-display text-heading font-semibold",
+            // One tier below the page title (--text-heading) so an empty list
+            // never out-shouts the page's own header.
+            "font-display text-lead font-semibold",
             "text-ink leading-[var(--leading-snug)] tracking-[var(--tracking-tight)]",
           )}
         >

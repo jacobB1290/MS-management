@@ -43,7 +43,9 @@ export const CardTitle = React.forwardRef<
     <h3
       ref={ref}
       className={cn(
-        "font-display text-heading text-ink",
+        // Section tier (--text-lead): a card heading sits below the page
+        // title (--text-heading), beside SectionHeading + settings panes.
+        "font-display text-lead text-ink",
         "leading-[var(--leading-snug)] tracking-[var(--tracking-tight)]",
         "font-semibold",
         className,

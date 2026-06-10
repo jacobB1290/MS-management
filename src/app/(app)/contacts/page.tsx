@@ -7,9 +7,10 @@ import { Avatar } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { EmptyState } from "@/components/ui/empty-state"
 import { PageMasthead } from "@/components/ui/page-masthead"
+import { PAGE_GUTTER } from "@/components/ui/page-scaffold"
 import { ContactsSearch } from "./contacts-search"
 import { ContactsIndex } from "./contacts-index"
-import { formatPhone } from "@/lib/utils"
+import { cn, formatPhone } from "@/lib/utils"
 import type { Tables } from "@/lib/database.types"
 
 export const metadata = { title: "Contacts" }
@@ -85,25 +86,27 @@ export default async function ContactsPage({ searchParams }: ContactsPageProps) 
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      <div className="shrink-0 px-4 md:px-8 pt-4 pb-3 border-b border-ink-hairline bg-bg">
+      <div className={cn("shrink-0 pt-4 md:pt-5 bg-bg", PAGE_GUTTER)}>
         {/* md+ masthead carries the page identity (below md the mobile topbar
             already says "Contacts"), matching Events and Campaigns. */}
         <PageMasthead
           title="Contacts"
           description="Everyone the church talks to, in one directory."
-          className="mb-3"
+          toolbar={
+            <ContactsSearch initialQuery={q ?? ""} initialTag={tag ?? ""} tags={allTags} />
+          }
+          actions={
+            <Link href="/contacts/new" aria-label="New contact" className="btn-icon-action">
+              <Plus size={20} strokeWidth={2.5} />
+            </Link>
+          }
         />
-        <ContactsSearch initialQuery={q ?? ""} initialTag={tag ?? ""} tags={allTags}>
-          <Link href="/contacts/new" aria-label="New contact" className="btn-icon-action">
-            <Plus size={20} strokeWidth={2.5} />
-          </Link>
-        </ContactsSearch>
       </div>
 
       <div className="relative flex-1 min-h-0">
         <div className="h-full overflow-y-auto overscroll-contain pb-8">
           {rows.length === 0 ? (
-            <div className="px-4 md:px-8 py-10">
+            <div className={cn("py-10", PAGE_GUTTER)}>
               <EmptyState
                 title={filtered ? "No matches" : "No contacts yet"}
                 body={
@@ -154,7 +157,10 @@ function SectionHeader({ id, children }: { id?: string; children: React.ReactNod
   return (
     <div
       id={id}
-      className="sticky top-0 z-[5] scroll-mt-0 bg-bg/90 px-4 md:px-8 py-1 text-label font-semibold uppercase tracking-[var(--tracking-wide)] text-ink-faint backdrop-blur supports-[backdrop-filter]:bg-bg/75"
+      className={cn(
+        "sticky top-0 z-[5] scroll-mt-0 bg-bg/90 py-1 text-label font-semibold uppercase tracking-[var(--tracking-wide)] text-ink-faint backdrop-blur supports-[backdrop-filter]:bg-bg/75",
+        PAGE_GUTTER,
+      )}
     >
       {children}
     </div>
@@ -173,7 +179,7 @@ function ContactRow({ contact, stopped = false }: { contact: Row; stopped?: bool
     <Link
       href={`/contacts/${contact.id}`}
       prefetch
-      className="flex items-center gap-3 px-4 md:px-8 hover:bg-white/60 active:bg-white/60 transition-colors"
+      className={cn("flex items-center gap-3 hover:bg-white/60 active:bg-white/60 transition-colors", PAGE_GUTTER)}
     >
       <Avatar name={contact.name ?? contact.phone} size="md" />
       <div className="flex min-w-0 flex-1 items-center gap-3 border-b border-ink-hairline py-3">

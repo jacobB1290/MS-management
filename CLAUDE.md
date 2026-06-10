@@ -231,6 +231,60 @@ period** for chrome (buttons, table headers, modal titles, toasts) — periods
 in product chrome read as typos. Visible editorial copy (e.g., the future
 public form page, marketing emails) keeps the rule.
 
+### 7.1 Console chrome system (load-bearing — the harness enforces it)
+
+One header system, two components, no bespoke page chrome:
+
+- **`PageMasthead`** — the four primary tabs (Contacts / Events / Campaigns;
+  Inbox's rail owns its own chrome). Compact: title at **`--text-heading`**
+  (this is product chrome, one tier below the marketing `--text-title`),
+  one-line description, `actions` top-right (primary `.btn-icon-action` circle
+  in the outermost corner on every page), optional `toolbar` row. Hidden below
+  `md` (the mobile topbar names the page); on mobile the toolbar+actions share
+  one 44px band. The masthead owns its hairline + padding — never wrap it in
+  another bordered div.
+- **`PageHeader`** — subviews and detail pages (back affordance, optional
+  actions/info). Same `--text-heading` title tier. **Eyebrow only over dynamic
+  titles** ("Event", "Campaign" over user-entered text); a static title that
+  self-describes ("Settings", "New campaign") gets no eyebrow — it doesn't earn
+  the row.
+
+**Type tiers (don't invent in-betweens):** page title = `--text-heading`
+(Playfair semibold) → section tier = `--text-lead` (`SectionHeading`,
+`EditorSection`, `CardTitle`, settings pane headings, empty-state titles) →
+operational text = Inter at `--text-body`/`--text-compact`/`--text-small` →
+labels = small-caps `--text-label`/`--text-micro` (field labels, table `Th`,
+the `.eyebrow` voice). **Italics belong to `.motto` identity phrases only**
+(the conformance spec fails anything else). One secondary-text voice:
+sentence-case muted sans for every helper/hint/whisper line.
+
+**Line discipline:** a visible line means *structure* (the chrome hairline, a
+card edge, a meter track). Inputs are never lines — the editor field voice is
+`.field-quiet`, a softly filled well one step darker than the canvas whose
+focus draws a gold line along its base. Sections separate by whitespace +
+their serif heading, not by rules.
+
+**Layout:** every page sits in `PAGE_GUTTER` (exported from `page-scaffold`) —
+the conformance spec asserts the tabs' titles align to the pixel. Tables go
+through `TableCard`/`Table`/`Th`/`Tr`/`Td`; rows hover with the standard
+surface tint.
+
+**Loading is designed, not incidental:** every route has a `loading.tsx`
+composed from `src/components/ui/loading-blocks.tsx`, rendering the page's
+REAL masthead/header (so the frame is pixel-identical and nothing shifts on
+swap) with `LoadingView`-wrapped ghosts for the data region. A new route
+without a loading state is a perf regression — navigation must paint
+instantly. (Deliberate exception: no `loading.tsx` under `/inbox` — it would
+break the hold-previous-thread behavior; the rail streams via the layout's
+Suspense slot instead.)
+
+**Enforcement:** `scripts/harness/scenarios/50-conformance.spec.ts` asserts
+the invariants above (single h1 at the right tier, shared gutters, no stray
+italics, 44px tap targets, headings on the token scale) across the viewport
+matrix. Run it with the harness; when you add a system rule, add its
+assertion there too — the conformance spec is what keeps delegated or
+lower-effort work from quietly eroding the system.
+
 ## 8. Platform-specific UX — two designs, one design system
 
 **Hard requirement.** Don't build one layout and scale it for mobile.

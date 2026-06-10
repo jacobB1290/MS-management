@@ -44,14 +44,14 @@ export function EventsToolbar() {
         aria-label="Sync from Google Calendar"
         title="Sync from Google Calendar"
         className={cn(
-          "inline-flex items-center justify-center gap-1.5 rounded-pill border border-ink-hairline bg-white text-ink-muted transition-colors duration-[var(--motion-fast)] hover:bg-surface disabled:opacity-50 motion-reduce:transition-none",
-          // Icon-only 44px touch target on mobile (matches the back/+ sizing);
-          // expands to a labelled pill on sm+.
-          "h-11 w-11 sm:h-auto sm:w-auto sm:px-3.5 sm:py-2 sm:text-small",
+          // A quiet 44px circle at every size — the header speaks one circle
+          // language (filter / compose / + are all 44px rounds), so a labelled
+          // pill beside the + read as a different system. The title attribute
+          // and toast carry the wording.
+          "inline-flex h-11 w-11 items-center justify-center rounded-pill border border-ink-hairline bg-white text-ink-muted transition-colors duration-[var(--motion-fast)] hover:bg-surface hover:text-ink disabled:opacity-50 motion-reduce:transition-none",
         )}
       >
-        <RefreshCw size={16} className={cn(syncing && "animate-spin")} />
-        <span className="hidden sm:inline">{syncing ? "Syncing…" : "Sync"}</span>
+        <RefreshCw size={18} className={cn(syncing && "animate-spin")} />
       </button>
       <Link href="/events/new" aria-label="New event" className="btn-icon-action">
         <Plus size={20} strokeWidth={2.5} />

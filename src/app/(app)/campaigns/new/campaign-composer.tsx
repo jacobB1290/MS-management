@@ -317,12 +317,8 @@ export function CampaignComposer({ tagOptions, audienceCounts, prefill }: Compos
           <FormField
             variant="quiet"
             htmlFor="name"
-            label={
-              <>
-                Campaign name
-                <span className="font-normal text-ink-faint"> · only staff see this</span>
-              </>
-            }
+            label="Campaign name"
+            hint="Only staff see this."
             className="max-w-[460px]"
           >
             <Input
@@ -452,7 +448,9 @@ export function CampaignComposer({ tagOptions, audienceCounts, prefill }: Compos
             {/* On mobile the recipient's phone sits right under what you're
                 typing — instant feedback. On xl it moves to the rail. */}
             <div className="pt-[var(--space-xs)] xl:hidden">
-              <p className="motto mb-3 text-gold">What they’ll see</p>
+              {/* The rail labels speak in one voice: the small-caps eyebrow
+                  (matching "Audience" below) — not an italic flourish. */}
+              <p className="eyebrow mb-3">What they’ll see</p>
               {preview}
             </div>
           </EditorSection>
@@ -558,11 +556,12 @@ export function CampaignComposer({ tagOptions, audienceCounts, prefill }: Compos
         {/* The recipient's phone, pinned alongside the editor. */}
         <aside className="hidden xl:block">
           <div className="sticky top-4">
-            <p className="motto mb-4 text-gold">What they’ll see</p>
+            <p className="eyebrow mb-4">What they’ll see</p>
             {preview}
             <div className="mt-[var(--space-lg)] w-full max-w-[340px] border-t border-ink-hairline pt-[var(--space-md)]">
               <p className="eyebrow">Audience</p>
-              <p className="mt-1.5 font-display text-heading font-medium leading-[var(--leading-snug)] text-ink">
+              {/* Section tier — the page title alone owns --text-heading. */}
+              <p className="mt-1.5 font-display text-lead font-semibold leading-[var(--leading-snug)] text-ink">
                 <span key={audienceHeadline} className={SWAP_IN}>
                   {audienceHeadline}
                 </span>
@@ -772,7 +771,7 @@ function RecipientPreview({
               )}
               <div className="max-w-[85%] self-start whitespace-pre-wrap break-words rounded-2xl rounded-bl-md bg-[color-mix(in_oklab,var(--ink)_8%,var(--surface-elevated))] px-3.5 py-2 text-compact leading-[var(--leading-prose)] text-ink">
                 {body.trim() || (
-                  <span className="italic text-ink-faint">Your message, as they’ll read it.</span>
+                  <span className="text-ink-faint">Your message, as they’ll read it.</span>
                 )}
               </div>
             </div>
@@ -789,7 +788,7 @@ function RecipientPreview({
                   <span className="shrink-0 text-micro text-ink-faint">9:41 AM</span>
                 </div>
                 <p className="mt-0.5 truncate text-small font-medium text-ink">
-                  {subject.trim() || <span className="italic text-ink-faint">Subject line</span>}
+                  {subject.trim() || <span className="text-ink-faint">Subject line</span>}
                 </p>
                 <p className="mt-0.5 text-small leading-[var(--leading-prose)] text-ink-muted">
                   {templateId

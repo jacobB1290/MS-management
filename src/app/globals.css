@@ -381,31 +381,37 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* Editorial quiet field — the input voice of the composition surfaces (event
- * editor, campaign composer). No white box: the cream canvas is the page, a
- * hairline marks the writing line, and focus draws a gold line across it. The
- * draw is a background-image trick because replaced elements can't carry
- * ::after. Defined here (unlayered) for the same reason as .btn-cta: it must
- * beat the base form resets regardless of specificity. */
+ * editor, campaign composer). A softly filled well, one step darker than the
+ * cream canvas, so a field is self-evidently a field: on these surfaces a
+ * LINE means structure (a rule, a divider) and a FILL means "type here" — the
+ * two never share a vocabulary. (The previous underline treatment made field
+ * edges, section rules, and meter tracks all read as the same hairline.)
+ * Focus draws a gold line along the well's base — the draw is a
+ * background-image trick because replaced elements can't carry ::after.
+ * Defined here (unlayered) for the same reason as .btn-cta: it must beat the
+ * base form resets regardless of specificity. */
 .field-quiet {
-  background-color: transparent;
+  background-color: color-mix(in srgb, var(--ink) 4%, transparent);
   border: 0;
-  border-bottom: 1px solid var(--text-hairline);
-  border-radius: 0;
-  padding-inline: 0;
+  border-radius: var(--radius-sm);
+  padding-inline: 12px;
   background-image: linear-gradient(var(--gold), var(--gold));
   background-repeat: no-repeat;
   background-position: 0 100%;
   background-size: 0% 2px;
   transition:
     background-size var(--motion-medium) var(--ease-out-soft),
-    border-color var(--motion-fast) var(--ease-standard);
+    background-color var(--motion-fast) var(--ease-standard);
+}
+.field-quiet:hover:not(:disabled):not(:focus-visible) {
+  background-color: color-mix(in srgb, var(--ink) 5.5%, transparent);
 }
 .field-quiet:focus-visible {
   outline: none;
   background-size: 100% 2px;
 }
 .field-quiet[aria-invalid="true"] {
-  border-bottom-color: color-mix(in srgb, var(--color-danger) 55%, transparent);
+  background-color: color-mix(in srgb, var(--color-danger) 6%, transparent);
   background-image: linear-gradient(var(--color-danger), var(--color-danger));
 }
 
@@ -573,6 +579,15 @@ h1, h2, h3, h4, h5, h6 {
  * settings-pane-in above); reduced motion collapses the duration to ~0.
  * Deliberately no scale: scaling a box of small menu text blurs the glyphs
  * mid-transition, so a pure fade+slide stays sharp. */
+/* Route-level loading ghosts (loading-blocks.tsx) ease in rather than snap —
+ * a skeleton that hard-cuts onto the screen is itself an unanimated action.
+ * Pure opacity: the ghost must not move, since the real content replaces it
+ * in place. */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
 @keyframes menu-in {
   from { opacity: 0; transform: translateY(-6px); }
   to   { opacity: 1; transform: translateY(0); }

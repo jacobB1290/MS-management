@@ -3,9 +3,11 @@ import { format } from "date-fns"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { requireAdmin } from "@/server/auth"
 import { PageHeader } from "@/components/ui/page-header"
+import { PageScaffold } from "@/components/ui/page-scaffold"
 import { BackButton } from "@/components/ui/back-button"
 import { Badge } from "@/components/ui/badge"
 import { EmptyState } from "@/components/ui/empty-state"
+import { TableCard, Table, Th, Tr, Td } from "@/components/ui/table"
 
 export const metadata: Metadata = { title: "Audit log" }
 
@@ -37,71 +39,65 @@ export default async function AuditPage() {
     .limit(500)
 
   return (
-    <div className="flex flex-col h-full min-h-0">
-      <div className="shrink-0 px-4 md:px-8 pt-4 md:pt-6 pb-4 bg-bg">
+    <PageScaffold
+      header={
         <PageHeader
-          eyebrow="Console"
           title="Audit log"
           backSlot={<BackButton label="Back" />}
           backMobileOnly
           info="Every privileged write is logged: sends, opt-out toggles, contact edits, campaign starts, logins, invites. Reads are not logged; the threat is unauthorized writes, not legitimate viewing."
         />
-      </div>
-
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 md:px-8 pb-6 md:pb-8">
-        {!rows || rows.length === 0 ? (
-          <EmptyState
-            title="No events yet"
-            body="Once staff start using the console, every privileged action lands here."
-          />
-        ) : (
-          <div className="overflow-x-auto rounded-lg border border-ink-hairline bg-white">
-            <table className="w-full text-small">
-              <thead>
-                <tr className="text-left text-ink-faint border-b border-ink-hairline">
-                  <th className="font-medium px-4 py-3 w-44" data-dynamic>When</th>
-                  <th className="font-medium px-4 py-3">Action</th>
-                  <th className="font-medium px-4 py-3 hidden md:table-cell">Actor</th>
-                  <th className="font-medium px-4 py-3 hidden md:table-cell">Target</th>
-                  <th className="font-medium px-4 py-3 hidden lg:table-cell">IP</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => (
-                  <tr
-                    key={r.id}
-                    className="border-b border-ink-hairline last:border-b-0 hover:bg-surface transition-colors"
-                  >
-                    <td className="px-4 py-3 text-ink-muted whitespace-nowrap w-44" data-dynamic>
-                      {/* Zero-padded, fixed-width ("MMM dd, hh:mm a") so the column
-                          width never changes as the time rolls over — the cell is
-                          masked in the visual harness, and a varying width would
-                          otherwise shift every column after it and flake the snapshot. */}
-                      {format(new Date(r.created_at), "MMM dd, hh:mm a")}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge variant={ACTION_VARIANT[r.action] ?? "muted"}>
-                        {r.action}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 text-ink-muted hidden md:table-cell font-mono text-micro">
-                      {r.actor_user_id?.slice(0, 8) ?? "system"}
-                    </td>
-                    <td className="px-4 py-3 text-ink-muted hidden md:table-cell font-mono text-micro">
-                      {r.target_table && r.target_id
-                        ? `${r.target_table}/${r.target_id.slice(0, 8)}`
-                        : "—"}
-                    </td>
-                    <td className="px-4 py-3 text-ink-muted hidden lg:table-cell font-mono text-micro">
-                      {(r.ip as string | null) ?? "—"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-    </div>
+      }
+    >
+      {!rows || rows.length === 0 ? (
+        <EmptyState
+          title="No events yet"
+          body="Once staff start using the console, every privileged action lands here."
+        />
+      ) : (
+        <TableCard className="mt-6">
+          <Table>
+            <thead>
+              <tr className="border-b border-ink-hairline">
+                <Th className="w-44" data-dynamic>When</Th>
+                <Th>Action</Th>
+                <Th className="hidden md:table-cell">Actor</Th>
+                <Th className="hidden md:table-cell">Target</Th>
+                <Th className="hidden lg:table-cell">IP</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <Tr key={r.id}>
+                  <Td className="text-ink-muted whitespace-nowrap w-44" data-dynamic>
+                    {/* Zero-padded, fixed-width ("MMM dd, hh:mm a") so the column
+                        width never changes as the time rolls over — the cell is
+                        masked in the visual harness, and a varying width would
+                        otherwise shift every column after it and flake the snapshot. */}
+                    {format(new Date(r.created_at), "MMM dd, hh:mm a")}
+                  </Td>
+                  <Td>
+                    <Badge variant={ACTION_VARIANT[r.action] ?? "muted"}>
+                      {r.action}
+                    </Badge>
+                  </Td>
+                  <Td className="text-ink-muted hidden md:table-cell font-mono text-micro">
+                    {r.actor_user_id?.slice(0, 8) ?? "system"}
+                  </Td>
+                  <Td className="text-ink-muted hidden md:table-cell font-mono text-micro">
+                    {r.target_table && r.target_id
+                      ? `${r.target_table}/${r.target_id.slice(0, 8)}`
+                      : "—"}
+                  </Td>
+                  <Td className="text-ink-muted hidden lg:table-cell font-mono text-micro">
+                    {(r.ip as string | null) ?? "—"}
+                  </Td>
+                </Tr>
+              ))}
+            </tbody>
+          </Table>
+        </TableCard>
+      )}
+    </PageScaffold>
   )
 }
