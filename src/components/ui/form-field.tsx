@@ -8,11 +8,14 @@ export interface FormFieldProps extends React.HTMLAttributes<HTMLDivElement> {
   error?: React.ReactNode
   hint?: React.ReactNode
   required?: boolean
+  /** "quiet" pairs with the quiet Input/Textarea variant: a refined small-caps
+   *  label that warms to gold while the field inside has focus. */
+  variant?: "default" | "quiet"
 }
 
 export const FormField = React.forwardRef<HTMLDivElement, FormFieldProps>(
   function FormField(
-    { className, label, htmlFor, error, hint, required, children, ...props },
+    { className, label, htmlFor, error, hint, required, variant = "default", children, ...props },
     ref,
   ) {
     const hintId = hint ? `${htmlFor}-hint` : undefined
@@ -39,10 +42,24 @@ export const FormField = React.forwardRef<HTMLDivElement, FormFieldProps>(
     return (
       <div
         ref={ref}
-        className={cn("flex min-w-0 flex-col gap-[var(--space-xs)]", className)}
+        className={cn(
+          "flex min-w-0 flex-col gap-[var(--space-xs)]",
+          variant === "quiet" && "group/field gap-1.5",
+          className,
+        )}
         {...props}
       >
-        <Label htmlFor={htmlFor}>
+        <Label
+          htmlFor={htmlFor}
+          className={cn(
+            variant === "quiet" &&
+              cn(
+                "text-micro font-semibold uppercase tracking-[var(--tracking-wide)] text-ink-muted",
+                "transition-colors duration-[var(--motion-fast)] ease-[var(--ease-standard)]",
+                "group-focus-within/field:text-gold-dark",
+              ),
+          )}
+        >
           {label}
           {required && (
             <span aria-hidden="true" className="text-danger ml-0.5">
@@ -63,7 +80,11 @@ export const FormField = React.forwardRef<HTMLDivElement, FormFieldProps>(
           <p
             id={errorId}
             role="alert"
-            className="text-small text-danger leading-[var(--leading-prose)]"
+            className={cn(
+              "text-small text-danger leading-[var(--leading-prose)]",
+              // Errors appear mid-interaction — settle them in rather than snap.
+              "animate-[settings-pane-in_var(--motion-fast)_var(--ease-out-soft)_backwards]",
+            )}
           >
             {error}
           </p>

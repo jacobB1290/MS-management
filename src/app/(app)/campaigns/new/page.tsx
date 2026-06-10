@@ -32,6 +32,9 @@ export default async function NewCampaignPage({ searchParams }: NewCampaignPageP
           info="Compose a one-off SMS or email blast. Opted-out and unsubscribed contacts are automatically excluded; the recipient list records who was skipped and why."
         />
       }
+      // The composer closes with a sticky EditorBar; the scaffold's bottom
+      // padding would otherwise show as a cream gap beneath it at scroll end.
+      className="pb-0 md:pb-0"
     >
       <div className="pt-6">
         <Suspense fallback={<ComposerSkeleton />}>
@@ -52,7 +55,7 @@ async function CampaignComposerLoader({
   ai?: boolean
 }) {
   const supabase = await createSupabaseServerClient()
-  const [tagList, eventRes] = await Promise.all([
+  const [tagList, eventRes, totalRes, membersRes] = await Promise.all([
     getContactTagOccurrences(),
     eventId
       ? supabase
@@ -61,6 +64,12 @@ async function CampaignComposerLoader({
           .eq("id", eventId)
           .maybeSingle()
       : Promise.resolve({ data: null }),
+    // Head counts only — the audience picker talks in people, not filters.
+    supabase.from("contacts").select("id", { count: "exact", head: true }),
+    supabase
+      .from("contacts")
+      .select("id", { count: "exact", head: true })
+      .eq("is_member", true),
   ])
 
   const tagCounts = new Map<string, number>()
@@ -85,10 +94,18 @@ async function CampaignComposerLoader({
       }
     : undefined
 
-  return <CampaignComposer tagOptions={tagOptions} prefill={prefill} />
+  return (
+    <CampaignComposer
+      tagOptions={tagOptions}
+      audienceCounts={{ total: totalRes.count ?? 0, members: membersRes.count ?? 0 }}
+      prefill={prefill}
+    />
+  )
 }
 
-/** A short SMS promo seed from an event: title, when, and a link. */
+/** A short SMS promo seed from an event: title, when, and a link. Kept to the
+ *  GSM-7 alphabet (plain hyphens, no em/en dashes) — one typographic dash
+ *  flips the whole SMS to UCS-2 and doubles the per-text cost. */
 function smsPromoBody(ev: {
   title: string
   starts_at: string
@@ -99,18 +116,38 @@ function smsPromoBody(ev: {
   const time = eventDisplayTime(ev.starts_at, ev.ends_at, ev.all_day)
   const when = time ? `${eventLongDate(ev.starts_at)} at ${time}` : eventLongDate(ev.starts_at)
   const link = ev.cta_url || "https://ms.church/outreach#events"
-  return `${ev.title} — ${when}. ${link}`
+  return `${ev.title} - ${when}. ${link}`.replace(/[–—]/g, "-")
 }
 
 function ComposerSkeleton() {
+  // Mirrors the composer's editorial grid so the stream-in doesn't reflow:
+  // quiet fields at a reading measure on the left, the recipient-phone
+  // preview on the right rail (xl+).
   return (
-    <div className="space-y-5">
-      <Skeleton className="h-4 w-24" />
-      <Skeleton className="h-11 w-full" />
-      <Skeleton className="h-9 w-48" />
-      <Skeleton className="h-4 w-20" />
-      <Skeleton className="h-28 w-full" />
-      <Skeleton className="h-11 w-32" />
+    <div className="grid grid-cols-1 gap-0 xl:grid-cols-[minmax(0,1fr)_clamp(340px,27vw,420px)] xl:gap-[var(--space-3xl)]">
+      <div className="max-w-[680px] space-y-10">
+        <div className="space-y-2">
+          <Skeleton className="h-3 w-28" />
+          <Skeleton className="h-9 w-full max-w-[460px]" />
+        </div>
+        <div className="space-y-5">
+          <Skeleton className="h-6 w-44" />
+          <Skeleton className="h-12 w-full max-w-[360px] rounded-pill" />
+          <Skeleton className="h-24 w-full" />
+        </div>
+        <div className="space-y-5">
+          <Skeleton className="h-6 w-40" />
+          <div className="flex flex-wrap gap-2">
+            <Skeleton className="h-11 w-32 rounded-pill" />
+            <Skeleton className="h-11 w-28 rounded-pill" />
+            <Skeleton className="h-11 w-28 rounded-pill" />
+          </div>
+        </div>
+      </div>
+      <div className="hidden xl:block">
+        <Skeleton className="h-5 w-32" />
+        <Skeleton className="mt-4 h-72 w-full max-w-[340px] rounded-xl" />
+      </div>
     </div>
   )
 }

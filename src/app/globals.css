@@ -380,6 +380,35 @@ h1, h2, h3, h4, h5, h6 {
   background: color-mix(in srgb, var(--gold) 22%, transparent);
 }
 
+/* Editorial quiet field — the input voice of the composition surfaces (event
+ * editor, campaign composer). No white box: the cream canvas is the page, a
+ * hairline marks the writing line, and focus draws a gold line across it. The
+ * draw is a background-image trick because replaced elements can't carry
+ * ::after. Defined here (unlayered) for the same reason as .btn-cta: it must
+ * beat the base form resets regardless of specificity. */
+.field-quiet {
+  background-color: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--text-hairline);
+  border-radius: 0;
+  padding-inline: 0;
+  background-image: linear-gradient(var(--gold), var(--gold));
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 0% 2px;
+  transition:
+    background-size var(--motion-medium) var(--ease-out-soft),
+    border-color var(--motion-fast) var(--ease-standard);
+}
+.field-quiet:focus-visible {
+  outline: none;
+  background-size: 100% 2px;
+}
+.field-quiet[aria-invalid="true"] {
+  border-bottom-color: color-mix(in srgb, var(--color-danger) 55%, transparent);
+  background-image: linear-gradient(var(--color-danger), var(--color-danger));
+}
+
 /* Inbox segment filter chip + segment control trigger. Background and text
  * live in a component class (not Tailwind utilities) because the global button
  * reset zeroes utility backgrounds/colors on <button>, exactly as the notes on

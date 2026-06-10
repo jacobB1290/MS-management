@@ -92,9 +92,12 @@ export default async function EventDetailPage({ params }: PageProps) {
           </div>
         </>
       }
+      // The editor closes with a sticky EditorBar; the scaffold's bottom
+      // padding would otherwise show as a cream gap beneath it at scroll end.
+      className="pb-0 md:pb-0"
     >
       <div className="pt-6">
-        <EventForm mode="edit" initial={initial} />
+        <EventForm mode="edit" initial={initial} status={status} />
       </div>
     </PageScaffold>
   )

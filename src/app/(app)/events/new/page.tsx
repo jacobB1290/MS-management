@@ -20,6 +20,9 @@ export default async function NewEventPage() {
           info="Create an event here, then publish it to the church Google Calendar — ms.church reads that calendar and shows the event automatically. The flyer image is what appears on the site."
         />
       }
+      // The editor closes with a sticky EditorBar; the scaffold's bottom
+      // padding would otherwise show as a cream gap beneath it at scroll end.
+      className="pb-0 md:pb-0"
     >
       <div className="pt-6">
         <EventForm mode="create" />

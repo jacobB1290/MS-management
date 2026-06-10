@@ -25,7 +25,12 @@ export interface PageScaffoldProps {
 
 // Side gutters that grow with the viewport — full width on a laptop, a little
 // more air on a wide monitor — without ever capping the content into a column.
-const GUTTER = "px-4 md:px-8 xl:px-12 2xl:px-16"
+// Exported (with the matching negative-margin bleed) so full-bleed strips
+// inside the scroll region — e.g. the sticky EditorBar — can escape and
+// re-enter the same gutters without hardcoding a second copy that drifts.
+export const PAGE_GUTTER = "px-4 md:px-8 xl:px-12 2xl:px-16"
+export const PAGE_GUTTER_BLEED = "-mx-4 md:-mx-8 xl:-mx-12 2xl:-mx-16"
+const GUTTER = PAGE_GUTTER
 
 export function PageScaffold({
   header,

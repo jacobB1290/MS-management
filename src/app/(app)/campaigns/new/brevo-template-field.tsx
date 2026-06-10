@@ -76,14 +76,15 @@ export function BrevoTemplateField({
 
   return (
     <>
-      <div className="flex items-center gap-2">
+      <div className="flex items-end gap-3">
         <Input
+          variant="quiet"
           id="template"
           value={templateId}
           inputMode="numeric"
           onChange={(e) => onTemplateId(e.target.value.replace(/[^0-9]/g, ""))}
           placeholder="e.g. 12"
-          className="font-mono flex-1"
+          className="max-w-[160px] font-mono"
         />
         <Button type="button" variant="secondary" size="sm" onClick={openBrowse}>
           Browse

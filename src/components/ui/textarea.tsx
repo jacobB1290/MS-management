@@ -6,11 +6,14 @@ import { cn } from "@/lib/utils"
 export interface TextareaProps
   extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   autoGrow?: boolean
+  /** "box" is the standard white field; "quiet" is the editorial underline
+   *  field used on composition surfaces (event editor, campaign composer). */
+  variant?: "box" | "quiet"
 }
 
 export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
   function Textarea(
-    { className, autoGrow = false, onChange, rows = 3, ...props },
+    { className, autoGrow = false, variant = "box", onChange, rows = 3, ...props },
     ref,
   ) {
     const innerRef = React.useRef<HTMLTextAreaElement | null>(null)
@@ -53,14 +56,18 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           onChange?.(event)
         }}
         className={cn(
-          "block w-full bg-white border border-ink-hairline rounded-md",
-          "px-3 py-2.5 text-body text-ink",
+          "block w-full py-2.5 text-body text-ink",
           "min-h-[88px] resize-y",
           "placeholder:text-ink-faint",
-          "transition-colors duration-[var(--motion-fast)] ease-[var(--ease-standard)]",
-          "focus-visible:outline-2 focus-visible:outline-gold focus-visible:outline-offset-2",
           "disabled:opacity-60 disabled:cursor-not-allowed",
-          "aria-invalid:border-danger aria-invalid:focus-visible:outline-danger",
+          variant === "quiet"
+            ? "field-quiet"
+            : cn(
+                "bg-white border border-ink-hairline rounded-md px-3",
+                "transition-colors duration-[var(--motion-fast)] ease-[var(--ease-standard)]",
+                "focus-visible:outline-2 focus-visible:outline-gold focus-visible:outline-offset-2",
+                "aria-invalid:border-danger aria-invalid:focus-visible:outline-danger",
+              ),
           // `field-sizing-content` lets WebKit/Chromium grow the box; the JS
           // fallback uses overflow-hidden + measured height instead.
           autoGrow && "resize-none overflow-hidden field-sizing-content",
