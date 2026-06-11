@@ -125,22 +125,22 @@ export default async function CampaignDetail({ params }: PageProps) {
   return (
     <PageScaffold
       header={
-        <>
-          <PageHeader
-            eyebrow="Campaign"
-            title={campaign.name}
-            backHref="/campaigns"
-            backLabel="All campaigns"
-            actions={<CampaignActions campaign={campaign} audienceBreakdown={audienceBreakdown} />}
-          />
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <Badge variant={STATUS_VARIANT[campaign.status] ?? "muted"}>{campaign.status}</Badge>
-            <span className="inline-flex items-center gap-1.5 text-small text-ink-muted">
-              {campaign.channel === "sms" ? <MessageSquare size={14} /> : <Mail size={14} />}
-              {campaign.channel.toUpperCase()}
-            </span>
-          </div>
-        </>
+        <PageHeader
+          eyebrow="Campaign"
+          title={campaign.name}
+          backHref="/campaigns"
+          backLabel="All campaigns"
+          actions={<CampaignActions campaign={campaign} audienceBreakdown={audienceBreakdown} />}
+          meta={
+            <>
+              <Badge variant={STATUS_VARIANT[campaign.status] ?? "muted"}>{campaign.status}</Badge>
+              <span className="inline-flex items-center gap-1.5 text-small text-ink-muted">
+                {campaign.channel === "sms" ? <MessageSquare size={14} /> : <Mail size={14} />}
+                {campaign.channel.toUpperCase()}
+              </span>
+            </>
+          }
+        />
       }
     >
       <div className="space-y-8 pt-6">

@@ -103,6 +103,57 @@ test("italics appear only on .motto identity phrases", async ({ authed }) => {
   }
 })
 
+test("subpage chrome: centered title, circular back button", async ({ authed }) => {
+  for (const path of ["/campaigns/new", "/events/new", "/contacts/new"]) {
+    await gotoAndSettle(authed, path)
+    const h1 = authed.locator("h1").first()
+    await expect(h1, `${path}: one page title`).toBeVisible()
+    // The title block sits dead-center in the header's 1fr/auto/1fr grid —
+    // measured against its own header band (the app sidebar shifts the
+    // viewport center, so that is not the reference).
+    const centers = await h1.evaluate((el) => {
+      const header = el.closest("header")
+      if (!header) return null
+      const t = el.getBoundingClientRect()
+      const h = header.getBoundingClientRect()
+      return { title: t.x + t.width / 2, header: h.x + h.width / 2 }
+    })
+    if (!centers) throw new Error(`${path}: h1 not inside a header`)
+    // The center column also holds the optional ⓘ glyph, so allow its width.
+    expect(
+      Math.abs(centers.title - centers.header),
+      `${path}: title centered (title @${centers.title}, header @${centers.header})`,
+    ).toBeLessThanOrEqual(40)
+    // The back affordance is the circular chrome button, ≥44px both ways.
+    const back = authed.locator(".btn-icon-circle").first()
+    await expect(back, `${path}: circular back button`).toBeVisible()
+    const backBox = await back.boundingBox()
+    expect(backBox?.height ?? 0, `${path}: back height`).toBeGreaterThanOrEqual(43)
+    expect(backBox?.width ?? 0, `${path}: back width`).toBeGreaterThanOrEqual(43)
+  }
+})
+
+test("no page pans horizontally", async ({ authed }) => {
+  // A single element wider than the viewport lets the whole page slide
+  // side-to-side on touch — the classic mobile regression. Assert the scroll
+  // plane never exceeds the viewport on any route.
+  for (const path of [...TOP_PAGES, "/campaigns/new", "/events/new", "/contacts/new", "/settings", "/audit"]) {
+    await gotoAndSettle(authed, path)
+    const overflow = await authed.evaluate(() => {
+      const doc = document.scrollingElement!
+      const docOverflow = doc.scrollWidth - doc.clientWidth
+      // Also check the app's own scroll regions (the scaffold owns overflow).
+      let regionOverflow = 0
+      for (const el of Array.from(document.querySelectorAll<HTMLElement>("[data-scroll-region]"))) {
+        regionOverflow = Math.max(regionOverflow, el.scrollWidth - el.clientWidth)
+      }
+      return { docOverflow, regionOverflow }
+    })
+    expect(overflow.docOverflow, `${path}: document pans horizontally`).toBeLessThanOrEqual(1)
+    expect(overflow.regionOverflow, `${path}: scroll region pans horizontally`).toBeLessThanOrEqual(1)
+  }
+})
+
 test("primary tap targets are at least 44px", async ({ authed }) => {
   await gotoAndSettle(authed, "/contacts")
   for (const selector of [".btn-icon-action", "nav a"]) {

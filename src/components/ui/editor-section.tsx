@@ -17,12 +17,11 @@ export interface EditorSectionProps {
 
 /**
  * The editorial section device shared by the composition surfaces: a Playfair
- * heading, optionally numbered in gold, separated from its neighbors by
- * whitespace alone. No rule — on the editors a line is reserved for meaning
- * (a meter track, a card edge); section structure is carried by the serif
- * heading and the breathing room around it. Sits at the section tier
- * (--text-lead), one step under the page title, beside SectionHeading and
- * CardTitle.
+ * heading, optionally numbered in gold, with a hairline rule running from the
+ * title and fading to nothing — enough structure to scan the steps at a
+ * glance, soft enough not to compete with the fields. Sits at the section
+ * tier (--text-lead), one step under the page title, beside SectionHeading
+ * and CardTitle (whose rule fades the same way — one device, no forks).
  */
 export function EditorSection({
   title,
@@ -34,7 +33,7 @@ export function EditorSection({
 }: EditorSectionProps) {
   return (
     <section className={cn("min-w-0", className)}>
-      <header className="flex items-baseline justify-between gap-[var(--space-sm)]">
+      <header className="flex items-baseline gap-[var(--space-sm)]">
         <div className="flex min-w-0 items-baseline gap-[var(--space-sm)]">
           {step && (
             <span
@@ -48,6 +47,12 @@ export function EditorSection({
             {title}
           </h2>
         </div>
+        {/* The fading rule: anchors the heading, dissolves before it can box
+            the content in. */}
+        <span
+          aria-hidden
+          className="h-px min-w-[var(--space-lg)] flex-1 self-center bg-gradient-to-r from-ink-hairline to-transparent"
+        />
         {aside && <span className="shrink-0 self-center">{aside}</span>}
       </header>
       {note && (

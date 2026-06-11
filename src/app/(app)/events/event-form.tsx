@@ -7,6 +7,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { FormField } from "@/components/ui/form-field"
 import { EditorSection } from "@/components/ui/editor-section"
 import { EditorBar } from "@/components/ui/editor-bar"
+import { PreviewPanel } from "@/components/ui/preview-panel"
+import { PreviewStage } from "@/components/ui/preview-stage"
 import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
 import { uploadMedia } from "@/lib/media"
@@ -224,22 +226,25 @@ export function EventForm({ mode, initial, status }: EventFormProps) {
 
   return (
     <>
-      <div className="grid grid-cols-1 gap-0 xl:grid-cols-[minmax(0,1fr)_clamp(330px,26vw,400px)] xl:gap-[var(--space-3xl)]">
-        {/* The editor reads as a document: the headline first, then the facts.
-            Source order = form first, so on mobile the fields lead; on xl the
-            live site card keeps it company from the right rail. */}
+      <div className="grid grid-cols-1 gap-0 xl:grid-cols-[minmax(0,1fr)_clamp(330px,26vw,400px)] xl:gap-[var(--space-xl)]">
+        {/* The editor reads as a document: the headline first, then the facts
+            in numbered steps. Source order = form first, so on mobile the
+            fields lead; on xl the live site card watches from its own side
+            panel and the form centers in the space that remains. */}
         <form
           id="event-editor"
           onSubmit={handleSubmit}
-          className="min-w-0 max-w-[680px] space-y-[var(--space-2xl)]"
+          className="w-full min-w-0 max-w-[680px] space-y-[var(--space-2xl)] xl:mx-auto"
         >
-          <FormField variant="quiet" label="Title" htmlFor="title">
+          {/* The headline IS its own label — the big serif well at the top of
+              a document editor needs no small-caps crumb above it. */}
+          <FormField variant="quiet" label={<span className="sr-only">Event title</span>} htmlFor="title">
             <Input
               variant="quiet"
               id="title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Easter Park Day"
+              placeholder="Name your event"
               required
               className={cn(
                 "h-auto py-1.5 font-display text-title font-semibold",
@@ -249,12 +254,16 @@ export function EventForm({ mode, initial, status }: EventFormProps) {
             />
           </FormField>
 
-          <EditorSection title="When & where">
-            <div className="flex max-w-[460px] items-center justify-between gap-[var(--space-md)]">
-              <span className="text-small font-medium text-ink">All-day event</span>
-              <Switch checked={allDay} onCheckedChange={setAllDay} aria-label="All-day event" />
-            </div>
-
+          <EditorSection
+            step="01"
+            title="When & where"
+            aside={
+              <span className="flex items-center gap-2.5">
+                <span className="text-small font-medium text-ink">All day</span>
+                <Switch checked={allDay} onCheckedChange={setAllDay} aria-label="All-day event" />
+              </span>
+            }
+          >
             <div className="grid max-w-[460px] grid-cols-2 gap-x-[var(--space-lg)] gap-y-[var(--space-lg)]">
               <FormField variant="quiet" label="Start date" htmlFor="start-date">
                 <Input
@@ -341,38 +350,19 @@ export function EventForm({ mode, initial, status }: EventFormProps) {
             </FormField>
           </EditorSection>
 
-          {/* On mobile the site card itself lives in the flow — you compose the
-              public artifact top to bottom. On xl it moves to the rail. */}
+          {/* One step for the public artifact: the flyer and the button that
+              lives on it. On mobile the site card sits in the flow — you
+              compose the artifact top to bottom; on xl it moves to the rail
+              and this step keeps just the button fields. */}
           <EditorSection
-            title="Flyer"
-            className="xl:hidden"
-            note="The flyer is the event on the public site; the title doubles as its alt text. JPG, PNG, or WebP up to 5 MB."
+            step="02"
+            title="Flyer & button"
+            note="What visitors see on ms.church. The button appears on the flyer when its link is a full https address."
           >
-            <FlyerCard {...flyerCardProps} className="mx-auto w-full max-w-[320px]" />
-          </EditorSection>
-
-          <EditorSection
-            title="Details"
-            note="Context for staff and accessibility. Not shown as text on the card."
-          >
-            <FormField variant="quiet" label="Description" htmlFor="description">
-              <Textarea
-                variant="quiet"
-                autoGrow
-                id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                onBlur={liftDescriptionLink}
-                rows={3}
-                placeholder="A free community celebration with games, food, and an egg hunt."
-              />
-            </FormField>
-          </EditorSection>
-
-          <EditorSection
-            title="Button"
-            note="Shows as a button on the flyer. The public site renders it only for a full https link."
-          >
+            <FlyerCard
+              {...flyerCardProps}
+              className="mx-auto w-full max-w-[320px] xl:hidden"
+            />
             <div className="grid max-w-[560px] grid-cols-1 gap-[var(--space-lg)] sm:grid-cols-2">
               <FormField variant="quiet" label="Button text" htmlFor="cta-text">
                 <Input
@@ -401,22 +391,39 @@ export function EventForm({ mode, initial, status }: EventFormProps) {
               </FormField>
             </div>
           </EditorSection>
+
+          <EditorSection
+            step="03"
+            title="Details"
+            note="Context for staff and accessibility — not shown as text on the card."
+          >
+            <FormField variant="quiet" label="Description" htmlFor="description">
+              <Textarea
+                variant="quiet"
+                autoGrow
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                onBlur={liftDescriptionLink}
+                rows={3}
+                placeholder="A free community celebration with games, food, and an egg hunt."
+              />
+            </FormField>
+          </EditorSection>
         </form>
 
-        {/* The live site card — a window into ms.church, pinned alongside the
-            editor. It is also the flyer surface: tap it or drop an image on it. */}
-        <aside className="hidden xl:block">
-          <div className="sticky top-4">
-            {/* Rail labels speak in the small-caps eyebrow voice, matching the
-                campaign composer's rail — italics belong to .motto phrases. */}
-            <p className="eyebrow mb-4">On ms.church</p>
+        {/* The live site card in its own side panel — a window into ms.church
+            beside the editor, clearly segmented from the working surface. The
+            card itself is still the flyer drop zone. */}
+        <PreviewPanel>
+          <PreviewStage
+            variant="bare"
+            label="On ms.church"
+            caption="How the event appears in the ms.church events carousel once published. Changes go live within ~5 minutes. JPG, PNG, or WebP up to 5 MB."
+          >
             <FlyerCard {...flyerCardProps} className="w-full max-w-[320px]" />
-            <p className="mt-4 max-w-[320px] text-micro leading-[var(--leading-prose)] text-ink-faint">
-              This is how the event appears in the ms.church events carousel once published.
-              Changes go live within ~5 minutes. JPG, PNG, or WebP up to 5 MB.
-            </p>
-          </div>
-        </aside>
+          </PreviewStage>
+        </PreviewPanel>
       </div>
 
       <EditorBar
