@@ -200,7 +200,8 @@ emails international contacts, revisit. Not legal advice — confirm with counse
 ## 7. Design language — carried from ms.church `website-V2`
 
 Read `src/app/globals.css` for the full token set; read `src/design/tokens.ts`
-for the typed view. Highlights:
+for the typed view; **`docs/design-system.md` is the full documented contract**
+(type ladder, chrome, buttons, fields, editors, motion, voice). Highlights:
 
 - **Palette:** warm cream surface (`--bg`, `--surface`), gold `#9d7853`
   accent (+ dark/deeper variants), alpha-based text scale.
@@ -243,11 +244,14 @@ One header system, two components, no bespoke page chrome:
   `md` (the mobile topbar names the page); on mobile the toolbar+actions share
   one 44px band. The masthead owns its hairline + padding — never wrap it in
   another bordered div.
-- **`PageHeader`** — subviews and detail pages (back affordance, optional
-  actions/info). Same `--text-heading` title tier. **Eyebrow only over dynamic
+- **`PageHeader`** — subviews and detail pages. ONE compact centered bar at the
+  top edge: a balanced `1fr auto 1fr` grid with the **circular `.btn-icon-circle`
+  back button** in the left corner (never a text+arrow link), the title dead
+  center at `--text-heading`, actions right, and an optional centered `meta`
+  line (badge · date · chips) under the title. **Eyebrow only over dynamic
   titles** ("Event", "Campaign" over user-entered text); a static title that
   self-describes ("Settings", "New campaign") gets no eyebrow — it doesn't earn
-  the row.
+  the row. Full chrome contract: `docs/design-system.md`.
 
 **Type tiers (don't invent in-betweens):** page title = `--text-heading`
 (Playfair semibold) → section tier = `--text-lead` (`SectionHeading`,
@@ -259,10 +263,14 @@ the `.eyebrow` voice). **Italics belong to `.motto` identity phrases only**
 sentence-case muted sans for every helper/hint/whisper line.
 
 **Line discipline:** a visible line means *structure* (the chrome hairline, a
-card edge, a meter track). Inputs are never lines — the editor field voice is
-`.field-quiet`, a softly filled well one step darker than the canvas whose
-focus draws a gold line along its base. Sections separate by whitespace +
-their serif heading, not by rules.
+card edge, a meter track, the preview panel's hairline). Inputs are never
+lines — the editor field voice is `.field-quiet`, a softly filled well one
+step darker than the canvas whose focus draws a gold line along its base.
+Section headings (`SectionHeading`, `EditorSection`) carry a hairline rule
+that fades to transparent — it anchors the band without boxing it; only
+chrome edges get full-strength rules. On xl the editors' live preview sits in
+`PreviewPanel`, a segmented side pane; below xl it folds into the flow on the
+recessed `PreviewStage` well.
 
 **Layout:** every page sits in `PAGE_GUTTER` (exported from `page-scaffold`) —
 the conformance spec asserts the tabs' titles align to the pixel. Tables go

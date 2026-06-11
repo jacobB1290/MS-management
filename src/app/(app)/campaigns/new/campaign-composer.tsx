@@ -8,6 +8,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { FormField } from "@/components/ui/form-field"
 import { EditorSection } from "@/components/ui/editor-section"
 import { EditorBar } from "@/components/ui/editor-bar"
+import { PreviewPanel } from "@/components/ui/preview-panel"
+import { PreviewStage } from "@/components/ui/preview-stage"
 import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
 import {
@@ -267,11 +269,11 @@ export function CampaignComposer({ tagOptions, audienceCounts, prefill }: Compos
 
   return (
     <>
-      <div className="grid grid-cols-1 gap-0 xl:grid-cols-[minmax(0,1fr)_clamp(340px,27vw,420px)] xl:gap-[var(--space-3xl)]">
+      <div className="grid grid-cols-1 gap-0 xl:grid-cols-[minmax(0,1fr)_clamp(340px,27vw,420px)] xl:gap-[var(--space-xl)]">
         <form
           id="campaign-composer"
           onSubmit={handleSubmit}
-          className="min-w-0 max-w-[680px] space-y-[var(--space-2xl)]"
+          className="w-full min-w-0 max-w-[680px] space-y-[var(--space-2xl)] xl:mx-auto"
         >
           {banner === "promo" && (
             <div
@@ -314,20 +316,26 @@ export function CampaignComposer({ tagOptions, audienceCounts, prefill }: Compos
             </div>
           )}
 
+          {/* The headline IS its own label — same hero treatment as the event
+              editor, so every composition surface opens the same way. */}
           <FormField
             variant="quiet"
             htmlFor="name"
-            label="Campaign name"
-            hint="Only staff see this."
-            className="max-w-[460px]"
+            label={<span className="sr-only">Campaign name</span>}
+            hint="Only staff see this name."
           >
             <Input
               variant="quiet"
               id="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Easter invite, week one"
+              placeholder="Name your campaign"
               required
+              className={cn(
+                "h-auto py-1.5 font-display text-title font-semibold",
+                "leading-[var(--leading-snug)] tracking-[var(--tracking-tight)]",
+                "placeholder:font-normal placeholder:text-ink-fade",
+              )}
             />
           </FormField>
 
@@ -446,13 +454,11 @@ export function CampaignComposer({ tagOptions, audienceCounts, prefill }: Compos
             </div>
 
             {/* On mobile the recipient's phone sits right under what you're
-                typing — instant feedback. On xl it moves to the rail. */}
-            <div className="pt-[var(--space-xs)] xl:hidden">
-              {/* The rail labels speak in one voice: the small-caps eyebrow
-                  (matching "Audience" below) — not an italic flourish. */}
-              <p className="eyebrow mb-3">What they’ll see</p>
+                typing — instant feedback, on its display stage so it reads
+                as an exhibit, not more form. On xl it moves to the rail. */}
+            <PreviewStage label="What they’ll see" className="xl:hidden">
               {preview}
-            </div>
+            </PreviewStage>
           </EditorSection>
 
           <EditorSection step="02" title="Audience">
@@ -553,12 +559,12 @@ export function CampaignComposer({ tagOptions, audienceCounts, prefill }: Compos
           </EditorSection>
         </form>
 
-        {/* The recipient's phone, pinned alongside the editor. */}
-        <aside className="hidden xl:block">
-          <div className="sticky top-4">
-            <p className="eyebrow mb-4">What they’ll see</p>
+        {/* The recipient's phone in its own side panel beside the editor —
+            clearly an exhibit, segmented from the configurator. */}
+        <PreviewPanel>
+          <PreviewStage variant="bare" label="What they’ll see">
             {preview}
-            <div className="mt-[var(--space-lg)] w-full max-w-[340px] border-t border-ink-hairline pt-[var(--space-md)]">
+            <div className="mt-[var(--space-md)] w-full max-w-[340px] border-t border-ink-hairline pt-[var(--space-md)]">
               <p className="eyebrow">Audience</p>
               {/* Section tier — the page title alone owns --text-heading. */}
               <p className="mt-1.5 font-display text-lead font-semibold leading-[var(--leading-snug)] text-ink">
@@ -579,8 +585,8 @@ export function CampaignComposer({ tagOptions, audienceCounts, prefill }: Compos
                 )}
               </p>
             </div>
-          </div>
-        </aside>
+          </PreviewStage>
+        </PreviewPanel>
       </div>
 
       <EditorBar

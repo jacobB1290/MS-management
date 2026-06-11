@@ -88,18 +88,20 @@ export function EventActions({ id, status, isAdmin }: EventActionsProps) {
 
   return (
     <div className="flex items-center gap-2">
-      <Button asChild variant="secondary" size="sm">
+      {/* On a phone the centered title owns the row — labeled pills collapse
+          to their icon so the cluster stays compact. */}
+      <Button asChild variant="secondary" size="sm" aria-label="Promote">
         <Link href={`/campaigns/new?event=${id}&ai=1`}>
           <Sparkles size={15} />
-          Promote
+          <span className="hidden sm:inline">Promote</span>
         </Link>
       </Button>
 
       {!published && (
         <Button size="sm" onClick={publish} disabled={busy !== null}>
           {busy === "publish" ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
-          <span className="sm:hidden">Publish</span>
-          <span className="hidden sm:inline">Publish to ms.church</span>
+          <span className="xl:hidden">Publish</span>
+          <span className="hidden xl:inline">Publish to ms.church</span>
         </Button>
       )}
 

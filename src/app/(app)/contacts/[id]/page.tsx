@@ -10,7 +10,7 @@ import { isVoiceConfigured } from "@/server/comms/voice"
 import { resolveOptInMode } from "@/server/comms/optInMode"
 import { TagList } from "@/components/tag-list"
 import { CallButton } from "@/components/call-button"
-import { formatPhone, humanizeSource } from "@/lib/utils"
+import { cn, formatPhone, humanizeSource } from "@/lib/utils"
 import { DeleteContactButton } from "@/components/delete-contact-button"
 import { SuggestTags } from "@/components/suggest-tags"
 import { OptInRequest } from "@/components/opt-in-request"
@@ -69,35 +69,44 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
   return (
     <div className="flex flex-col h-full min-h-0">
       <div className="shrink-0 px-4 md:px-8 pt-4 md:pt-6 pb-4 bg-bg max-w-3xl w-full mx-auto">
-        {/* iOS contact-card header: back chevron + name inline, quick actions below. */}
-        <div className="flex items-center gap-3 min-w-0">
-          <Link
-            href={backHref}
-            prefetch
-            aria-label={backLabel}
-            className="inline-flex items-center justify-center h-11 w-11 -ml-2 rounded-pill text-ink-muted hover:text-ink hover:bg-white transition-colors shrink-0"
-          >
-            <ArrowLeft size={20} />
-          </Link>
-          <h1 className="font-display text-title text-ink leading-[var(--leading-snug)] tracking-[var(--tracking-tight)] font-semibold truncate min-w-0">
+        {/* iOS contact-card header in the standard subpage chrome: circular
+            back in the corner, name centered at the top edge, quick actions
+            centered below. */}
+        <div
+          className={cn(
+            "grid items-center gap-x-[var(--space-sm)]",
+            // Mobile: back on its own utility row, the name full-width below;
+            // md+: one balanced row with the name at a true center — the same
+            // responsive shape as PageHeader.
+            "grid-cols-[1fr_1fr] [grid-template-areas:'back_actions'_'title_title'] gap-y-1.5",
+            "md:min-h-11 md:grid-cols-[1fr_auto_1fr] md:[grid-template-areas:'back_title_actions'] md:gap-y-0",
+          )}
+        >
+          <div className="flex items-center justify-start [grid-area:back]">
+            <Link href={backHref} prefetch aria-label={backLabel} title={backLabel} className="btn-icon-circle">
+              <ArrowLeft size={18} />
+            </Link>
+          </div>
+          <h1 className="min-w-0 truncate text-center font-display text-heading text-ink leading-[var(--leading-snug)] tracking-[var(--tracking-tight)] font-semibold [grid-area:title]">
             {displayName}
           </h1>
-          {/* Status flags ride inline with the name as quiet uppercase labels —
-              present and color-coded, but not styled like tappable chips. */}
-          {(contact.is_member ||
-            contact.sms_opted_out_at ||
-            contact.email_unsubscribed_at ||
-            contact.language === "ru") && (
-            <div className="flex items-center gap-2.5 shrink-0 text-label font-semibold uppercase tracking-[var(--tracking-wide)] leading-none">
-              {contact.is_member && <span className="text-gold-dark">Member</span>}
-              {contact.sms_opted_out_at && <span className="text-warning">SMS opted-out</span>}
-              {contact.email_unsubscribed_at && <span className="text-ink-faint">Email unsubscribed</span>}
-              {contact.language === "ru" && <span className="text-gold-dark">Russian</span>}
-            </div>
-          )}
+          <span aria-hidden className="[grid-area:actions]" />
         </div>
+        {/* Status flags as a quiet centered meta line — present and
+            color-coded, but not styled like tappable chips. */}
+        {(contact.is_member ||
+          contact.sms_opted_out_at ||
+          contact.email_unsubscribed_at ||
+          contact.language === "ru") && (
+          <div className="mt-1.5 flex flex-wrap items-center justify-center gap-2.5 text-label font-semibold uppercase tracking-[var(--tracking-wide)] leading-none">
+            {contact.is_member && <span className="text-gold-dark">Member</span>}
+            {contact.sms_opted_out_at && <span className="text-warning">SMS opted-out</span>}
+            {contact.email_unsubscribed_at && <span className="text-ink-faint">Email unsubscribed</span>}
+            {contact.language === "ru" && <span className="text-gold-dark">Russian</span>}
+          </div>
+        )}
 
-        <div className="mt-5 flex flex-wrap items-start gap-4">
+        <div className="mt-5 flex flex-wrap items-start justify-center gap-4">
           <ActionCircle href={`/inbox?c=${contact.id}`} label="Message" icon={<MessageSquare size={20} />} />
           {voiceConfigured && contact.phone && (
             <div className="flex flex-col items-center gap-1.5">

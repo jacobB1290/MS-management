@@ -81,7 +81,15 @@ export function CampaignActions({
             Cancel
           </Button>
           <Button size="md" onClick={() => setConfirmStart(true)} disabled={working}>
-            {working ? "Starting…" : "Start sending"}
+            {/* The phone keeps the verb; the full phrase returns at sm+. */}
+            {working ? (
+              "Starting…"
+            ) : (
+              <>
+                <span className="sm:hidden">Send</span>
+                <span className="hidden sm:inline">Start sending</span>
+              </>
+            )}
           </Button>
         </div>
       )}

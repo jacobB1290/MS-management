@@ -46,10 +46,15 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run dev",
+    // Production build + serve (faster than dev-compiling under the first
+    // test per route, and the screenshots match what ships). See serve.sh
+    // for why it exec's the server — teardown must kill the real process so
+    // no later run can reuse a stale build.
+    command: "sh scripts/harness/serve.sh",
+    cwd: "../..",
     url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
+    timeout: 300_000,
     // Boot the app on in-memory demo fixtures so the harness is hermetic — no
     // Supabase project, secrets, or seeded users. The NEXT_PUBLIC_* values are
     // placeholders: demo mode serves SSR'd fixtures, and they only need to be

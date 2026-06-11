@@ -41,11 +41,14 @@ export const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
             checked ? "bg-gold" : "bg-ink-fade",
           )}
         >
+          {/* Anchored hard to the track's left edge — an absolutely positioned
+              element with no `left` keeps its static (text-flow) position, so
+              an inherited text-align could float the thumb out of the pill. */}
           <span
             className={cn(
-              "absolute top-0.5 h-5 w-5 rounded-pill bg-white shadow-sm",
+              "absolute left-0.5 top-0.5 h-5 w-5 rounded-pill bg-white shadow-sm",
               "transition-transform duration-[var(--motion-fast)] ease-[var(--ease-out-soft)] motion-reduce:transition-none",
-              checked ? "translate-x-[22px]" : "translate-x-0.5",
+              checked ? "translate-x-5" : "translate-x-0",
             )}
           />
         </span>

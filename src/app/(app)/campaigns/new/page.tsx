@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { getContactTagOccurrences } from "@/server/contacts/tags"
 import { PageHeader } from "@/components/ui/page-header"
 import { PageScaffold } from "@/components/ui/page-scaffold"
+import { PreviewPanel } from "@/components/ui/preview-panel"
 import { Skeleton } from "@/components/ui/skeleton"
 import { eventLongDate, eventDisplayTime } from "@/lib/event-format"
 import { CampaignComposer, type ComposerPrefill } from "./campaign-composer"
@@ -123,11 +124,11 @@ function ComposerSkeleton() {
   // quiet fields at a reading measure on the left, the recipient-phone
   // preview on the right rail (xl+).
   return (
-    <div className="grid grid-cols-1 gap-0 xl:grid-cols-[minmax(0,1fr)_clamp(340px,27vw,420px)] xl:gap-[var(--space-3xl)]">
-      <div className="max-w-[680px] space-y-10">
+    <div className="grid grid-cols-1 gap-0 xl:grid-cols-[minmax(0,1fr)_clamp(340px,27vw,420px)] xl:gap-[var(--space-xl)]">
+      <div className="w-full max-w-[680px] space-y-10 xl:mx-auto">
         <div className="space-y-2">
-          <Skeleton className="h-3 w-28" />
-          <Skeleton className="h-9 w-full max-w-[460px]" />
+          <Skeleton className="h-11 w-full" />
+          <Skeleton className="h-3 w-32" />
         </div>
         <div className="space-y-5">
           <Skeleton className="h-6 w-44" />
@@ -143,10 +144,10 @@ function ComposerSkeleton() {
           </div>
         </div>
       </div>
-      <div className="hidden xl:block">
+      <PreviewPanel>
         <Skeleton className="h-5 w-32" />
         <Skeleton className="mt-4 h-72 w-full max-w-[340px] rounded-xl" />
-      </div>
+      </PreviewPanel>
     </div>
   )
 }

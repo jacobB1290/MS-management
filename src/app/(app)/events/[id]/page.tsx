@@ -57,40 +57,37 @@ export default async function EventDetailPage({ params }: PageProps) {
   return (
     <PageScaffold
       header={
-        <>
-          <PageHeader
-            eyebrow="Event"
-            title={event.title}
-            backHref="/events"
-            backLabel="All events"
-            actions={<EventActions id={event.id} status={status} isAdmin={user.role === "admin"} />}
-          />
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <Badge variant={STATUS_VARIANT[status] ?? "muted"}>
-              {status}
-            </Badge>
-            <span className="text-small text-ink-muted">{when}</span>
-            {event.source === "gcal" && (
-              <span className="text-micro text-ink-faint">· created in Google Calendar</span>
-            )}
-            {linkedCampaigns && linkedCampaigns.length > 0 && (
-              <span className="ml-1 flex flex-wrap items-center gap-1.5">
-                <span className="text-micro text-ink-faint">·</span>
-                {linkedCampaigns.map((c) => (
-                  <Link
-                    key={c.id}
-                    href={`/campaigns/${c.id}`}
-                    prefetch
-                    className="inline-flex items-center gap-1 rounded-pill border border-ink-hairline bg-white px-2 py-0.5 text-micro text-ink-muted transition-colors hover:bg-surface motion-reduce:transition-none"
-                  >
-                    {c.channel === "sms" ? <MessageSquare size={11} /> : <Mail size={11} />}
-                    {c.name}
-                  </Link>
-                ))}
-              </span>
-            )}
-          </div>
-        </>
+        <PageHeader
+          eyebrow="Event"
+          title={event.title}
+          backHref="/events"
+          backLabel="All events"
+          actions={<EventActions id={event.id} status={status} isAdmin={user.role === "admin"} />}
+          meta={
+            <>
+              <Badge variant={STATUS_VARIANT[status] ?? "muted"}>{status}</Badge>
+              <span className="text-small text-ink-muted">{when}</span>
+              {event.source === "gcal" && (
+                <span className="text-micro text-ink-faint">· created in Google Calendar</span>
+              )}
+              {linkedCampaigns && linkedCampaigns.length > 0 && (
+                <span className="flex flex-wrap items-center justify-center gap-1.5">
+                  {linkedCampaigns.map((c) => (
+                    <Link
+                      key={c.id}
+                      href={`/campaigns/${c.id}`}
+                      prefetch
+                      className="inline-flex items-center gap-1 rounded-pill border border-ink-hairline bg-white px-2 py-0.5 text-micro text-ink-muted transition-colors hover:bg-surface motion-reduce:transition-none"
+                    >
+                      {c.channel === "sms" ? <MessageSquare size={11} /> : <Mail size={11} />}
+                      {c.name}
+                    </Link>
+                  ))}
+                </span>
+              )}
+            </>
+          }
+        />
       }
       // The editor closes with a sticky EditorBar; the scaffold's bottom
       // padding would otherwise show as a cream gap beneath it at scroll end.
