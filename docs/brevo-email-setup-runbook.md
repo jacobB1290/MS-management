@@ -255,6 +255,30 @@ out through Gmail (From + Reply-To `support@`), lands in the Gmail thread, and s
 in the CRM thread; replies thread back via the mirror. A Gmail send failure auto-
 falls back to Brevo. Roll back by unsetting `GOOGLE_GMAIL_SEND`.
 
+**Real-time delivery (the 1-minute poller).** The mirror runs on a **Supabase
+pg_cron** job that pings `/api/cron/gmail` every minute — NOT GitHub Actions (the
+repo has no Actions secrets, so that workflow's own guard skips every tick and the
+app is never hit). Migration `0033` schedules it; the tick is incremental
+(`history.list` from the cursor), so an idle minute is a tiny no-op. Activate:
+1. **Put `CRON_SECRET` on the Vercel → Production scope** (it was Preview-scoped) so
+   the prod endpoint accepts the poll. Redeploy.
+2. Apply migration `0033` (enables `pg_cron` + `pg_net`, schedules `gmail-mirror-poll`).
+   If `create extension pg_cron` is blocked, enable pg_cron + pg_net in Supabase →
+   Database → Extensions first, then re-apply.
+3. Add two secrets to **Supabase Vault** (SQL editor) — the job reads them at run
+   time so they're never committed:
+   ```sql
+   select vault.create_secret('https://<prod-host>', 'app_base_url');
+   select vault.create_secret('<your CRON_SECRET>',  'cron_secret');
+   ```
+4. Confirm within ~1 min:
+   ```sql
+   select jrd.status, jrd.return_message, jrd.start_time
+   from cron.job_run_details jrd join cron.job j on j.jobid = jrd.jobid
+   where j.jobname = 'gmail-mirror-poll' order by jrd.start_time desc limit 3;
+   ```
+   then send a reply to `support@` and watch it appear in the CRM thread.
+
 **Note:** the apex `MX` stays on Google (`smtp.google.com`) — that's what lets the
 mailbox receive at all; don't change it.
 

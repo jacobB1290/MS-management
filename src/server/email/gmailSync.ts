@@ -81,10 +81,15 @@ export async function syncGmailMailbox(): Promise<GmailSyncResult> {
 
     if (newHistoryId) await writeCursor(admin, newHistoryId)
 
-    await logAudit({
-      action: "gmail.sync",
-      diff: { processed: unique.length, threaded, history_id: newHistoryId },
-    })
+    // Audit only ticks that did something — a 1-minute idle poll must not spam the
+    // log. (Errors are audited in the catch; the cursor's updated_at is the
+    // heartbeat that proves the poll is alive.)
+    if (threaded > 0) {
+      await logAudit({
+        action: "gmail.sync",
+        diff: { processed: unique.length, threaded, history_id: newHistoryId },
+      })
+    }
     return { ok: true, processed: unique.length, threaded, historyId: newHistoryId }
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e)
