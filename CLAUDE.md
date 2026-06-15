@@ -27,15 +27,15 @@ stack, and we keep it cheap and clean.
 | Database / Auth / Realtime | Supabase (Postgres) |
 | Backend logic | Next.js Route Handlers + Supabase Edge Functions |
 | SMS / MMS | Twilio Programmable Messaging (Messaging Service + 10DLC) |
-| Email | Brevo (Transactional API for 1:1; Marketing Campaign API for blasts). Replies handled in Google Workspace, not the CRM |
+| Email | Brevo (1:1 transactional + campaign blasts); replies land in Google Workspace and are mirrored back into the CRM via a Gmail-API sync |
 | Testing harness | Playwright (visual + multi-viewport screenshots) |
 | Cron | GitHub Actions (heartbeat) |
 
 **Supabase project:** `nhrgbjkiiqpzwdgsvdrl` (region `us-west-1`). Free tier.
 
 **Non-choices on purpose:** Twilio Conversations API; SendGrid (replaced by
-Brevo); Brevo Inbound Parsing (replies go to Google Workspace, not the CRM);
-RCS; paid Supabase (until we want backups + warm-up).
+Brevo); Brevo Inbound Parsing (we mirror replies from the Gmail mailbox via the
+Gmail API instead); RCS; paid Supabase (until we want backups + warm-up).
 
 ## 3. Architecture — four layers, hard wall between them
 
@@ -137,9 +137,9 @@ Enforce these in `src/server/comms/*`, not just behind a disabled button.
   transactional API and deliberately carries NO List-Unsubscribe header — that
   header brands a message as a mailing list, which is wrong for a 1:1 and hurts
   the relationship. Opt-out is enforced by `assertCanSendEmail` (the wall) and
-  the in-CRM `email_unsubscribed_at` toggle. Replies are NOT ingested into the
-  CRM — they go to `support@ms.church` in Gmail — so there is no inbound
-  STOP-keyword handler; a human there toggles the CRM flag if someone asks off.
+  the in-CRM `email_unsubscribed_at` toggle. Replies are mirrored from Gmail into
+  the CRM thread for visibility, but we do NOT auto-act on a STOP keyword in them —
+  a human in `support@ms.church` toggles the CRM flag if someone asks off.
 - **Consent capture.** Every contact has `consent_method` and `consent_at`.
   Form submissions are the canonical proof; CSV imports must explicitly
   record `consent_method = 'csv_import_<batch>'` and a real `consent_at`.
@@ -432,14 +432,20 @@ opt-in via `detectMarketingJoin`). Inbound + status webhooks point at
   LIST to Brevo (never a per-recipient transactional loop) and respect the free
   tier's 300/day shared cap via `BREVO_DAILY_SEND_CAP`. Full provisioning + the
   SendGrid teardown: `docs/brevo-email-setup-runbook.md`.
-- **Two-way email — by design, NOT ingested.** Outbound 1:1 email sends from the
-  inbox composer (channel toggle) via `sendDirectEmail` (`src/server/comms/sendEmail.ts`),
-  working as soon as `BREVO_API_KEY` + `BREVO_FROM_EMAIL` are set (otherwise
-  mock-logged, like SMS). Outgoing mail carries `Reply-To: support@ms.church`, so
-  a recipient's reply lands in **Google Workspace (Gmail)** where a human answers
-  it — replies are deliberately NOT parsed back into the CRM (Brevo Inbound
-  Parsing is out of scope; the deferred path is in the email spec's Appendix A).
-  Keep the root `MX` on Google.
+- **Two-way email — mirrored from Gmail.** Outbound 1:1 email sends from the inbox
+  composer via `sendDirectEmail` (`src/server/comms/sendEmail.ts`) — From + Reply-To
+  both `support@ms.church` (personal, via `brevoPersonalFrom`) — so a recipient's
+  reply lands in **Google Workspace (Gmail)**. The CRM then mirrors that mailbox
+  back into the contact threads via a Gmail-API read sync
+  (`src/server/email/gmailSync.ts`, on the cron): every inbound reply AND anything
+  composed directly in Gmail shows in the thread, matched to existing contacts by
+  email, idempotent on `Message-ID`. Gated on `GOOGLE_GMAIL_REFRESH_TOKEN` (the
+  support@ mailbox's OWN dedicated OAuth client — `GOOGLE_GMAIL_CLIENT_ID/SECRET`,
+  falling back to `GOOGLE_OAUTH_*` — minted `gmail.readonly`); unset → the sync
+  no-ops and replies stay in Gmail. Keep the apex `MX` on Google. **Phase 2**
+  (built, gated behind `GOOGLE_GMAIL_SEND=1` + a `gmail.send` token) routes 1:1
+  *sending* through Gmail too (`src/server/email/gmailSend.ts`) so the whole thread
+  lives in one mailbox; it auto-falls back to the Brevo path on any failure.
 
 ## 13.2 Events → Google Calendar (ms.church)
 

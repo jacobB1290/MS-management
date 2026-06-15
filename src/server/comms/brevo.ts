@@ -43,6 +43,20 @@ export function brevoReplyTo(): string {
   return process.env.BREVO_REPLY_TO_EMAIL || "support@ms.church"
 }
 
+/**
+ * The From identity for 1:1 PERSONAL email (transactional). Defaults to the
+ * Reply-To mailbox (support@) so a personal note comes from — and replies go to —
+ * the same human address, NOT the newsletter/brand sender used for blasts.
+ * Override with BREVO_PERSONAL_FROM_EMAIL (must be a Brevo sender on the
+ * authenticated domain). Campaign blasts always send from brevoFrom().
+ */
+export function brevoPersonalFrom(): { email: string; name: string } {
+  return {
+    email: process.env.BREVO_PERSONAL_FROM_EMAIL || brevoReplyTo(),
+    name: process.env.BREVO_FROM_NAME || "Morning Star Church",
+  }
+}
+
 export type BrevoResult<T> =
   | { ok: true; status: number; data: T }
   | { ok: false; status: number; error: string }
@@ -136,7 +150,7 @@ export function sendTransactionalEmail(
 ): Promise<BrevoResult<{ messageId?: string }>> {
   return brevoFetch("/smtp/email", {
     method: "POST",
-    body: { sender: brevoFrom(), ...email },
+    body: { sender: brevoPersonalFrom(), ...email },
   })
 }
 

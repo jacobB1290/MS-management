@@ -29,6 +29,7 @@ export type AuditAction =
   | "media.delete"
   | "webhook.twilio.inbound"
   | "webhook.brevo.event"
+  | "gmail.sync"
   | "user.invite"
   | "user.role_change"
   | "settings.ai_update"

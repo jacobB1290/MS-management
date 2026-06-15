@@ -1,8 +1,10 @@
 # Brevo email — provisioning runbook (handoff runlist)
 
-**Audience:** an operator or AI agent with access to the **Brevo**, **Cloudflare
-(DNS for `ms.church`)**, and **Vercel (the CRM project)** dashboards. Follow the
-phases top to bottom. Each step says **where to get the value** and **what to do**.
+**Audience:** an operator or AI agent with access to the **Brevo** and **Vercel**
+dashboards. DNS for `ms.church` is managed in **Vercel DNS** (the domain's
+nameservers point to Vercel; registrar is GoDaddy), so DNS records go in Vercel
+too — not Cloudflare. Follow the phases top to bottom. Each step says **where to
+get the value** and **what to do**.
 
 **What this sets up:** the CRM now sends ALL email through **Brevo** — both 1:1
 inbox replies (Brevo *transactional* API) and newsletter/promo **blasts** (Brevo
@@ -20,6 +22,28 @@ blasts. The app enforces this with `BREVO_DAILY_SEND_CAP` (default 300): a blast
 whose eligible audience exceeds the cap is refused rather than truncated. Keep the
 congregation list lean, or upgrade (Brevo has nonprofit pricing — the church is a
 501(c)(3)).
+
+---
+
+## Provisioning status (2026-06-15) — LIVE
+
+Brevo is provisioned and **verified live in production** (a real authenticated 1:1
+send passed SPF + DKIM + DMARC on mail-tester). Done: domain authenticated in
+**Vercel DNS**; sender `Morning Star Church <newsletter@ms.church>` verified;
+Vercel env set on Production + Preview (`BREVO_API_KEY`, `BREVO_FROM_EMAIL`,
+`BREVO_FROM_NAME`, `BREVO_REPLY_TO_EMAIL`, `BREVO_WEBHOOK_TOKEN`;
+`BREVO_LIST_FOLDER_ID` / `BREVO_DAILY_SEND_CAP` left unset → code defaults, cap
+300), redeployed out of mock mode; marketing webhook **CRM suppression sync**
+active (events: unsubscribed / complaint / hardBounce).
+
+**Open follow-ups (Jacob/later — not blocking, no code change):**
+- [ ] Prove the unsubscribe round-trip end-to-end: send a campaign to a test
+      contact, click unsubscribe, confirm `contacts.email_unsubscribed_at` sets +
+      next-audience exclusion.
+- [ ] Confirm a recipient reply lands in `support@ms.church` (Gmail).
+- [ ] Confirm the CAN-SPAM postal address shows in the Brevo campaign footer.
+- [ ] **SendGrid teardown — only after a bake-in** (see Teardown below).
+- [ ] Clean up the throwaway freemail Brevo sender + any mail-tester test contact.
 
 ---
 
@@ -56,11 +80,14 @@ commit) so the new values take effect.
 
 1. **Vercel project:** the CRM (the app that serves `APP_BASE_URL`). Note its
    production URL — you need it for the webhook (`<APP_BASE_URL>/api/webhook/brevo`).
-2. **Cloudflare zone:** `ms.church`.
+2. **DNS:** `ms.church` runs on **Vercel DNS** (nameservers point to Vercel;
+   registrar is GoDaddy). Add records in Vercel → the `ms.church` domain → DNS
+   Records. (Not Cloudflare.)
 3. **Brevo account:** create one at brevo.com if it doesn't exist (Free plan is
    fine to start). The church is a nonprofit — check Brevo's nonprofit program.
-4. **Do NOT touch the root `MX` record.** It stays on Google so `support@ms.church`
-   and all normal church mail keep working. We only add *sending* authentication.
+4. **Do NOT touch the apex `MX` record** (Google, `smtp.google.com`). It keeps
+   `support@ms.church` and all normal church mail working. We only add *sending*
+   authentication.
 
 ---
 
@@ -76,28 +103,28 @@ commit) so the new values take effect.
 
 ---
 
-## Phase 2 — Authenticate the `ms.church` domain (Cloudflare DNS)
+## Phase 2 — Authenticate the `ms.church` domain (Vercel DNS)
 
 > If the domain is NOT authenticated, Brevo rewrites your From address to
 > `@brevosend.com` — unprofessional and bad for deliverability. Do this before any
-> real send. **Copy the exact records from Brevo** (selectors can change); the
-> names below are the shape to expect.
+> real send. **Copy the exact records from Brevo** and add them in Vercel DNS.
 
 1. Brevo → **Senders, Domains & Dedicated IPs → Domains → Add a domain** →
    `ms.church` → *Authenticate*. Brevo shows the DNS records to publish.
-2. In **Cloudflare → DNS → Records** for `ms.church`, add what Brevo shows
-   (set proxy status to **DNS only / grey cloud** for all of these):
-   - **Domain-verification TXT** — host `@` (or as shown), value `brevo-code:<token>`.
-   - **DKIM** — the CNAME/TXT records Brevo provides (commonly `mail._domainkey`
-     and `mail2._domainkey`). Copy host + target verbatim from the dashboard.
-   - **SPF** — ensure the domain's SPF TXT includes Brevo. There must be exactly
-     ONE SPF record; merge, don't duplicate:
+2. In **Vercel → the `ms.church` domain → DNS Records**, add what Brevo shows. For
+   ms.church these were:
+   - **Domain-verification TXT** — host `@`, value `brevo-code:<token>`.
+   - **DKIM** — two CNAMEs, `brevo1._domainkey` and `brevo2._domainkey` (copy the
+     targets verbatim from the Brevo dashboard).
+   - **SPF** — there must be exactly ONE apex SPF TXT. ms.church had none, so a new
+     one was added (keep the Google include so normal mail still passes):
      `v=spf1 include:spf.brevo.com include:_spf.google.com ~all`
-     (keep the existing Google include so normal mail still passes).
-   - **DMARC** — if none exists, add a TXT at `_dmarc` →
-     `v=DMARC1; p=none; rua=mailto:dmarc@ms.church;` (start at `p=none`, tighten later).
-3. Back in Brevo, click **Verify / Authenticate** until the domain shows
-   **Authenticated** (DNS can take a few minutes to propagate).
+   - **DMARC** — Brevo **refuses to authenticate without a `rua`** reporting
+     address. The existing `_dmarc` TXT got `rua=mailto:rua@dmarc.brevo.com` added
+     (`p=none` left unchanged). If no `_dmarc` exists, add
+     `v=DMARC1; p=none; rua=mailto:rua@dmarc.brevo.com;`.
+3. Back in Brevo, click **Authenticate** until `ms.church` shows **Authenticated**
+   (DNS can take a few minutes). It currently shows Authenticated.
 
 ---
 
@@ -165,7 +192,7 @@ sync: `unsubscribed` / `spam` / `hardBounce` → `contacts.email_unsubscribed_at
 
 ---
 
-## Teardown — remove SendGrid (do after Brevo is verified)
+## Teardown — remove SendGrid (after Brevo is verified AND a short bake-in; the dashboard steps need a SendGrid login)
 
 **Vercel:** delete the 8 `SENDGRID_*` / inbound vars listed in *REMOVE* above.
 
@@ -175,14 +202,61 @@ sync: `unsubscribed` / `spam` / `hardBounce` → `contacts.email_unsubscribed_at
 - **Settings → API Keys:** revoke the CRM's API key.
 - Optionally downgrade/close the SendGrid account once mail is flowing on Brevo.
 
-**Cloudflare DNS (remove SendGrid's records — keep Google's):**
-- Delete SendGrid **DKIM** CNAMEs: `s1._domainkey`, `s2._domainkey`.
-- Delete SendGrid **link-branding/tracking** CNAMEs: `em####`, `url####`,
-  and any `*.sendgrid.net` CNAME the old setup added.
-- Remove `include:sendgrid.net` from the SPF TXT (leave Brevo + Google includes).
-- Delete the inbound `MX` on the reply subdomain (e.g. `reply.ms.church` →
-  `mx.sendgrid.net`). It's no longer used (replies go to Gmail via Reply-To).
-- **Leave the root `MX` (Google) untouched.**
+**Vercel DNS (remove SendGrid's records — keep Google's). The specific records on
+ms.church are:**
+- the inbound **`MX`** on the reply subdomain (→ `mx.sendgrid.net`) — replies go to
+  Gmail now, so it's dead.
+- SendGrid **DKIM** CNAMEs `s1._domainkey`, `s2._domainkey`.
+- SendGrid **link-branding/tracking** CNAMEs `em2736`, `url8464`, `108042600`.
+- SPF already **excludes** SendGrid (the apex SPF from Phase 2 only includes Brevo
+  + Google), so there's nothing to strip there.
+- **Leave the apex `MX` (Google, `smtp.google.com`) untouched.**
+
+---
+
+## Gmail — two-way email in the CRM (mirror + send)
+
+The CRM uses the `support@ms.church` mailbox as the system of record for 1:1 email:
+it **mirrors** the mailbox into contact threads (their replies AND anything composed
+in Gmail) and can **send** 1:1 replies *through* Gmail (Phase 2), so the whole
+conversation lives in one place with Google-grade deliverability. Brevo is used only
+for bulk blasts. Threads only to EXISTING contacts (matched by email); idempotent;
+no token → a no-op (and 1:1 falls back to Brevo).
+
+**Dedicated OAuth client.** Gmail uses its OWN OAuth app — an Internal app in
+`support@ms.church`'s own GCP project ("MS Church Email") — so church email auth
+isn't tied to the personal calendar account. The calendar keeps `GOOGLE_OAUTH_*`.
+
+**Setup (once):**
+1. **Create the Gmail OAuth client** in the support@ms.church GCP project; enable
+   the **Gmail API**; publish the consent screen to **Production** (a "Testing"
+   app's refresh token dies in 7 days).
+2. **Scopes + refresh token**, signed in **as `support@ms.church`**, with
+   `access_type=offline&prompt=consent`:
+   - Phase 1 (mirror): `https://www.googleapis.com/auth/gmail.readonly`
+   - Phase 2 (send):   also `https://www.googleapis.com/auth/gmail.send`
+   Copy the refresh token.
+3. **Vercel env:** `GOOGLE_GMAIL_CLIENT_ID`, `GOOGLE_GMAIL_CLIENT_SECRET`,
+   `GOOGLE_GMAIL_REFRESH_TOKEN` (and `GOOGLE_GMAIL_ADDRESS` if the mailbox isn't
+   `support@ms.church`). Redeploy. **Leave `GOOGLE_GMAIL_SEND` unset** for now —
+   that keeps 1:1 on Brevo until the mirror is proven.
+4. **Google Workspace DKIM** for `ms.church` (Google Admin → Apps → Gmail →
+   Authenticate email) + the `google._domainkey` TXT in Vercel DNS — so mail you
+   send from Gmail is DKIM-signed on the domain.
+
+**Verify Phase 1 (mirror):** Settings → System shows **Gmail mirror: Syncing**.
+Reply to a CRM email from your phone → within a cron tick it appears in that
+contact's CRM thread; send a fresh email to a known contact straight from Gmail →
+it shows up too.
+
+**Flip Phase 2 (send via Gmail) — ONLY after Phase 1 is verified:** set
+`GOOGLE_GMAIL_SEND=1` in Vercel and redeploy. A 1:1 from the CRM composer now goes
+out through Gmail (From + Reply-To `support@`), lands in the Gmail thread, and shows
+in the CRM thread; replies thread back via the mirror. A Gmail send failure auto-
+falls back to Brevo. Roll back by unsetting `GOOGLE_GMAIL_SEND`.
+
+**Note:** the apex `MX` stays on Google (`smtp.google.com`) — that's what lets the
+mailbox receive at all; don't change it.
 
 ---
 

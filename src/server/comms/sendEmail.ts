@@ -2,13 +2,14 @@ import "server-only"
 import { assertCanSendEmail } from "./optOut"
 import { logAudit } from "@/server/audit"
 import { createSupabaseAdminClient } from "@/lib/supabase/server"
-import { brevoConfigured, brevoReplyTo, sendTransactionalEmail } from "./brevo"
+import { brevoConfigured, brevoPersonalFrom, brevoReplyTo, sendTransactionalEmail } from "./brevo"
+import { gmailAddress, hasGmailSend } from "@/server/google/gmail"
+import { sendViaGmail } from "@/server/email/gmailSend"
 import {
   sanitizeEmailContent,
   wrapPersonalEmail,
   toSmartQuotes,
   personalSignatureText,
-  htmlFragmentToText,
   plainTextToContentHtml,
 } from "./emailHtml"
 import {
@@ -57,10 +58,8 @@ export async function composePersonalEmail(args: {
   // + sign-off), NOT a bulk marketing template. The text/plain part rides along
   // as the fallback. Preview and send share this HTML.
   const contentFragment = sanitizedFragment ?? plainTextToContentHtml(cleanBody)
-  const preheader = htmlFragmentToText(contentFragment).replace(/\s+/g, " ").trim()
   const wrappedHtml = wrapPersonalEmail({
     contentHtml: contentFragment,
-    preheader,
     senderName,
     lang: contactLang,
   })
@@ -71,12 +70,13 @@ export async function composePersonalEmail(args: {
 /**
  * Canonical 1:1 conversational email send. Mirrors `sendSms`: enforces opt-out
  * at the function level, logs the outbound row into the SAME `messages` thread
- * (channel 'email'), then sends via Brevo's TRANSACTIONAL API — or records a
- * mock when BREVO_API_KEY is absent. This is a relationship message, not bulk
- * marketing, so it carries no List-Unsubscribe header (which would brand it as a
- * mailing list and hurt the relationship); opt-out is still enforced by
- * `assertCanSendEmail`. The Reply-To is the church's Google Workspace mailbox,
- * so the recipient's reply lands in Gmail where a human answers it.
+ * (channel 'email'), then sends it. When Gmail send is enabled (Phase 2) it goes
+ * THROUGH the support@ Gmail mailbox so the conversation stays unified there;
+ * otherwise (or on Gmail failure) it falls back to Brevo's transactional API, and
+ * to a logged mock when neither is configured. A relationship message, not bulk
+ * marketing: no List-Unsubscribe header; opt-out is enforced by
+ * `assertCanSendEmail`. Reply-To is the support@ Google Workspace mailbox, so the
+ * recipient's reply lands in Gmail (and is mirrored back into this thread).
  */
 export async function sendDirectEmail(args: {
   contactId: string
@@ -133,7 +133,11 @@ export async function sendDirectEmail(args: {
     return { ok: false, reason: "db_insert_failed", detail: insertErr?.message }
   }
 
-  const provider = await sendTransactionalOrMock({
+  // Phase 2: route 1:1 through Gmail when enabled, so the conversation stays
+  // unified in the support@ mailbox and lands with Google-grade deliverability.
+  // Falls back to Brevo if Gmail is off/unconfigured or the send fails — nothing
+  // breaks while the read-mirror is still being verified.
+  const brevoArgs = {
     to: check.email,
     subject: args.subject,
     text: outgoingText,
@@ -141,16 +145,47 @@ export async function sendDirectEmail(args: {
     replyTo,
     attachments: resolved.brevo,
     idempotencyKey: inserted.id,
-  })
-
-  await admin
-    .from("messages")
-    .update({
-      provider_message_id: provider.id,
-      status: provider.error ? "failed" : provider.mock ? "mocked" : "sent",
-      error: provider.error,
+  }
+  let provider: ProviderResult
+  let gmailThreadId: string | null = null
+  if (hasGmailSend()) {
+    const sent = await sendViaGmailPath({
+      admin,
+      contactId: args.contactId,
+      excludeId: inserted.id,
+      to: check.email,
+      subject: args.subject,
+      text: outgoingText,
+      html: wrappedHtml,
+      replyTo,
+      resolved,
     })
-    .eq("id", inserted.id)
+    if (sent.ok) {
+      provider = { id: sent.messageId, error: null, mock: false }
+      gmailThreadId = sent.threadId
+    } else {
+      provider = await sendTransactionalOrMock(brevoArgs)
+    }
+  } else {
+    provider = await sendTransactionalOrMock(brevoArgs)
+  }
+
+  const update: {
+    provider_message_id: string | null
+    status: string
+    error: string | null
+    email_meta?: Json
+  } = {
+    provider_message_id: provider.id,
+    status: provider.error ? "failed" : provider.mock ? "mocked" : "sent",
+    error: provider.error,
+  }
+  if (gmailThreadId) {
+    const prior =
+      emailMeta && typeof emailMeta === "object" && !Array.isArray(emailMeta) ? emailMeta : {}
+    update.email_meta = { ...prior, source: "gmail", gmail_thread_id: gmailThreadId }
+  }
+  await admin.from("messages").update(update).eq("id", inserted.id)
 
   await logAudit({
     action: provider.error ? "message.send_failed" : "message.send",
@@ -265,4 +300,71 @@ async function sendTransactionalOrMock(args: {
 
   if (!res.ok) return { id: null, error: res.error, mock: false }
   return { id: res.data.messageId ?? null, error: null, mock: false }
+}
+
+/** Resolve the contact's current Gmail thread for reply threading. Excludes the
+ *  message row we just inserted for this send. */
+async function lookupGmailThread(
+  admin: AdminClient,
+  contactId: string,
+  excludeId: string,
+): Promise<{ threadId: string | null; messageId: string | null }> {
+  const { data } = await admin
+    .from("messages")
+    .select("provider_message_id, email_meta")
+    .eq("contact_id", contactId)
+    .eq("channel", "email")
+    .neq("id", excludeId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (!data) return { threadId: null, messageId: null }
+  const meta = (
+    data.email_meta && typeof data.email_meta === "object" && !Array.isArray(data.email_meta)
+      ? data.email_meta
+      : {}
+  ) as { gmail_thread_id?: string; message_id?: string }
+  return {
+    threadId: meta.gmail_thread_id ?? null,
+    messageId: data.provider_message_id ?? meta.message_id ?? null,
+  }
+}
+
+/** Send a 1:1 through Gmail (Phase 2): mint the Message-ID we'll store (so the
+ *  mirror dedups our own Sent copy), thread under the contact's existing Gmail
+ *  conversation, and map attachments to MIME parts. */
+async function sendViaGmailPath(args: {
+  admin: AdminClient
+  contactId: string
+  excludeId: string
+  to: string
+  subject: string
+  text: string
+  html: string | null
+  replyTo: string
+  resolved: { brevo: BrevoAttachment[]; meta: StoredAttachmentMeta[] }
+}): Promise<{ ok: true; messageId: string; threadId: string } | { ok: false; error: string }> {
+  const domain = gmailAddress().split("@")[1] || "ms.church"
+  const messageId = `<${crypto.randomUUID()}@${domain}>`
+  const prior = await lookupGmailThread(args.admin, args.contactId, args.excludeId)
+  const attachments = args.resolved.brevo.map((b, i) => ({
+    name: b.name,
+    content: b.content,
+    type: args.resolved.meta[i]?.type ?? "application/octet-stream",
+  }))
+  const res = await sendViaGmail({
+    to: args.to,
+    subject: args.subject,
+    text: args.text,
+    html: args.html,
+    replyTo: args.replyTo,
+    fromName: brevoPersonalFrom().name,
+    messageId,
+    attachments,
+    threadId: prior.threadId,
+    inReplyTo: prior.messageId,
+    references: prior.messageId,
+  })
+  if (!res.ok) return { ok: false, error: res.error }
+  return { ok: true, messageId, threadId: res.threadId }
 }
