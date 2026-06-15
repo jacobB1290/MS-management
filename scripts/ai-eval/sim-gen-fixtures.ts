@@ -123,6 +123,52 @@ export function generate(): string {
     if (f.notes) auditLog.push({ id: nextId("a"), action: "contact.auto_note", actor_user_id: null, target_table: "contacts", target_id: f.id, created_at: ago(base - 0.4), ip: null })
   }
 
+  // --- Demo-only: email threads for C05 (Jennifer Pace) ----------------------
+  // The simulation itself is SMS/form. These few emails give the inbox's email
+  // channel a real two-thread conversation so the threaded email view (subject
+  // grouping, per-thread reply, the composer's target chip) renders in the demo
+  // and the harness. C05 already has an email on file. Two subjects: an older
+  // "Visiting this Sunday" reply chain and a newer "Children's ministry" thread
+  // that ends on her question — the composer's default reply target.
+  const c05Email = (id: string, direction: "in" | "out", subject: string, body: string, min: number) => ({
+    id,
+    contact_id: "C05",
+    direction,
+    body,
+    body_html: null,
+    subject,
+    media_url: null,
+    channel: "email",
+    twilio_sid: null,
+    provider_message_id: `demo-${id}@ms.church`,
+    status: direction === "out" ? "delivered" : "received",
+    error: null,
+    campaign_id: null,
+    sent_by: direction === "out" ? "demo-admin" : null,
+    num_segments: null,
+    price: null,
+    price_unit: null,
+    context: null,
+    email_meta: null,
+    created_at: ago(min),
+  })
+  const c05Emails = [
+    c05Email("e1", "out", "Visiting this Sunday", "Hi Jennifer, so glad you're planning to visit. We've saved a few seats for your family at the 9am service this Sunday. Anything we can help with beforehand?", 21),
+    c05Email("e2", "in", "Re: Visiting this Sunday", "Thank you so much! Is there parking near the entrance? We'll have both little ones with us.", 20),
+    c05Email("e3", "out", "Re: Visiting this Sunday", "Yes, there's family parking right by the main doors, and someone from our welcome team will be there to greet you on your way in.", 19),
+    c05Email("e4", "out", "Children's ministry", "One more thing for Sunday: our children's program runs during the 9am service, so the little ones are cared for while you settle in.", 16),
+    c05Email("e5", "in", "Re: Children's ministry", "That's wonderful. What ages are the classes for? Ours are 3 and 5.", 13),
+  ]
+  messages.push(...c05Emails)
+  const c05Summary = contactSummary.find((r) => r.id === "C05")
+  if (c05Summary) {
+    c05Summary.last_message_at = ago(13)
+    c05Summary.last_message_body = "That's wonderful. What ages are the classes for? Ours are 3 and 5."
+    c05Summary.last_message_direction = "in"
+    c05Summary.last_message_channel = "email"
+    c05Summary.message_count = (c05Summary.message_count as number) + c05Emails.length
+  }
+
   auditLog.sort((a, b) => (a.created_at as { __ago: number }).__ago - (b.created_at as { __ago: number }).__ago)
   const auditRecent = auditLog.slice(0, 60)
 

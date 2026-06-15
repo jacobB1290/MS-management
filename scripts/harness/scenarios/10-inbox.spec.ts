@@ -25,19 +25,42 @@ test("inbox email channel toggle", async ({ authed }) => {
   await screenshotPage(authed, "inbox-channel-toggle")
 })
 
-test("inbox email composer", async ({ authed }) => {
-  // Switch the channel toggle to Email and reveal the subject + body composer.
+test("inbox email threads + reply composer", async ({ authed }) => {
+  // Switching to Email groups the conversation into subject-threads (C05 has two:
+  // "Visiting this Sunday" and "Children's ministry"), each with its own Reply.
+  // The composer defaults to replying into the latest thread — its target chip
+  // names it and the subject field is hidden (the thread owns the subject).
   await gotoAndSettle(authed, "/inbox?c=C05")
   await authed.waitForTimeout(400)
   await authed.getByRole("radio", { name: /email/i }).click()
-  await authed.getByLabel("Email subject").fill("Re: Visiting this Sunday")
+  await authed.waitForTimeout(300)
+  await expect(authed.getByText("Visiting this Sunday").first()).toBeVisible()
+  await expect(authed.getByText("Children's ministry").first()).toBeVisible()
+  // Replying into the latest thread by default → the "New email" escape shows.
+  await expect(authed.getByRole("button", { name: /new email/i })).toBeVisible()
   await authed
-    .getByPlaceholder("Write an email…")
+    .getByPlaceholder("Write your reply…")
     .fill(
-      "Hi Jennifer, so glad you're planning to visit! We saved a few seats for your family at the 9am service. See you Sunday.",
+      "Both are a perfect fit. We have a nursery and a preschool class during the 9am, so they'll be right at home. See you Sunday!",
     )
   await authed.waitForTimeout(200)
   await screenshotPage(authed, "inbox-email-composer")
+})
+
+test("inbox new email (fresh subject)", async ({ authed }) => {
+  // "New email" escapes the reply target and brings back the editable subject
+  // field for a brand-new thread.
+  await gotoAndSettle(authed, "/inbox?c=C05")
+  await authed.waitForTimeout(400)
+  await authed.getByRole("radio", { name: /email/i }).click()
+  await authed.getByRole("button", { name: /new email/i }).click()
+  await expect(authed.getByLabel("Email subject")).toBeVisible()
+  await authed.getByLabel("Email subject").fill("A midweek small group for your family")
+  await authed
+    .getByPlaceholder("Write an email…")
+    .fill("Hi Jennifer, I wanted to share a midweek small group that might be a great fit while you settle in.")
+  await authed.waitForTimeout(200)
+  await screenshotPage(authed, "inbox-email-new")
 })
 
 test("inbox email composer controls", async ({ authed }) => {
