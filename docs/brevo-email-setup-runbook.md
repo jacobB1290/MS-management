@@ -258,14 +258,16 @@ falls back to Brevo. Roll back by unsetting `GOOGLE_GMAIL_SEND`.
 **Real-time delivery (the 1-minute poller).** The mirror runs on a **Supabase
 pg_cron** job that pings `/api/cron/gmail` every minute — NOT GitHub Actions (the
 repo has no Actions secrets, so that workflow's own guard skips every tick and the
-app is never hit). Migration `0033` schedules it; the tick is incremental
-(`history.list` from the cursor), so an idle minute is a tiny no-op. Activate:
+app is never hit). Migrations `0033` (Gmail) and `0034` (campaign worker) schedule
+both jobs on the **same two Vault secrets**, so campaigns also run from Supabase
+and GitHub Actions is dropped for both. Each tick is incremental / idempotent, so
+an idle minute is a tiny no-op. Activate:
 1. **Put `CRON_SECRET` on the Vercel → Production scope** (it was Preview-scoped) so
-   the prod endpoint accepts the poll. Redeploy.
-2. Apply migration `0033` (enables `pg_cron` + `pg_net`, schedules `gmail-mirror-poll`).
-   If `create extension pg_cron` is blocked, enable pg_cron + pg_net in Supabase →
-   Database → Extensions first, then re-apply.
-3. Add two secrets to **Supabase Vault** (SQL editor) — the job reads them at run
+   the prod endpoints accept the poll. Redeploy.
+2. Apply migrations `0033` + `0034` (enable `pg_cron` + `pg_net`, schedule
+   `gmail-mirror-poll` + `campaign-worker-poll`). If `create extension pg_cron` is
+   blocked, enable pg_cron + pg_net in Supabase → Database → Extensions first.
+3. Add two secrets to **Supabase Vault** (SQL editor) — both jobs read them at run
    time so they're never committed:
    ```sql
    select vault.create_secret('https://<prod-host>', 'app_base_url');
@@ -273,9 +275,10 @@ app is never hit). Migration `0033` schedules it; the tick is incremental
    ```
 4. Confirm within ~1 min:
    ```sql
-   select jrd.status, jrd.return_message, jrd.start_time
+   select j.jobname, jrd.status, jrd.return_message, jrd.start_time
    from cron.job_run_details jrd join cron.job j on j.jobid = jrd.jobid
-   where j.jobname = 'gmail-mirror-poll' order by jrd.start_time desc limit 3;
+   where j.jobname in ('gmail-mirror-poll','campaign-worker-poll')
+   order by jrd.start_time desc limit 6;
    ```
    then send a reply to `support@` and watch it appear in the CRM thread.
 
