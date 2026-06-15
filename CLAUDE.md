@@ -29,7 +29,7 @@ stack, and we keep it cheap and clean.
 | SMS / MMS | Twilio Programmable Messaging (Messaging Service + 10DLC) |
 | Email | Brevo (1:1 transactional + campaign blasts); replies land in Google Workspace and are mirrored back into the CRM via a Gmail-API sync |
 | Testing harness | Playwright (visual + multi-viewport screenshots) |
-| Cron | GitHub Actions (heartbeat) |
+| Cron | Supabase pg_cron (Gmail mirror, campaign worker, heartbeat, knowledge sync) |
 
 **Supabase project:** `nhrgbjkiiqpzwdgsvdrl` (region `us-west-1`). Free tier.
 
@@ -80,7 +80,7 @@ Six core tables + three supporting. See `supabase/migrations/0001_init.sql`.
 - `form_submissions` — immutable proof-of-opt-in.
 - `app_users` — `auth.users.id` → role (`admin` | `member`).
 - `audit_log` — write-only privileged action log.
-- `heartbeat` — single row, kept warm by GH Actions cron.
+- `heartbeat` — single row, kept warm by a Supabase pg_cron job (`0035`).
 - `events` (added in `0028`) — CRM mirror/editor for the church Google Calendar
   that ms.church reads. `gcal_event_id UNIQUE` (sync key), structured CTA
   (`cta_text`/`cta_url`), the flyer's Drive file id + public URL, `status`
