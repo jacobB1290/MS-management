@@ -298,15 +298,6 @@ function letterheadInner(dateLabel: string): string {
 <div style="margin-top:15px;">${trackedCaps(dateLabel, 10, FAINT)}</div>`
 }
 
-/** Hidden preheader: controls the inbox preview line so it's the warm opening
- *  sentence, not a scraped fragment. Padded so the client doesn't pull body
- *  text in after it. */
-function preheaderBlock(preheader: string): string {
-  const text = escapeHtml(preheader.trim()).slice(0, 140)
-  const pad = "&#847;&zwnj;&nbsp;".repeat(20)
-  return `<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:${CARD_BG};opacity:0;">${text}${pad}</div>`
-}
-
 /**
  * Wrap a sanitized content fragment in the personal stationery shell. The caller
  * MUST pass already-sanitized HTML (the send path sanitizes first). Returns a
@@ -318,7 +309,6 @@ function preheaderBlock(preheader: string): string {
  */
 export function wrapPersonalEmail(args: {
   contentHtml: string
-  preheader: string
   senderName: string | null
   lang?: string
 }): string {
@@ -330,7 +320,6 @@ export function wrapPersonalEmail(args: {
   })
   const content = styleContentForEmail(args.contentHtml)
   const signature = signatureHtml(args.senderName, lang)
-  const preheader = preheaderBlock(args.preheader)
   const letterhead = letterheadInner(dateLabel)
   // Full-bleed ghost: applied to the masthead ROW (full email width) so the
   // faded oversized word reaches the page edges, cropped there. Honored by Apple
@@ -365,7 +354,6 @@ export function wrapPersonalEmail(args: {
 </style>
 </head>
 <body style="margin:0;padding:0;background-color:${CARD_BG};">
-${preheader}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${CARD_BG}" style="background-color:${CARD_BG};mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;">
 <tr>
 <td align="center"${ghostBg}>

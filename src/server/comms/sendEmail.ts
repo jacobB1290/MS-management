@@ -8,7 +8,6 @@ import {
   wrapPersonalEmail,
   toSmartQuotes,
   personalSignatureText,
-  htmlFragmentToText,
   plainTextToContentHtml,
 } from "./emailHtml"
 import {
@@ -57,10 +56,8 @@ export async function composePersonalEmail(args: {
   // + sign-off), NOT a bulk marketing template. The text/plain part rides along
   // as the fallback. Preview and send share this HTML.
   const contentFragment = sanitizedFragment ?? plainTextToContentHtml(cleanBody)
-  const preheader = htmlFragmentToText(contentFragment).replace(/\s+/g, " ").trim()
   const wrappedHtml = wrapPersonalEmail({
     contentHtml: contentFragment,
-    preheader,
     senderName,
     lang: contactLang,
   })
