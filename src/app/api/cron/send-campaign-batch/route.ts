@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server"
 import { createSupabaseAdminClient } from "@/lib/supabase/server"
 import { processCampaignBatch } from "@/server/comms/campaignWorker"
 import { refreshBrevoCampaignStats } from "@/server/comms/brevoCampaign"
+import { syncGmailMailbox } from "@/server/email/gmailSync"
 import { backfillMessagePrices } from "@/server/billing/twilio"
 
 // Email blasts can take a few seconds to hand off to Brevo (list import + send).
@@ -68,5 +69,9 @@ export async function GET(request: NextRequest) {
     await refreshBrevoCampaignStats(c.id)
   }
 
-  return NextResponse.json({ ok: true, campaigns: summary, priced, ran_at: nowIso })
+  // Mirror new mail from the support@ Gmail mailbox into the CRM threads.
+  // No-op until the Gmail OAuth token is configured.
+  const gmail = await syncGmailMailbox()
+
+  return NextResponse.json({ ok: true, campaigns: summary, priced, gmail, ran_at: nowIso })
 }

@@ -46,6 +46,7 @@ export default async function SettingsPage() {
     twilioMessaging: Boolean(process.env.TWILIO_MESSAGING_SERVICE_SID),
     brevo: Boolean(process.env.BREVO_API_KEY),
     brevoWebhook: Boolean(process.env.BREVO_WEBHOOK_TOKEN),
+    gmailSync: Boolean(process.env.GOOGLE_GMAIL_REFRESH_TOKEN),
     googleWrite,
     googleRead: googleWrite || Boolean(process.env.GOOGLE_CALENDAR_API_KEY),
     publicForm: Boolean(process.env.PUBLIC_FORM_HMAC_SECRET),
@@ -164,6 +165,11 @@ export default async function SettingsPage() {
                 label="Brevo webhook"
                 ready={status.brevoWebhook}
                 detail={status.brevoWebhook ? "Token configured" : "BREVO_WEBHOOK_TOKEN missing; unsubscribes won’t sync"}
+              />
+              <StatusRow
+                label="Gmail mirror"
+                ready={status.gmailSync}
+                detail={status.gmailSync ? "Syncing support@ into the CRM" : "GOOGLE_GMAIL_REFRESH_TOKEN missing; Gmail replies won’t appear in the CRM"}
               />
               <StatusRow
                 label="Google Calendar — publish events"

@@ -214,6 +214,42 @@ ms.church are:**
 
 ---
 
+## Gmail mirror — show the full email conversation in the CRM
+
+The CRM mirrors the `support@ms.church` mailbox so a contact's thread shows the
+WHOLE email conversation — their replies AND anything you compose in Gmail —
+regardless of how it was sent. This is a Gmail-API read sync (Brevo can't see
+Gmail-composed mail or replies). It runs on the cron, is idempotent, and threads
+only to EXISTING contacts matched by email (mailbox noise won't create junk
+contacts). No token → it's a no-op.
+
+**Setup (once):**
+1. **Identity.** The token must act AS the `support@ms.church` Workspace mailbox
+   (NOT the gmail.com calendar account). Reuse the OAuth app
+   (`GOOGLE_OAUTH_CLIENT_ID/SECRET`); just add the Gmail scope.
+2. **Scope + refresh token** for `support@ms.church`:
+   - In Google Cloud console, add scope
+     `https://www.googleapis.com/auth/gmail.readonly` (add `.../gmail.send` too if
+     you'll later send 1:1 through Gmail — Phase 2).
+   - Run the OAuth consent **signed in as `support@ms.church`**, with
+     `access_type=offline&prompt=consent`; copy the refresh token.
+   - Publish the OAuth app to **Production** (same gotcha as the calendar — a
+     "Testing" app's refresh token expires in 7 days).
+3. **Vercel env:** set `GOOGLE_GMAIL_REFRESH_TOKEN` (and `GOOGLE_GMAIL_ADDRESS` if
+   the mailbox isn't `support@ms.church`). Redeploy.
+4. **Google Workspace DKIM** for `ms.church` (Google Admin → Apps → Gmail →
+   Authenticate email) + the `google._domainkey` TXT in Vercel DNS — so mail you
+   send from Gmail is DKIM-signed on the domain.
+
+**Verify:** Settings → System shows **Gmail mirror: Syncing**. Reply to a CRM email
+from your phone → within a cron tick it appears in that contact's CRM thread; send
+a fresh email to a known contact straight from Gmail → it shows up too.
+
+**Note:** the apex `MX` stays on Google (`smtp.google.com`) — that's what lets the
+mailbox receive at all; don't change it.
+
+---
+
 ## Rollback
 
 The code change is what flips providers; env vars only switch real-vs-mock. To
