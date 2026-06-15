@@ -125,7 +125,11 @@ async function threadMessage(admin: Admin, gmailId: string, notify: boolean): Pr
   if (!contact) return false
 
   const { text, html } = extractBodies(msg.payload)
-  const body = direction === "in" ? stripQuotedReply(text ?? "") : (text ?? "").trim()
+  // Strip the quoted reply chain for BOTH directions — a reply composed in Gmail
+  // (inbound OR outbound) carries the whole "On … wrote:" / ">" history, and we
+  // want just the new message. CRM-composed sends are deduped out by Message-ID,
+  // so this only ever touches Gmail-authored mail.
+  const body = stripQuotedReply(text ?? "")
   const occurredAt = msg.internalDate
     ? new Date(Number(msg.internalDate)).toISOString()
     : new Date().toISOString()
