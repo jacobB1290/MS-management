@@ -214,36 +214,46 @@ ms.church are:**
 
 ---
 
-## Gmail mirror — show the full email conversation in the CRM
+## Gmail — two-way email in the CRM (mirror + send)
 
-The CRM mirrors the `support@ms.church` mailbox so a contact's thread shows the
-WHOLE email conversation — their replies AND anything you compose in Gmail —
-regardless of how it was sent. This is a Gmail-API read sync (Brevo can't see
-Gmail-composed mail or replies). It runs on the cron, is idempotent, and threads
-only to EXISTING contacts matched by email (mailbox noise won't create junk
-contacts). No token → it's a no-op.
+The CRM uses the `support@ms.church` mailbox as the system of record for 1:1 email:
+it **mirrors** the mailbox into contact threads (their replies AND anything composed
+in Gmail) and can **send** 1:1 replies *through* Gmail (Phase 2), so the whole
+conversation lives in one place with Google-grade deliverability. Brevo is used only
+for bulk blasts. Threads only to EXISTING contacts (matched by email); idempotent;
+no token → a no-op (and 1:1 falls back to Brevo).
+
+**Dedicated OAuth client.** Gmail uses its OWN OAuth app — an Internal app in
+`support@ms.church`'s own GCP project ("MS Church Email") — so church email auth
+isn't tied to the personal calendar account. The calendar keeps `GOOGLE_OAUTH_*`.
 
 **Setup (once):**
-1. **Identity.** The token must act AS the `support@ms.church` Workspace mailbox
-   (NOT the gmail.com calendar account). Reuse the OAuth app
-   (`GOOGLE_OAUTH_CLIENT_ID/SECRET`); just add the Gmail scope.
-2. **Scope + refresh token** for `support@ms.church`:
-   - In Google Cloud console, add scope
-     `https://www.googleapis.com/auth/gmail.readonly` (add `.../gmail.send` too if
-     you'll later send 1:1 through Gmail — Phase 2).
-   - Run the OAuth consent **signed in as `support@ms.church`**, with
-     `access_type=offline&prompt=consent`; copy the refresh token.
-   - Publish the OAuth app to **Production** (same gotcha as the calendar — a
-     "Testing" app's refresh token expires in 7 days).
-3. **Vercel env:** set `GOOGLE_GMAIL_REFRESH_TOKEN` (and `GOOGLE_GMAIL_ADDRESS` if
-   the mailbox isn't `support@ms.church`). Redeploy.
+1. **Create the Gmail OAuth client** in the support@ms.church GCP project; enable
+   the **Gmail API**; publish the consent screen to **Production** (a "Testing"
+   app's refresh token dies in 7 days).
+2. **Scopes + refresh token**, signed in **as `support@ms.church`**, with
+   `access_type=offline&prompt=consent`:
+   - Phase 1 (mirror): `https://www.googleapis.com/auth/gmail.readonly`
+   - Phase 2 (send):   also `https://www.googleapis.com/auth/gmail.send`
+   Copy the refresh token.
+3. **Vercel env:** `GOOGLE_GMAIL_CLIENT_ID`, `GOOGLE_GMAIL_CLIENT_SECRET`,
+   `GOOGLE_GMAIL_REFRESH_TOKEN` (and `GOOGLE_GMAIL_ADDRESS` if the mailbox isn't
+   `support@ms.church`). Redeploy. **Leave `GOOGLE_GMAIL_SEND` unset** for now —
+   that keeps 1:1 on Brevo until the mirror is proven.
 4. **Google Workspace DKIM** for `ms.church` (Google Admin → Apps → Gmail →
    Authenticate email) + the `google._domainkey` TXT in Vercel DNS — so mail you
    send from Gmail is DKIM-signed on the domain.
 
-**Verify:** Settings → System shows **Gmail mirror: Syncing**. Reply to a CRM email
-from your phone → within a cron tick it appears in that contact's CRM thread; send
-a fresh email to a known contact straight from Gmail → it shows up too.
+**Verify Phase 1 (mirror):** Settings → System shows **Gmail mirror: Syncing**.
+Reply to a CRM email from your phone → within a cron tick it appears in that
+contact's CRM thread; send a fresh email to a known contact straight from Gmail →
+it shows up too.
+
+**Flip Phase 2 (send via Gmail) — ONLY after Phase 1 is verified:** set
+`GOOGLE_GMAIL_SEND=1` in Vercel and redeploy. A 1:1 from the CRM composer now goes
+out through Gmail (From + Reply-To `support@`), lands in the Gmail thread, and shows
+in the CRM thread; replies thread back via the mirror. A Gmail send failure auto-
+falls back to Brevo. Roll back by unsetting `GOOGLE_GMAIL_SEND`.
 
 **Note:** the apex `MX` stays on Google (`smtp.google.com`) — that's what lets the
 mailbox receive at all; don't change it.

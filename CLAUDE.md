@@ -440,9 +440,12 @@ opt-in via `detectMarketingJoin`). Inbound + status webhooks point at
   (`src/server/email/gmailSync.ts`, on the cron): every inbound reply AND anything
   composed directly in Gmail shows in the thread, matched to existing contacts by
   email, idempotent on `Message-ID`. Gated on `GOOGLE_GMAIL_REFRESH_TOKEN` (the
-  support@ mailbox's own `gmail.readonly` OAuth token); unset → the sync no-ops and
-  replies just stay in Gmail. Keep the apex `MX` on Google. (Sending 1:1 *through*
-  Gmail instead of Brevo is a planned Phase 2.)
+  support@ mailbox's OWN dedicated OAuth client — `GOOGLE_GMAIL_CLIENT_ID/SECRET`,
+  falling back to `GOOGLE_OAUTH_*` — minted `gmail.readonly`); unset → the sync
+  no-ops and replies stay in Gmail. Keep the apex `MX` on Google. **Phase 2**
+  (built, gated behind `GOOGLE_GMAIL_SEND=1` + a `gmail.send` token) routes 1:1
+  *sending* through Gmail too (`src/server/email/gmailSend.ts`) so the whole thread
+  lives in one mailbox; it auto-falls back to the Brevo path on any failure.
 
 ## 13.2 Events → Google Calendar (ms.church)
 

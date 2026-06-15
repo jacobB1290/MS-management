@@ -25,13 +25,34 @@ export function gmailAddress(): string {
   ).toLowerCase()
 }
 
+/**
+ * The Gmail OAuth client. Gmail uses its OWN dedicated app (a separate GCP
+ * project under support@ms.church) so the church email auth isn't tied to the
+ * personal calendar account — `GOOGLE_GMAIL_CLIENT_ID/SECRET`, falling back to
+ * the shared `GOOGLE_OAUTH_*` client only if the Gmail-specific creds are unset.
+ * (The Calendar feature keeps using `GOOGLE_OAUTH_*` directly.)
+ */
+function gmailClientId(): string | undefined {
+  return process.env.GOOGLE_GMAIL_CLIENT_ID || process.env.GOOGLE_OAUTH_CLIENT_ID
+}
+function gmailClientSecret(): string | undefined {
+  return process.env.GOOGLE_GMAIL_CLIENT_SECRET || process.env.GOOGLE_OAUTH_CLIENT_SECRET
+}
+
 /** Whether the Gmail mailbox sync is configured (else everything no-ops). */
 export function hasGmailSync(): boolean {
-  return Boolean(
-    process.env.GOOGLE_OAUTH_CLIENT_ID &&
-      process.env.GOOGLE_OAUTH_CLIENT_SECRET &&
-      process.env.GOOGLE_GMAIL_REFRESH_TOKEN,
-  )
+  return Boolean(gmailClientId() && gmailClientSecret() && process.env.GOOGLE_GMAIL_REFRESH_TOKEN)
+}
+
+/**
+ * Whether to route 1:1 sends THROUGH Gmail (needs the gmail.send scope). Explicit
+ * opt-in (`GOOGLE_GMAIL_SEND=1`) so it isn't promoted to production until the
+ * read-mirror is verified and a gmail.send-scoped token is in place; while off,
+ * 1:1 falls back to the Brevo path.
+ */
+export function hasGmailSend(): boolean {
+  const flag = (process.env.GOOGLE_GMAIL_SEND || "").trim().toLowerCase()
+  return hasGmailSync() && (flag === "1" || flag === "true" || flag === "yes")
 }
 
 // Access tokens last ~1h; cache in module memory and refresh just before expiry.
@@ -43,8 +64,8 @@ export async function getGmailAccessToken(): Promise<string | null> {
   if (cached && now < cached.expiresAt - 60_000) return cached.value
 
   const body = new URLSearchParams({
-    client_id: process.env.GOOGLE_OAUTH_CLIENT_ID!,
-    client_secret: process.env.GOOGLE_OAUTH_CLIENT_SECRET!,
+    client_id: gmailClientId()!,
+    client_secret: gmailClientSecret()!,
     refresh_token: process.env.GOOGLE_GMAIL_REFRESH_TOKEN!,
     grant_type: "refresh_token",
   })
@@ -62,11 +83,19 @@ export async function getGmailAccessToken(): Promise<string | null> {
   return json.access_token
 }
 
-async function gmailFetch<T>(path: string): Promise<T> {
+async function gmailFetch<T>(
+  path: string,
+  init?: { method?: string; body?: unknown },
+): Promise<T> {
   const token = await getGmailAccessToken()
   if (!token) throw new Error("gmail_not_configured")
   const res = await fetch(`${GMAIL_API}${path}`, {
-    headers: { Authorization: `Bearer ${token}` },
+    method: init?.method ?? "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...(init?.body !== undefined ? { "Content-Type": "application/json" } : {}),
+    },
+    body: init?.body !== undefined ? JSON.stringify(init.body) : undefined,
     cache: "no-store",
   })
   if (!res.ok) {
@@ -74,6 +103,17 @@ async function gmailFetch<T>(path: string): Promise<T> {
     throw new Error(`gmail ${res.status}: ${text.slice(0, 200)}`)
   }
   return res.json() as Promise<T>
+}
+
+/** Send a base64url-encoded RFC 2822 message. Needs the gmail.send scope. */
+export async function sendRawMessage(
+  raw: string,
+  threadId?: string,
+): Promise<{ id: string; threadId: string }> {
+  return gmailFetch("/messages/send", {
+    method: "POST",
+    body: threadId ? { raw, threadId } : { raw },
+  })
 }
 
 export interface GmailMessageRef {
