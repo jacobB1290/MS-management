@@ -11,6 +11,7 @@ import { resolveOptInMode } from "@/server/comms/optInMode"
 import { TagList } from "@/components/tag-list"
 import { CallButton } from "@/components/call-button"
 import { cn, formatPhone, humanizeSource } from "@/lib/utils"
+import { resolveContactBack, withContactFrom } from "@/lib/contact-nav"
 import { DeleteContactButton } from "@/components/delete-contact-button"
 import { SuggestTags } from "@/components/suggest-tags"
 import { OptInRequest } from "@/components/opt-in-request"
@@ -29,10 +30,10 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
   const voiceConfigured = isVoiceConfigured()
   const { id } = await params
   const { from } = await searchParams
-  const cameFromThread = from === "inbox"
-  const backHref = cameFromThread ? `/inbox?c=${id}` : "/contacts"
-  const backLabel = cameFromThread ? "Back to conversation" : "All contacts"
-  const editHref = cameFromThread ? `/contacts/${id}/edit?from=inbox` : `/contacts/${id}/edit`
+  // Return-to-origin: the back button and Edit both carry the origin (inbox,
+  // a campaign, or the directory) so navigation lands where you came from.
+  const { href: backHref, label: backLabel } = resolveContactBack(from, id)
+  const editHref = withContactFrom(`/contacts/${id}/edit`, from)
 
   const supabase = await createSupabaseServerClient()
   const [{ data: contact }, { data: submissions }, { count: messageCount }] =

@@ -14,6 +14,7 @@ import { formatMoney } from "@/server/billing/twilio"
 import { isVideoUrl } from "@/lib/media"
 import { formatPhone, cn } from "@/lib/utils"
 import { recipientOutcome, type OutcomeGroup } from "@/lib/campaign-recipient-status"
+import { withContactFrom } from "@/lib/contact-nav"
 import { PageHeader } from "@/components/ui/page-header"
 import { PageScaffold } from "@/components/ui/page-scaffold"
 import { Badge } from "@/components/ui/badge"
@@ -131,7 +132,7 @@ export default async function CampaignDetail({ params }: PageProps) {
       variant: outcome.variant,
       group: outcome.group,
       when: r.sent_at ? format(new Date(r.sent_at), "MMM d, p") : null,
-      href: hrefFor(channel, outcome.label, outcome.group, r.contact_id),
+      href: hrefFor(channel, outcome.label, outcome.group, r.contact_id, id),
     }
     return { row, group: outcome.group, sentAt: r.sent_at }
   })
@@ -298,10 +299,20 @@ export default async function CampaignDetail({ params }: PageProps) {
   )
 }
 
-function hrefFor(channel: "sms" | "email", label: string, group: OutcomeGroup, contactId: string): string {
-  if (label === "No phone" || label === "No email") return `/contacts/${contactId}/edit`
+function hrefFor(
+  channel: "sms" | "email",
+  label: string,
+  group: OutcomeGroup,
+  contactId: string,
+  campaignId: string,
+): string {
+  // Record the campaign as the origin so the contact page's back button returns
+  // here, not to the contacts directory.
+  const from = `campaign:${campaignId}`
+  if (label === "No phone" || label === "No email")
+    return withContactFrom(`/contacts/${contactId}/edit`, from)
   if (group === "delivered" && channel === "sms") return `/inbox?c=${contactId}`
-  return `/contacts/${contactId}`
+  return withContactFrom(`/contacts/${contactId}`, from)
 }
 
 function Timeline({ items }: { items: { label: string; at: string }[] }) {

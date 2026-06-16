@@ -2,6 +2,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
+import { withContactFrom } from "@/lib/contact-nav"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -21,13 +22,21 @@ interface ContactFormProps {
   contactId?: string
   /** Existing tag vocabulary (base + distinct across contacts) for the picker. */
   tagSuggestions?: string[]
+  /** Origin to carry back after an edit (e.g. "campaign:<id>" or "inbox"), so the
+   *  contact detail's back button returns where the flow began. */
+  returnFrom?: string
 }
 
 /**
  * Used in both `/contacts/new` and `/contacts/[id]/edit`. When `contactId`
  * is provided, submits a PATCH; otherwise POSTs to create a new contact.
  */
-export function ContactForm({ initialValues, contactId, tagSuggestions = [] }: ContactFormProps) {
+export function ContactForm({
+  initialValues,
+  contactId,
+  tagSuggestions = [],
+  returnFrom,
+}: ContactFormProps) {
   const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -85,7 +94,10 @@ export function ContactForm({ initialValues, contactId, tagSuggestions = [] }: C
         }
       } else {
         toast.success(isEdit ? "Contact updated" : "Contact added")
-        router.push(`/contacts/${isEdit ? contactId : json.id}`)
+        // After an edit, return to the detail page still carrying the origin so
+        // its back button lands where the whole flow began (campaign, inbox, …).
+        const target = `/contacts/${isEdit ? contactId : json.id}`
+        router.push(isEdit ? withContactFrom(target, returnFrom) : target)
         router.refresh()
       }
     } finally {
