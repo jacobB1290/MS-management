@@ -230,10 +230,9 @@ export function ThreadPane({
     [messages],
   )
   // Staggered reveal: capture the set of bubbles present when the stream freshly
-  // renders (a channel flip or a thread open), so ONLY that set waterfalls in.
-  // A later sent/received message just appears — no re-animation, so the reveal
-  // never clashes with new-message arrival. State-during-render (like the
-  // contact resync below) so the new set is in place before paint.
+  // renders (a channel flip or a thread open), so that set waterfalls in as a
+  // cascade. State-during-render (like the contact resync below) so the new set
+  // is in place before paint.
   const revealKey = `${channel}:${contactProp.id}`
   const [reveal, setReveal] = useState<{ key: string; ids: Set<string> }>({ key: "", ids: new Set() })
   if (reveal.key !== revealKey) {
@@ -243,8 +242,16 @@ export function ThreadPane({
     }
     setReveal({ key: revealKey, ids })
   }
-  // id -> entrance delay (ms), only for the reveal set. Newest bubble = delay 0
-  // (so the on-screen run fills fast); the delay grows up the visible run.
+  // Real ids that must NOT play an entrance: the realtime handler stamps a
+  // confirmed message here when it swaps in for its optimistic row, so the
+  // optimistic->confirmed handoff doesn't replay the glide the optimistic
+  // already did.
+  const enteredRef = useRef<Set<string>>(new Set())
+  // id -> entrance delay (ms). The reveal set gets the staggered cascade (newest
+  // = delay 0, growing up the visible run). A message that appears AFTER the
+  // reveal — a fresh send or receive — gets a single delay-0 glide so it never
+  // snaps in (the inbox's highest-traffic motion). That delay stays assigned for
+  // the message's life so a later re-render can't strip the animation mid-flight.
   const enterDelays = useMemo(() => {
     const map = new Map<string, number>()
     const sms = messages.filter((m) => m.channel !== "email")
@@ -253,6 +260,9 @@ export function ThreadPane({
       const d = bubbleEnterDelay(sms.length - 1 - i)
       if (d != null) map.set(m.id, d)
     })
+    // Email delays index over a flat list built in the SAME order EmailThreadGroup
+    // renders (it iterates emailThreads in order), so the cascade reads
+    // top-to-bottom. Keep these two iterations in lockstep.
     const emailFlat: string[] = []
     for (const t of emailThreads) for (const m of t.messages) emailFlat.push(m.id)
     emailFlat.forEach((id, i) => {
@@ -260,6 +270,10 @@ export function ThreadPane({
       const d = bubbleEnterDelay(emailFlat.length - 1 - i)
       if (d != null) map.set(id, d)
     })
+    // Fresh arrivals (not in the reveal set, not a confirmed swap) glide in once.
+    for (const m of messages) {
+      if (!reveal.ids.has(m.id) && !enteredRef.current.has(m.id)) map.set(m.id, 0)
+    }
     return map
   }, [messages, emailThreads, reveal])
   // Reply target derived from the subject: "Re: X" (or "X") targets thread X and
@@ -302,7 +316,10 @@ export function ThreadPane({
         aria-hidden
         className={cn(
           "absolute bottom-0.5 left-0.5 top-0.5 w-[calc(50%-0.125rem)] rounded-pill bg-[color-mix(in_oklab,var(--gold)_16%,transparent)]",
-          "transition-transform duration-[var(--motion-medium)] ease-[var(--ease-out-soft)] motion-reduce:transition-none",
+          // Fast tier so the toggle glide, the action-row fade, and the composer
+          // fade all resolve together as one quick flip, leaving the 0.6s stream
+          // waterfall as the only trailing motion on a channel switch.
+          "transition-transform duration-[var(--motion-fast)] ease-[var(--ease-out-soft)] motion-reduce:transition-none",
           channel === "email" ? "translate-x-full" : "translate-x-0",
         )}
       />
@@ -492,6 +509,9 @@ export function ThreadPane({
               if (swapIdx >= 0) {
                 const next = cur.slice()
                 next[swapIdx] = incoming
+                // The optimistic row already glided in; mark the confirmed id so
+                // its entrance isn't replayed when it swaps in.
+                enteredRef.current.add(incoming.id)
                 return next
               }
               return [...cur, incoming]
@@ -1335,13 +1355,15 @@ export function ThreadPane({
             </p>
           </div>
         ) : (
-          // Cross-fade the composer body on a channel switch too, so the fields
-          // settle in with the sliding toggle + the stream fade instead of
-          // snapping between the SMS and email layouts. Keyed on channel only, so
-          // typing / attaching / the AI preview never re-fade it.
+          // Cross-fade the composer body on a channel switch at the fast tier, so
+          // it resolves together with the toggle glide + action-row fade as one
+          // quick flip rather than a slower competing blink. Keyed on channel
+          // only, so typing / attaching / the AI preview never re-fade it.
+          // (The full fix — morph the field box height + expand/collapse the
+          // subject instead of cross-fading — is tracked separately.)
           <div
             key={channel}
-            className="animate-[fade-in_var(--motion-medium)_var(--ease-out-soft)] motion-reduce:animate-none"
+            className="animate-[fade-in_var(--motion-fast)_var(--ease-out-soft)] motion-reduce:animate-none"
           >
           {channel === "email" ? (
           <>
