@@ -90,6 +90,11 @@ const contacts: Row[] = [
 
 const messages: Row[] = [
   {"id":"m1","contact_id":"C01","direction":"in","body":"Hi, found your card on my door. What time are your Sunday services?","media_url":null,"channel":"sms","twilio_sid":"SMsim_C01_0","status":"received","error":null,"campaign_id":null,"sent_by":null,"num_segments":1,"price":null,"price_unit":null,"context":null,"created_at":ago(10)},
+  {"id":"mc3_09","contact_id":"C09","direction":"out","body":"Join us this Sunday for Easter at 9 or 11am, with childcare at both. Hope to see you!","media_url":null,"channel":"sms","twilio_sid":"SMcamp3_C09","status":"delivered","error":null,"campaign_id":"camp3","sent_by":"demo-admin","num_segments":1,"price":-0.0079,"price_unit":"USD","context":"marketing_promotional","created_at":ago(2)},
+  {"id":"mc3_15","contact_id":"C15","direction":"out","body":"Join us this Sunday for Easter at 9 or 11am, with childcare at both. Hope to see you!","media_url":null,"channel":"sms","twilio_sid":"SMcamp3_C15","status":"delivered","error":null,"campaign_id":"camp3","sent_by":"demo-admin","num_segments":1,"price":-0.0079,"price_unit":"USD","context":"marketing_promotional","created_at":ago(2)},
+  {"id":"mc3_27","contact_id":"C27","direction":"out","body":"Join us this Sunday for Easter at 9 or 11am, with childcare at both. Hope to see you!","media_url":null,"channel":"sms","twilio_sid":"SMcamp3_C27","status":"delivered","error":null,"campaign_id":"camp3","sent_by":"demo-admin","num_segments":1,"price":-0.0079,"price_unit":"USD","context":"marketing_promotional","created_at":ago(2)},
+  {"id":"mc3_36","contact_id":"C36","direction":"out","body":"Join us this Sunday for Easter at 9 or 11am, with childcare at both. Hope to see you!","media_url":null,"channel":"sms","twilio_sid":"SMcamp3_C36","status":"delivered","error":null,"campaign_id":"camp3","sent_by":"demo-admin","num_segments":1,"price":-0.0079,"price_unit":"USD","context":"marketing_promotional","created_at":ago(2)},
+  {"id":"mc3_22","contact_id":"C22","direction":"out","body":"Join us this Sunday for Easter at 9 or 11am, with childcare at both. Hope to see you!","media_url":null,"channel":"sms","twilio_sid":"SMcamp3_C22","status":"sent","error":null,"campaign_id":"camp3","sent_by":"demo-admin","num_segments":1,"price":-0.0079,"price_unit":"USD","context":"marketing_promotional","created_at":ago(2)},
   {"id":"m2","contact_id":"C01","direction":"out","body":"Hi Maria! We meet at 9 and 11am, childcare at both. Would love to have you.","media_url":null,"channel":"sms","twilio_sid":"SMsim_C01_1_out","status":"delivered","error":null,"campaign_id":null,"sent_by":"demo-admin","num_segments":1,"price":-0.0079,"price_unit":"USD","context":null,"created_at":ago(9)},
   {"id":"m3","contact_id":"C01","direction":"in","body":"Perfect, we'll try this Sunday with our two kids.","media_url":null,"channel":"sms","twilio_sid":"SMsim_C01_2","status":"received","error":null,"campaign_id":null,"sent_by":null,"num_segments":1,"price":null,"price_unit":null,"context":null,"created_at":ago(8)},
   {"id":"m8","contact_id":"C02","direction":"in","body":"Who is this?? How did you get my number","media_url":null,"channel":"sms","twilio_sid":"SMsim_C02_0","status":"received","error":null,"campaign_id":null,"sent_by":null,"num_segments":1,"price":null,"price_unit":null,"context":null,"created_at":ago(11)},
@@ -213,10 +218,22 @@ const contactSummary: Row[] = [
 const campaigns: Row[] = [
   {"id":"camp1","name":"Neighborhood card drop — visitor follow-up","channel":"sms","status":"draft","body":"Thanks for reaching out after finding our card! We'd love to see you this Sunday at 9 or 11am. Reply with any questions.","media_url":null,"sendgrid_template_id":null,"email_subject":null,"audience_filter":{"category":"outreach"},"scheduled_at":null,"started_at":null,"completed_at":null,"created_at":ago(30)},
   {"id":"camp2","name":"Volunteer thank-you (draft)","channel":"email","status":"draft","body":null,"media_url":null,"sendgrid_template_id":"d-demo-template-001","email_subject":"Thank you for serving","audience_filter":{"tags":["volunteer"]},"scheduled_at":null,"started_at":null,"completed_at":null,"created_at":ago(1440)},
+  {"id":"camp3","name":"Easter service invite","channel":"sms","status":"done","body":"Join us this Sunday for Easter at 9 or 11am, with childcare at both. Hope to see you!","media_url":null,"sendgrid_template_id":null,"email_subject":null,"audience_filter":{"all":true},"scheduled_at":null,"started_at":ago(2),"completed_at":ago(2),"created_at":ago(3)},
 ]
 
 const campaignRecipients: Row[] = [
-
+  {"campaign_id":"camp3","contact_id":"C09","status":"delivered","error":null,"sent_at":ago(2),"provider_id":"SMcamp3_C09","claimed_at":ago(2)},
+  {"campaign_id":"camp3","contact_id":"C15","status":"delivered","error":null,"sent_at":ago(2),"provider_id":"SMcamp3_C15","claimed_at":ago(2)},
+  {"campaign_id":"camp3","contact_id":"C27","status":"delivered","error":null,"sent_at":ago(2),"provider_id":"SMcamp3_C27","claimed_at":ago(2)},
+  {"campaign_id":"camp3","contact_id":"C36","status":"delivered","error":null,"sent_at":ago(2),"provider_id":"SMcamp3_C36","claimed_at":ago(2)},
+  {"campaign_id":"camp3","contact_id":"C22","status":"sent","error":null,"sent_at":ago(2),"provider_id":"SMcamp3_C22","claimed_at":ago(2)},
+  {"campaign_id":"camp3","contact_id":"C07","status":"failed","error":"30007 Carrier flagged the message as spam and blocked it","sent_at":ago(2),"provider_id":null,"claimed_at":ago(2)},
+  {"campaign_id":"camp3","contact_id":"C29","status":"failed","error":"30003 The handset was unreachable","sent_at":ago(2),"provider_id":null,"claimed_at":ago(2)},
+  {"campaign_id":"camp3","contact_id":"C02","status":"skipped_no_consent","error":null,"sent_at":null,"provider_id":null,"claimed_at":null},
+  {"campaign_id":"camp3","contact_id":"C06","status":"skipped_no_consent","error":null,"sent_at":null,"provider_id":null,"claimed_at":null},
+  {"campaign_id":"camp3","contact_id":"C13","status":"skipped_no_consent","error":null,"sent_at":null,"provider_id":null,"claimed_at":null},
+  {"campaign_id":"camp3","contact_id":"C03","status":"skipped_opt_out","error":null,"sent_at":null,"provider_id":null,"claimed_at":null},
+  {"campaign_id":"camp3","contact_id":"C04","status":"skipped_opt_out","error":null,"sent_at":null,"provider_id":null,"claimed_at":null}
 ]
 
 const appUsers: Row[] = [
