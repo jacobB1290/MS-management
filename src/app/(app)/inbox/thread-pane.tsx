@@ -1,5 +1,5 @@
 "use client"
-import { useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
+import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { InboxNavContext } from "./inbox-frame"
@@ -87,6 +87,19 @@ function getSendShortcutClient(): string {
     navigator.platform ??
     ""
   return /mac|iphone|ipad|ipod/i.test(platform) ? "⌘↵" : "Ctrl+↵"
+}
+
+// Staggered "waterfall" stream reveal. Each bubble rises in; the delay grows
+// with distance from the newest (`fromEnd` 0 = newest → delay 0), so the run
+// cascades UP from the latest message. Because the newest/visible bubbles get
+// the smallest delays, the on-screen run always fills fast and feels instant on
+// any screen; the cap only bounds work on far-older off-screen bubbles (generous
+// enough to cover a tall viewport). A freshly sent/received message is `fromEnd`
+// 0, so it never waits.
+const STAGGER_CAP = 16
+const STAGGER_STEP_MS = 30
+function bubbleEnterDelay(fromEnd: number): number | null {
+  return fromEnd >= 0 && fromEnd < STAGGER_CAP ? fromEnd * STAGGER_STEP_MS : null
 }
 
 /** The composer's default email target: the most-recently-active thread (so a
@@ -216,6 +229,39 @@ export function ThreadPane({
     () => groupEmailThreads(messages.filter((m) => m.channel === "email")),
     [messages],
   )
+  // Staggered reveal: capture the set of bubbles present when the stream freshly
+  // renders (a channel flip or a thread open), so ONLY that set waterfalls in.
+  // A later sent/received message just appears — no re-animation, so the reveal
+  // never clashes with new-message arrival. State-during-render (like the
+  // contact resync below) so the new set is in place before paint.
+  const revealKey = `${channel}:${contactProp.id}`
+  const [reveal, setReveal] = useState<{ key: string; ids: Set<string> }>({ key: "", ids: new Set() })
+  if (reveal.key !== revealKey) {
+    const ids = new Set<string>()
+    for (const m of messages) {
+      if (channel === "email" ? m.channel === "email" : m.channel !== "email") ids.add(m.id)
+    }
+    setReveal({ key: revealKey, ids })
+  }
+  // id -> entrance delay (ms), only for the reveal set. Newest bubble = delay 0
+  // (so the on-screen run fills fast); the delay grows up the visible run.
+  const enterDelays = useMemo(() => {
+    const map = new Map<string, number>()
+    const sms = messages.filter((m) => m.channel !== "email")
+    sms.forEach((m, i) => {
+      if (!reveal.ids.has(m.id)) return
+      const d = bubbleEnterDelay(sms.length - 1 - i)
+      if (d != null) map.set(m.id, d)
+    })
+    const emailFlat: string[] = []
+    for (const t of emailThreads) for (const m of t.messages) emailFlat.push(m.id)
+    emailFlat.forEach((id, i) => {
+      if (!reveal.ids.has(id)) return
+      const d = bubbleEnterDelay(emailFlat.length - 1 - i)
+      if (d != null) map.set(id, d)
+    })
+    return map
+  }, [messages, emailThreads, reveal])
   // Reply target derived from the subject: "Re: X" (or "X") targets thread X and
   // highlights it in the stream; an empty or unmatched subject targets nothing
   // (a fresh email). So "New email" just clears the subject and a thread's Reply
@@ -522,12 +568,14 @@ export function ThreadPane({
     if (pinnedToBottomRef.current) scrollToBottom()
   }, [scrollToBottom])
 
-  // Jump to the latest message when the thread opens/switches or a message is
-  // added. contactProp.id covers a switch where the message count happens to
-  // match, which a length-only dep would miss.
-  useEffect(() => {
+  // Re-pin to the latest when the thread opens/switches, a message is added, OR
+  // the channel flips. Channel is the fix for the "wrong position fades in then
+  // jumps" bug — switching Text<->Email used to leave the scroll where it was.
+  // useLayoutEffect runs before paint, so the new stream appears already at the
+  // bottom instead of jumping there after.
+  useLayoutEffect(() => {
     scrollToBottom()
-  }, [messages.length, contactProp.id, scrollToBottom])
+  }, [messages.length, contactProp.id, channel, scrollToBottom])
 
   // Ask Claude to draft a fresh reply (empty composer) or improve the current
   // draft. The result lands in the textarea for the operator to edit — never
@@ -1141,13 +1189,11 @@ export function ThreadPane({
         onScroll={onScrollerScroll}
         className="flex-1 overflow-y-auto overscroll-contain px-4 md:px-8 py-6"
       >
-        {/* Cross-fade the stream when the channel flips, so the whole set of
-            message boxes settles in rather than snapping between SMS and email.
-            Keyed on channel; the new stream fades in over the cream. */}
-        <div
-          key={channel}
-          className="animate-[fade-in_var(--motion-medium)_var(--ease-out-soft)] motion-reduce:animate-none"
-        >
+        {/* The stream reveals with a staggered "waterfall" (per-bubble rise),
+            not a cross-fade. Keyed on channel + contact so switching Text<->Email
+            or opening a thread replays the reveal, while a new incoming message
+            (same key) just animates its own bubble in. */}
+        <div key={`${channel}:${contactProp.id}`}>
         {channel === "email" ? (
           emailThreads.length === 0 ? (
             <div className="text-center py-16">
@@ -1164,6 +1210,7 @@ export function ThreadPane({
                   onRetry={handleRetry}
                   onMediaLoad={onMediaLoad}
                   senderNames={senderNames}
+                  enterDelays={enterDelays}
                 />
               ))}
             </div>
@@ -1181,6 +1228,7 @@ export function ThreadPane({
                 onRetry={handleRetry}
                 onMediaLoad={onMediaLoad}
                 senderName={m.direction === "out" && m.sent_by ? senderNames[m.sent_by] ?? null : null}
+                enterDelay={enterDelays.get(m.id) ?? null}
               />
             ))}
           </div>
@@ -1626,6 +1674,7 @@ function EmailThreadGroup({
   onRetry,
   onMediaLoad,
   senderNames,
+  enterDelays,
 }: {
   thread: EmailThread
   /** The composer is currently replying into this thread. */
@@ -1634,6 +1683,8 @@ function EmailThreadGroup({
   onRetry: (message: OptimisticMessage) => void
   onMediaLoad: () => void
   senderNames: Record<string, string>
+  /** id -> staggered entrance delay (ms) for the reveal set; absent = no entrance. */
+  enterDelays: ReadonlyMap<string, number>
 }) {
   return (
     <section
@@ -1645,7 +1696,9 @@ function EmailThreadGroup({
         aria-hidden
         className={cn(
           "pointer-events-none absolute -left-3 top-1 bottom-1 w-0.5 rounded-full bg-gold transition-opacity duration-[var(--motion-medium)] ease-[var(--ease-out-soft)] motion-reduce:transition-none",
-          active ? "opacity-60" : "opacity-0",
+          // Every thread carries a faint spine so the group reads as one unit
+          // (the Twitter connector idea); the composer's target thread brightens.
+          active ? "opacity-70" : "opacity-25",
         )}
       />
       <header className="relative flex items-baseline gap-2 pb-2">
@@ -1690,6 +1743,7 @@ function EmailThreadGroup({
             onRetry={onRetry}
             onMediaLoad={onMediaLoad}
             senderName={m.direction === "out" && m.sent_by ? senderNames[m.sent_by] ?? null : null}
+            enterDelay={enterDelays.get(m.id) ?? null}
           />
         ))}
       </div>
@@ -1717,6 +1771,7 @@ function MessageBubble({
   onMediaLoad,
   senderName,
   hideSubject = false,
+  enterDelay = null,
 }: {
   message: OptimisticMessage
   onRetry: (message: OptimisticMessage) => void
@@ -1726,6 +1781,8 @@ function MessageBubble({
   /** In a threaded email group the thread header owns the subject, so the bubble
    *  drops its own subject line. */
   hideSubject?: boolean
+  /** Staggered entrance delay (ms) for the waterfall reveal; null = no entrance. */
+  enterDelay?: number | null
 }) {
   const isOut = message.direction === "out"
   const isEmail = message.channel === "email"
@@ -1744,7 +1801,16 @@ function MessageBubble({
       : explainTwilioError(message.error, message.status)
 
   return (
-    <div className={cn("flex flex-col", isOut ? "items-end" : "items-start")}>
+    <div
+      className={cn("flex flex-col", isOut ? "items-end" : "items-start")}
+      // Staggered "waterfall" entrance for the reveal set; `both` keeps it hidden
+      // until its turn. The global reduced-motion rule zeroes the duration.
+      style={
+        enterDelay != null
+          ? { animation: `bubble-in var(--motion-medium) var(--ease-out-soft) ${enterDelay}ms both` }
+          : undefined
+      }
+    >
       <div
         className={cn(
           "max-w-[85%] md:max-w-[72%] rounded-lg px-4 py-2.5 text-body leading-normal transition-opacity",
