@@ -25,6 +25,20 @@ test("inbox email channel toggle", async ({ authed }) => {
   await screenshotPage(authed, "inbox-channel-toggle")
 })
 
+test("inbox channel deep-link (contact card Message/Email)", async ({ authed }) => {
+  // The contact card's Message/Email quick actions deep-link the composer to a
+  // channel via ?ch=. C05 has both a phone and an email, so either resolves and
+  // overrides the phone-first default.
+  await gotoAndSettle(authed, "/inbox?c=C05&ch=email")
+  await authed.waitForTimeout(300)
+  await expect(authed.getByRole("radio", { name: /email/i })).toHaveAttribute("aria-checked", "true")
+
+  await gotoAndSettle(authed, "/inbox?c=C05&ch=sms")
+  await authed.waitForTimeout(300)
+  await expect(authed.getByRole("radio", { name: /text/i })).toHaveAttribute("aria-checked", "true")
+  await expect(authed.getByRole("radio", { name: /email/i })).toHaveAttribute("aria-checked", "false")
+})
+
 test("inbox email threads + reply composer", async ({ authed }) => {
   // Switching to Email groups the conversation into subject-threads (C05 has two:
   // "Visiting this Sunday" and "Children's ministry"), each with its own Reply.

@@ -417,6 +417,16 @@ h1, h2, h3, h4, h5, h6 {
 .btn-icon-soft:hover {
   background: color-mix(in srgb, var(--gold) 22%, transparent);
 }
+/* Greyed, non-interactive quick action — the channel it opens has nothing to
+ * act on (no phone to text/call, or no email on file). Same 52px box as the
+ * live tint so the row never shifts; a neutral ink wash + faint glyph read it
+ * as present-but-unavailable rather than a call to action. */
+.btn-icon-soft.is-disabled,
+.btn-icon-soft.is-disabled:hover {
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  color: var(--text-faint);
+  cursor: not-allowed;
+}
 
 /* Editorial quiet field — the input voice of the composition surfaces (event
  * editor, campaign composer). A softly filled well, one step darker than the

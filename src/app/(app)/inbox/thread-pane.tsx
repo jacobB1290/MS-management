@@ -68,6 +68,10 @@ interface ThreadPaneProps {
    *  client-probed) so the AI button is correct on first paint — no late pop-in
    *  or layout shift. */
   aiEnabled: boolean
+  /** Optional deep-link to a compose channel (the contact card's Message → text,
+   *  Email → email thread). Seeds the channel on open; ignored when the contact
+   *  can't use it, falling back to the phone/email default. */
+  initialChannel?: Channel
 }
 
 /** Optimistic message rows are real Message shape but with a temp id and
@@ -112,6 +116,18 @@ function defaultEmailTarget(messages: Message[]): { key: string | null; subject:
   return { key, subject: target ? replySubjectFor(target.subject) : "" }
 }
 
+/** The compose channel to open on. Honors an explicit deep-link request when
+ *  it's usable for this contact (a phone to text, an email to write), else
+ *  defaults to SMS when a number is on file (the primary channel), then email. */
+function resolveInitialChannel(
+  contact: { phone: string | null; email: string | null },
+  requested?: Channel,
+): Channel {
+  if (requested === "email" && contact.email) return "email"
+  if (requested === "sms" && contact.phone) return "sms"
+  return contact.phone ? "sms" : contact.email ? "email" : "sms"
+}
+
 export function ThreadPane({
   contact: contactProp,
   initialMessages,
@@ -122,6 +138,7 @@ export function ThreadPane({
   optInMode,
   optInRequestedAt,
   aiEnabled,
+  initialChannel,
 }: ThreadPaneProps) {
   // Contact is held in state so realtime row updates (e.g. a STOP reply
   // flipping sms_opted_out_at) reflect in the thread immediately, without
@@ -134,11 +151,11 @@ export function ThreadPane({
   // continues the live conversation), "New email" clears it, and a thread's
   // Reply plugs its subject in. The targeted thread is derived from it below.
   const [subject, setSubject] = useState(() => defaultEmailTarget(initialMessages).subject)
-  // Active compose channel. Default to SMS when a phone is on file (the primary
-  // channel), otherwise fall back to email so an email-only contact composes an
-  // email straight away.
+  // Active compose channel. A deep-link (?ch=) wins when usable for the contact;
+  // otherwise SMS when a phone is on file (the primary channel), else email so an
+  // email-only contact composes straight away. See resolveInitialChannel.
   const [channel, setChannel] = useState<Channel>(() =>
-    contactProp.phone ? "sms" : contactProp.email ? "email" : "sms",
+    resolveInitialChannel(contactProp, initialChannel),
   )
   const [sending, setSending] = useState(false)
   const [media, setMedia] = useState<{ url: string; isVideo: boolean } | null>(null)
@@ -369,7 +386,7 @@ export function ThreadPane({
     setMessages(initialMessages)
     setBody("")
     setSubject(defaultEmailTarget(initialMessages).subject)
-    setChannel(contactProp.phone ? "sms" : contactProp.email ? "email" : "sms")
+    setChannel(resolveInitialChannel(contactProp, initialChannel))
     setMedia(null)
     setAttachments([])
     setEmailHtml(null)
