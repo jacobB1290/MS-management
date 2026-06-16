@@ -248,8 +248,18 @@ export function ThreadPane({
     <div
       role="radiogroup"
       aria-label="Reply channel"
-      className="inline-flex shrink-0 items-center gap-0.5 rounded-pill border border-ink-hairline bg-white p-0.5"
+      className="relative grid shrink-0 grid-cols-2 rounded-pill border border-ink-hairline bg-white p-0.5"
     >
+      {/* Sliding active indicator — glides between Text and Email rather than two
+          backgrounds cross-fading, so switching states reads as one motion. */}
+      <span
+        aria-hidden
+        className={cn(
+          "absolute bottom-0.5 left-0.5 top-0.5 w-[calc(50%-0.125rem)] rounded-pill bg-[color-mix(in_oklab,var(--gold)_16%,transparent)]",
+          "transition-transform duration-[var(--motion-medium)] ease-[var(--ease-out-soft)] motion-reduce:transition-none",
+          channel === "email" ? "translate-x-full" : "translate-x-0",
+        )}
+      />
       {(["sms", "email"] as const).map((ch) => {
         const active = channel === ch
         const Icon = ch === "sms" ? MessageSquare : Mail
@@ -261,10 +271,8 @@ export function ThreadPane({
             aria-checked={active}
             onClick={() => setChannel(ch)}
             className={cn(
-              "inline-flex min-h-9 items-center gap-1.5 rounded-pill px-3 py-1.5 text-small font-medium transition-colors",
-              active
-                ? "bg-[color-mix(in_oklab,var(--gold)_16%,transparent)] text-gold-dark"
-                : "text-ink-muted hover:text-ink",
+              "relative z-[1] inline-flex min-h-9 items-center justify-center gap-1.5 rounded-pill px-3 py-1.5 text-small font-medium transition-colors duration-[var(--motion-fast)] ease-[var(--ease-standard)] motion-reduce:transition-none",
+              active ? "text-gold-dark" : "text-ink-muted hover:text-ink",
             )}
           >
             <Icon size={15} strokeWidth={2.25} />
@@ -1133,6 +1141,13 @@ export function ThreadPane({
         onScroll={onScrollerScroll}
         className="flex-1 overflow-y-auto overscroll-contain px-4 md:px-8 py-6"
       >
+        {/* Cross-fade the stream when the channel flips, so the whole set of
+            message boxes settles in rather than snapping between SMS and email.
+            Keyed on channel; the new stream fades in over the cream. */}
+        <div
+          key={channel}
+          className="animate-[fade-in_var(--motion-medium)_var(--ease-out-soft)] motion-reduce:animate-none"
+        >
         {channel === "email" ? (
           emailThreads.length === 0 ? (
             <div className="text-center py-16">
@@ -1170,6 +1185,7 @@ export function ThreadPane({
             ))}
           </div>
         )}
+        </div>
       </div>
 
       <footer className="relative shrink-0 border-t border-ink-hairline bg-bg/95 backdrop-blur px-4 md:px-6 py-3 md:py-4">
@@ -1178,7 +1194,10 @@ export function ThreadPane({
         )}
         {/* Standalone selector for the blocker / AI-preview states; an active
             composer shows it in the controls row above the bar instead. */}
-        {channelToggleVisible && !composerControlsInline && (
+        {/* One stable toggle for both channels — rendered OUTSIDE the channel
+            forms so it persists across a switch and its indicator glides (a copy
+            inside each form would remount and snap to the new side). */}
+        {channelToggleVisible && (
           <div className="mb-2.5 flex items-center justify-end">{channelToggle}</div>
         )}
 
@@ -1339,12 +1358,7 @@ export function ThreadPane({
                 </div>
               ) : (
                 <>
-                  {composerControlsInline && (
-                    <div className="mb-2 flex items-center justify-between">
-                      {emailActionButtons}
-                      {channelToggle}
-                    </div>
-                  )}
+                  {composerControlsInline && <div className="mb-2 flex items-center">{emailActionButtons}</div>}
                   <div className="flex items-end gap-2">
                     {!composerControlsInline && emailPlusMenu}
                     {/* Subject, divider, body — send anchored bottom-right inside.
@@ -1371,19 +1385,24 @@ export function ThreadPane({
                         aria-label="Email subject"
                         className="block min-w-0 flex-1 self-stretch bg-transparent px-4 text-small font-medium text-ink placeholder:font-normal placeholder:text-ink-faint focus-visible:outline-none disabled:opacity-60"
                       />
-                      {/* Clears the subject for a fresh thread; shown only when there's
-                          a subject to clear (i.e. while replying or mid-compose). */}
-                      {subject.trim() && (
-                        <button
-                          type="button"
-                          onClick={startNewEmail}
-                          disabled={locked}
-                          title="Clear the subject and start a new email"
-                          className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-pill px-3 text-small text-ink-muted transition-colors hover:bg-[color-mix(in_oklab,var(--gold)_8%,transparent)] hover:text-gold-dark disabled:opacity-50 animate-[fade-in_var(--motion-fast)_var(--ease-out-soft)] motion-reduce:animate-none motion-reduce:transition-none"
-                        >
-                          <SquarePen size={14} className="shrink-0" /> New email
-                        </button>
-                      )}
+                      {/* Clears the subject for a fresh thread. Kept mounted and
+                          space-reserved (faded out when there's nothing to clear)
+                          so it eases in AND out symmetrically and the row never
+                          reflows in either axis. */}
+                      <button
+                        type="button"
+                        onClick={startNewEmail}
+                        disabled={locked || !subject.trim()}
+                        tabIndex={subject.trim() ? 0 : -1}
+                        aria-hidden={!subject.trim()}
+                        title="Clear the subject and start a new email"
+                        className={cn(
+                          "inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-pill px-3 text-small text-ink-muted transition-[opacity,color,background-color] duration-[var(--motion-fast)] ease-[var(--ease-out-soft)] hover:bg-[color-mix(in_oklab,var(--gold)_8%,transparent)] hover:text-gold-dark motion-reduce:transition-none",
+                          subject.trim() ? "opacity-100" : "pointer-events-none opacity-0",
+                        )}
+                      >
+                        <SquarePen size={14} className="shrink-0" /> New email
+                      </button>
                     </div>
                     <div className="mx-4 h-px bg-ink-hairline" />
                     <Textarea
@@ -1469,12 +1488,7 @@ export function ThreadPane({
                 className="hidden"
                 onChange={onPickFile}
               />
-              {composerControlsInline && (
-                <div className="flex items-center justify-between">
-                  {smsActionButtons}
-                  {channelToggle}
-                </div>
-              )}
+              {composerControlsInline && <div className="flex items-center">{smsActionButtons}</div>}
               <div className="flex items-end gap-2">
                 {!composerControlsInline && smsPlusMenu}
                 <div className={cn("relative", composerControlsInline ? "w-full" : "flex-1 min-w-0")}>
@@ -1616,13 +1630,13 @@ function EmailThreadGroup({
           size={13}
           aria-hidden
           className={cn(
-            "shrink-0 self-center transition-colors duration-[var(--motion-medium)] motion-reduce:transition-none",
+            "shrink-0 self-center transition-colors duration-[var(--motion-medium)] ease-[var(--ease-out-soft)] motion-reduce:transition-none",
             active ? "text-gold" : "text-gold/70",
           )}
         />
         <p
           className={cn(
-            "min-w-0 flex-1 truncate text-compact font-semibold tracking-tight transition-colors duration-[var(--motion-medium)] motion-reduce:transition-none",
+            "min-w-0 flex-1 truncate text-compact font-semibold tracking-tight transition-colors duration-[var(--motion-medium)] ease-[var(--ease-out-soft)] motion-reduce:transition-none",
             active ? "text-gold-deeper" : "text-ink",
           )}
         >
@@ -1631,14 +1645,15 @@ function EmailThreadGroup({
         <span className="shrink-0 text-micro text-ink-faint">
           {thread.count} {thread.count === 1 ? "message" : "messages"}
         </span>
-        {/* Fading hairline rule: anchors the header without boxing the thread. */}
+        {/* Fading rule: a base hairline + a gold overlay that fades in while the
+            thread is the target. Opacity is interpolable; swapping the gradient
+            directly would hard-cut — so the whole highlight eases as one gesture. */}
+        <span aria-hidden className="absolute inset-x-0 bottom-0 h-px bg-[linear-gradient(to_right,var(--text-hairline),transparent_75%)]" />
         <span
           aria-hidden
           className={cn(
-            "absolute inset-x-0 bottom-0 h-px transition-opacity duration-[var(--motion-medium)] motion-reduce:transition-none",
-            active
-              ? "bg-[linear-gradient(to_right,color-mix(in_oklab,var(--gold)_55%,transparent),transparent_75%)]"
-              : "bg-[linear-gradient(to_right,var(--text-hairline),transparent_75%)]",
+            "absolute inset-x-0 bottom-0 h-px bg-[linear-gradient(to_right,color-mix(in_oklab,var(--gold)_55%,transparent),transparent_75%)] transition-opacity duration-[var(--motion-medium)] ease-[var(--ease-out-soft)] motion-reduce:transition-none",
+            active ? "opacity-100" : "opacity-0",
           )}
         />
       </header>
