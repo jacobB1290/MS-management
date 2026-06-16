@@ -74,7 +74,7 @@ export function RecipientTable({
     <div>
       {/* Controls: outcome chips (h-scroll on mobile) + search */}
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 lg:flex-wrap lg:overflow-visible lg:pb-0">
+        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [mask-image:linear-gradient(to_right,#000_86%,transparent)] lg:flex-wrap lg:overflow-visible lg:pb-0 lg:[mask-image:none]">
           <Chip active={active === "all"} onClick={() => setActive("all")} label="All" count={rows.length} />
           {chips.map((c) => (
             <Chip
@@ -116,10 +116,15 @@ export function RecipientTable({
               <Th className="w-8" aria-label="Open" />
             </tr>
           </thead>
-          <tbody>
+          {/* Keyed on the active chip so the row set cross-fades on filter
+              change rather than hard-cutting (every action animates, §7/§9). */}
+          <tbody
+            key={active}
+            className="animate-[fade-in_var(--motion-medium)_var(--ease-out-soft)] motion-reduce:animate-none"
+          >
             {filtered.map((r) => (
               <Tr key={r.contactId} className="group align-top">
-                <Td className="w-[13rem]">
+                <Td className="w-[15rem]">
                   <Link href={r.href} prefetch={false} className="block min-w-0">
                     <span className="block truncate text-ink group-hover:text-gold-dark">{r.name}</span>
                     {r.handle !== r.name && (
@@ -152,7 +157,10 @@ export function RecipientTable({
       </TableCard>
 
       {/* MOBILE — single-focus stacked cards, whole card tappable */}
-      <ul className="overflow-hidden rounded-lg border border-ink-hairline bg-white md:hidden">
+      <ul
+        key={active}
+        className="overflow-hidden rounded-lg border border-ink-hairline bg-white animate-[settings-pane-in_var(--motion-medium)_var(--ease-out-soft)] motion-reduce:animate-none md:hidden"
+      >
         {filtered.map((r) => (
           <li key={r.contactId} className="border-b border-ink-hairline last:border-b-0">
             <Link
@@ -184,8 +192,7 @@ export function RecipientTable({
 
       <p className="mt-3 text-small text-ink-muted" data-dynamic>
         {filtered.length} {filtered.length === 1 ? "recipient" : "recipients"}
-        {active === "all" ? "" : ` · ${active.toLowerCase()}`}
-        {loadedOf ? ` · showing first ${rows.length} of ${loadedOf}` : ""}
+        {loadedOf ? ` · showing ${rows.length} of ${loadedOf}` : ""}
       </p>
     </div>
   )

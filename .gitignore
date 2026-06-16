@@ -53,4 +53,3 @@ next-env.d.ts
 # Claude Code agent worktrees (local only)
 .claude/worktrees/
 scripts/perf/.auth-state.json
-.design-shots/

@@ -376,7 +376,13 @@ export function ConversationList({
         </div>
       </div>
 
-      <ol className="flex-1 min-h-0 overflow-y-auto overscroll-contain no-scrollbar divide-y divide-ink-hairline">
+      {/* Keyed on the segment so switching filters cross-fades the rail instead
+          of hard-cutting (every action animates, §7). Keyed on segment only, not
+          the live search query, so typing filters in place without re-flashing. */}
+      <ol
+        key={segment}
+        className="flex-1 min-h-0 overflow-y-auto overscroll-contain no-scrollbar divide-y divide-ink-hairline animate-[settings-pane-in_var(--motion-medium)_var(--ease-out-soft)] motion-reduce:animate-none"
+      >
         {filtered.length === 0 && (
           <li className="px-5 py-12 text-center text-ink-faint text-small">
             {query

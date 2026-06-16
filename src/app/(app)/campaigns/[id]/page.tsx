@@ -200,7 +200,7 @@ export default async function CampaignDetail({ params }: PageProps) {
         {/* Region A + B — one headline number, then the delivery funnel */}
         <div className="space-y-[var(--space-md)]">
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <span className="font-display text-title leading-none text-ink" data-dynamic>
+            <span className="font-display text-hero leading-none text-ink" data-dynamic>
               {sentYet ? reached : (audienceBreakdown?.queued ?? 0)}
             </span>
             <span className="text-body text-ink-muted">
@@ -212,7 +212,6 @@ export default async function CampaignDetail({ params }: PageProps) {
             </span>
           </div>
           <DeliveryFunnel
-            channel={channel}
             delivered={sentYet ? groupCounts.delivered : 0}
             inflight={sentYet ? groupCounts.inflight : (audienceBreakdown?.queued ?? 0)}
             skipped={sentYet ? groupCounts.skipped : previewSkipped}

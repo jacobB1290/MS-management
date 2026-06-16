@@ -12,14 +12,12 @@ type Segment = { key: string; label: string; count: number; bar: string; dot: st
  * and the legend chips below double as the bar's key. Honors reduced motion.
  */
 export function DeliveryFunnel({
-  channel,
   delivered,
   inflight,
   skipped,
   failed,
   total,
 }: {
-  channel: "sms" | "email"
   delivered: number
   inflight: number
   skipped: number
@@ -36,20 +34,14 @@ export function DeliveryFunnel({
 
   const segments: Segment[] = (
     [
-      {
-        key: "delivered",
-        label: channel === "sms" ? "sent" : "delivered",
-        count: delivered,
-        bar: "bg-success",
-        dot: "bg-success",
-      },
+      { key: "delivered", label: "reached", count: delivered, bar: "bg-success", dot: "bg-success" },
       { key: "inflight", label: "queued", count: inflight, bar: "bg-gold", dot: "bg-gold" },
       {
         key: "skipped",
         label: "skipped",
         count: skipped,
-        bar: "bg-[color-mix(in_oklab,var(--ink)_16%,transparent)]",
-        dot: "bg-[color-mix(in_oklab,var(--ink)_30%,transparent)]",
+        bar: "bg-[color-mix(in_oklab,var(--ink)_22%,transparent)]",
+        dot: "bg-[color-mix(in_oklab,var(--ink)_38%,transparent)]",
       },
       { key: "failed", label: "failed", count: failed, bar: "bg-danger", dot: "bg-danger" },
     ] as Segment[]
@@ -60,7 +52,7 @@ export function DeliveryFunnel({
   return (
     <div>
       <div
-        className="flex h-2.5 overflow-hidden rounded-pill bg-surface"
+        className="flex h-3 overflow-hidden rounded-pill bg-surface"
         role="img"
         aria-label={`Delivery: ${aria} of ${total}`}
       >
@@ -83,7 +75,7 @@ export function DeliveryFunnel({
           <span
             key={s.key}
             className="inline-flex items-center gap-1.5 text-small text-ink-muted animate-[settings-pane-in_var(--motion-medium)_var(--ease-out-soft)_backwards] motion-reduce:animate-none"
-            style={{ animationDelay: `${160 + i * 60}ms` }}
+            style={{ animationDelay: `${250 + i * 60}ms` }}
           >
             <span className={cn("h-2 w-2 shrink-0 rounded-full", s.dot)} aria-hidden />
             <span className="font-medium tabular-nums text-ink" data-dynamic>
