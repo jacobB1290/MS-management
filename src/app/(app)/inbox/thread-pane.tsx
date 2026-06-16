@@ -3,7 +3,7 @@ import { useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncE
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { InboxNavContext } from "./inbox-frame"
-import { ArrowLeft, AlertTriangle, Plus, Loader2, X, ChevronRight, RotateCcw, Sparkles, Clock, Info, ArrowUp, Image as ImageIcon, Mail, MessageSquare, MailX, Paperclip, FileText, Pencil, Eye } from "lucide-react"
+import { ArrowLeft, AlertTriangle, Plus, Loader2, X, ChevronRight, RotateCcw, Sparkles, Clock, Info, ArrowUp, Image as ImageIcon, Mail, MessageSquare, MailX, Paperclip, FileText, Pencil, Eye, CornerUpLeft, SquarePen } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -39,6 +39,13 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import { ContactPanel } from "./contact-panel"
 import { AiNote } from "./ai-note"
 import { explainTwilioError } from "@/lib/twilio-errors"
+import {
+  groupEmailThreads,
+  latestThreadKey,
+  normalizeSubject,
+  replySubjectFor,
+  type EmailThread,
+} from "./email-threads"
 import type { Tables } from "@/lib/database.types"
 
 type Contact = Tables<"contacts">
@@ -69,9 +76,6 @@ type OptimisticMessage = Message & { _optimistic?: boolean }
 
 type Channel = "sms" | "email"
 
-/** Prefill the email subject with "Re: <last subject>" so a reply threads
- *  naturally; collapses any existing "Re:" prefixes and returns "" when the
- *  thread has no prior email to reply to. */
 // Static "store" for the platform send-shortcut: the value never changes after
 // load, so subscribe is a no-op — useSyncExternalStore is just the
 // hydration-safe way to read a client-only value without a hydration mismatch.
@@ -85,15 +89,14 @@ function getSendShortcutClient(): string {
   return /mac|iphone|ipad|ipod/i.test(platform) ? "⌘↵" : "Ctrl+↵"
 }
 
-function deriveReplySubject(messages: Message[]): string {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const m = messages[i]
-    if (m.channel === "email" && m.subject) {
-      const base = m.subject.replace(/^(re:\s*)+/i, "").trim()
-      return base ? `Re: ${base}` : ""
-    }
-  }
-  return ""
+/** The composer's default email target: the most-recently-active thread (so a
+ *  reply continues the latest conversation), or a blank new email when the
+ *  contact has no email threads yet. */
+function defaultEmailTarget(messages: Message[]): { key: string | null; subject: string } {
+  const threads = groupEmailThreads(messages.filter((m) => m.channel === "email"))
+  const key = latestThreadKey(threads)
+  const target = key ? threads.find((t) => t.key === key) : null
+  return { key, subject: target ? replySubjectFor(target.subject) : "" }
 }
 
 export function ThreadPane({
@@ -113,7 +116,11 @@ export function ThreadPane({
   const [contact, setContact] = useState<Contact>(contactProp)
   const [messages, setMessages] = useState<OptimisticMessage[]>(initialMessages)
   const [body, setBody] = useState("")
-  const [subject, setSubject] = useState(() => deriveReplySubject(initialMessages))
+  // The subject IS the source of truth for the email reply target: it shows
+  // "Re: <thread>" when replying (defaulting to the latest thread so a reply
+  // continues the live conversation), "New email" clears it, and a thread's
+  // Reply plugs its subject in. The targeted thread is derived from it below.
+  const [subject, setSubject] = useState(() => defaultEmailTarget(initialMessages).subject)
   // Active compose channel. Default to SMS when a phone is on file (the primary
   // channel), otherwise fall back to email so an email-only contact composes an
   // email straight away.
@@ -144,6 +151,9 @@ export function ThreadPane({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const attachInputRef = useRef<HTMLInputElement>(null)
   const scrollerRef = useRef<HTMLDivElement>(null)
+  // Focus targets when switching email thread (Reply → body, New email → subject).
+  const emailBodyRef = useRef<HTMLTextAreaElement>(null)
+  const emailSubjectRef = useRef<HTMLInputElement>(null)
   // Whether the operator is reading the latest messages (vs. scrolled up into
   // history). A ref, not state, so a late-loading attachment can re-pin without
   // forcing a re-render of the whole thread.
@@ -199,6 +209,21 @@ export function ThreadPane({
     channel === "email" ? m.channel === "email" : m.channel !== "email",
   )
 
+  // Email mode renders subject-threads (grouped), not a flat bubble run; SMS mode
+  // stays a single flat conversation. Grouped here so the composer can target a
+  // thread and highlight it in the stream.
+  const emailThreads = useMemo(
+    () => groupEmailThreads(messages.filter((m) => m.channel === "email")),
+    [messages],
+  )
+  // Reply target derived from the subject: "Re: X" (or "X") targets thread X and
+  // highlights it in the stream; an empty or unmatched subject targets nothing
+  // (a fresh email). So "New email" just clears the subject and a thread's Reply
+  // just plugs its subject in — the field and the stream never disagree.
+  const targetKey = normalizeSubject(subject).toLowerCase() || null
+  const targetThread = targetKey ? emailThreads.find((t) => t.key === targetKey) ?? null : null
+  const replying = targetThread !== null
+
   // The email subject lives inside the compose box; this standalone field is
   // only used in AI-preview mode (above the formatted-preview card).
   const subjectField = (className?: string) => (
@@ -223,8 +248,18 @@ export function ThreadPane({
     <div
       role="radiogroup"
       aria-label="Reply channel"
-      className="inline-flex shrink-0 items-center gap-0.5 rounded-pill border border-ink-hairline bg-white p-0.5"
+      className="relative grid shrink-0 grid-cols-2 rounded-pill border border-ink-hairline bg-white p-0.5"
     >
+      {/* Sliding active indicator — glides between Text and Email rather than two
+          backgrounds cross-fading, so switching states reads as one motion. */}
+      <span
+        aria-hidden
+        className={cn(
+          "absolute bottom-0.5 left-0.5 top-0.5 w-[calc(50%-0.125rem)] rounded-pill bg-[color-mix(in_oklab,var(--gold)_16%,transparent)]",
+          "transition-transform duration-[var(--motion-medium)] ease-[var(--ease-out-soft)] motion-reduce:transition-none",
+          channel === "email" ? "translate-x-full" : "translate-x-0",
+        )}
+      />
       {(["sms", "email"] as const).map((ch) => {
         const active = channel === ch
         const Icon = ch === "sms" ? MessageSquare : Mail
@@ -236,10 +271,8 @@ export function ThreadPane({
             aria-checked={active}
             onClick={() => setChannel(ch)}
             className={cn(
-              "inline-flex min-h-9 items-center gap-1.5 rounded-pill px-3 py-1.5 text-small font-medium transition-colors",
-              active
-                ? "bg-[color-mix(in_oklab,var(--gold)_16%,transparent)] text-gold-dark"
-                : "text-ink-muted hover:text-ink",
+              "relative z-[1] inline-flex min-h-9 items-center justify-center gap-1.5 rounded-pill px-3 py-1.5 text-small font-medium transition-colors duration-[var(--motion-fast)] ease-[var(--ease-standard)] motion-reduce:transition-none",
+              active ? "text-gold-dark" : "text-ink-muted hover:text-ink",
             )}
           >
             <Icon size={15} strokeWidth={2.25} />
@@ -272,7 +305,7 @@ export function ThreadPane({
     setContact(contactProp)
     setMessages(initialMessages)
     setBody("")
-    setSubject(deriveReplySubject(initialMessages))
+    setSubject(defaultEmailTarget(initialMessages).subject)
     setChannel(contactProp.phone ? "sms" : contactProp.email ? "email" : "sms")
     setMedia(null)
     setAttachments([])
@@ -584,6 +617,22 @@ export function ThreadPane({
     setEmailHtml(null)
   }
 
+  // Point the composer at an existing thread: subject becomes "Re: <subject>",
+  // any AI preview is cleared, and focus jumps to the body so a reply is one tap
+  // away. The targeted thread highlights in the stream (bound to the chip).
+  function replyToThread(thread: EmailThread) {
+    setSubject(replySubjectFor(thread.subject))
+    setEmailHtml(null)
+    requestAnimationFrame(() => emailBodyRef.current?.focus())
+  }
+
+  // "New email": clear the subject for a fresh thread and focus it.
+  function startNewEmail() {
+    setSubject("")
+    setEmailHtml(null)
+    requestAnimationFrame(() => emailSubjectRef.current?.focus())
+  }
+
   // Render the email exactly as it will send (same server pipeline) and slide it
   // in. Works for both a plain typed reply and a beautified draft.
   async function handlePreview() {
@@ -892,6 +941,10 @@ export function ThreadPane({
     setBody("")
     setEmailHtml(null)
     setAttachments([])
+    // Stay on the thread we just posted to: keep the subject as "Re: <base>" so
+    // the field still shows the reply target (a brand-new email collapses into
+    // its own new thread, which now exists).
+    setSubject(replySubjectFor(subj))
     await dispatchEmail(subj, text, sentHtml, sentFiles, true)
   }
 
@@ -1086,27 +1139,53 @@ export function ThreadPane({
       <div
         ref={scrollerRef}
         onScroll={onScrollerScroll}
-        className="flex-1 overflow-y-auto overscroll-contain px-4 md:px-8 py-6 space-y-4"
+        className="flex-1 overflow-y-auto overscroll-contain px-4 md:px-8 py-6"
       >
-        {visibleMessages.length === 0 && (
+        {/* Cross-fade the stream when the channel flips, so the whole set of
+            message boxes settles in rather than snapping between SMS and email.
+            Keyed on channel; the new stream fades in over the cream. */}
+        <div
+          key={channel}
+          className="animate-[fade-in_var(--motion-medium)_var(--ease-out-soft)] motion-reduce:animate-none"
+        >
+        {channel === "email" ? (
+          emailThreads.length === 0 ? (
+            <div className="text-center py-16">
+              <p className="text-ink-faint text-small">No emails in this conversation yet. Start one below.</p>
+            </div>
+          ) : (
+            <div className="space-y-7 md:space-y-9">
+              {emailThreads.map((thread) => (
+                <EmailThreadGroup
+                  key={thread.key}
+                  thread={thread}
+                  active={thread.key === targetKey}
+                  onReply={() => replyToThread(thread)}
+                  onRetry={handleRetry}
+                  onMediaLoad={onMediaLoad}
+                  senderNames={senderNames}
+                />
+              ))}
+            </div>
+          )
+        ) : visibleMessages.length === 0 ? (
           <div className="text-center py-16">
-            <p className="text-ink-faint text-small">
-              {channel === "email"
-                ? "No emails in this conversation yet. Start one below."
-                : "No texts in this conversation yet. Start one below."}
-            </p>
+            <p className="text-ink-faint text-small">No texts in this conversation yet. Start one below.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {visibleMessages.map((m) => (
+              <MessageBubble
+                key={m.id}
+                message={m}
+                onRetry={handleRetry}
+                onMediaLoad={onMediaLoad}
+                senderName={m.direction === "out" && m.sent_by ? senderNames[m.sent_by] ?? null : null}
+              />
+            ))}
           </div>
         )}
-
-        {visibleMessages.map((m) => (
-          <MessageBubble
-            key={m.id}
-            message={m}
-            onRetry={handleRetry}
-            onMediaLoad={onMediaLoad}
-            senderName={m.direction === "out" && m.sent_by ? senderNames[m.sent_by] ?? null : null}
-          />
-        ))}
+        </div>
       </div>
 
       <footer className="relative shrink-0 border-t border-ink-hairline bg-bg/95 backdrop-blur px-4 md:px-6 py-3 md:py-4">
@@ -1115,6 +1194,11 @@ export function ThreadPane({
         )}
         {/* Standalone selector for the blocker / AI-preview states; an active
             composer shows it in the controls row above the bar instead. */}
+        {/* Standalone toggle only for the blocker / AI-preview states (where the
+            composer body is replaced); the normal composer keeps it inline in the
+            controls row, grouped with the action buttons, so it never floats off
+            on its own. The whole composer body cross-fades on a switch, so the
+            toggle animates with it. */}
         {channelToggleVisible && !composerControlsInline && (
           <div className="mb-2.5 flex items-center justify-end">{channelToggle}</div>
         )}
@@ -1190,7 +1274,16 @@ export function ThreadPane({
               before sending again.
             </p>
           </div>
-        ) : channel === "email" ? (
+        ) : (
+          // Cross-fade the composer body on a channel switch too, so the fields
+          // settle in with the sliding toggle + the stream fade instead of
+          // snapping between the SMS and email layouts. Keyed on channel only, so
+          // typing / attaching / the AI preview never re-fade it.
+          <div
+            key={channel}
+            className="animate-[fade-in_var(--motion-medium)_var(--ease-out-soft)] motion-reduce:animate-none"
+          >
+          {channel === "email" ? (
           <>
             {locked && (
               <div className="mb-2 flex items-center gap-2 text-small text-gold-dark" data-dynamic>
@@ -1277,7 +1370,7 @@ export function ThreadPane({
               ) : (
                 <>
                   {composerControlsInline && (
-                    <div className="mb-2 flex items-center justify-between">
+                    <div className="mb-2 flex items-center justify-between gap-2">
                       {emailActionButtons}
                       {channelToggle}
                     </div>
@@ -1292,20 +1385,44 @@ export function ThreadPane({
                         composerControlsInline ? "w-full" : "flex-1 min-w-0",
                       )}
                     >
-                    <input
-                      value={subject}
-                      onChange={(e) => {
-                        setSubject(e.target.value)
-                        onComposeInput()
-                      }}
-                      onBlur={stopTyping}
-                      disabled={locked}
-                      placeholder="Subject"
-                      aria-label="Email subject"
-                      className="block w-full bg-transparent px-4 pt-2.5 pb-1.5 text-small font-medium text-ink placeholder:font-normal placeholder:text-ink-faint focus-visible:outline-none disabled:opacity-60"
-                    />
+                    {/* Fixed-height row so the subject field never jumps as the
+                        "New email" clear button appears/disappears. */}
+                    <div className="flex min-h-11 items-center gap-1 pl-0 pr-1.5">
+                      <input
+                        ref={emailSubjectRef}
+                        value={subject}
+                        onChange={(e) => {
+                          setSubject(e.target.value)
+                          onComposeInput()
+                        }}
+                        onBlur={stopTyping}
+                        disabled={locked}
+                        placeholder="Subject"
+                        aria-label="Email subject"
+                        className="block min-w-0 flex-1 self-stretch bg-transparent px-4 text-small font-medium text-ink placeholder:font-normal placeholder:text-ink-faint focus-visible:outline-none disabled:opacity-60"
+                      />
+                      {/* Clears the subject for a fresh thread. Kept mounted and
+                          space-reserved (faded out when there's nothing to clear)
+                          so it eases in AND out symmetrically and the row never
+                          reflows in either axis. */}
+                      <button
+                        type="button"
+                        onClick={startNewEmail}
+                        disabled={locked || !subject.trim()}
+                        tabIndex={subject.trim() ? 0 : -1}
+                        aria-hidden={!subject.trim()}
+                        title="Clear the subject and start a new email"
+                        className={cn(
+                          "inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-pill px-3 text-small text-ink-muted transition-[opacity,color,background-color] duration-[var(--motion-fast)] ease-[var(--ease-out-soft)] hover:bg-[color-mix(in_oklab,var(--gold)_8%,transparent)] hover:text-gold-dark motion-reduce:transition-none",
+                          subject.trim() ? "opacity-100" : "pointer-events-none opacity-0",
+                        )}
+                      >
+                        <SquarePen size={14} className="shrink-0" /> New email
+                      </button>
+                    </div>
                     <div className="mx-4 h-px bg-ink-hairline" />
                     <Textarea
+                      ref={emailBodyRef}
                       value={body}
                       onChange={(e) => {
                         setBody(e.target.value)
@@ -1313,7 +1430,7 @@ export function ThreadPane({
                       }}
                       onBlur={stopTyping}
                       disabled={locked}
-                      placeholder="Write an email…"
+                      placeholder={replying ? "Write your reply…" : "Write an email…"}
                       rows={2}
                       autoGrow
                       className="block w-full min-h-[56px] max-h-52 resize-none overflow-y-auto rounded-none border-0 bg-transparent px-4 py-2.5 pr-14 focus-visible:outline-none disabled:opacity-60"
@@ -1388,7 +1505,7 @@ export function ThreadPane({
                 onChange={onPickFile}
               />
               {composerControlsInline && (
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   {smsActionButtons}
                   {channelToggle}
                 </div>
@@ -1447,6 +1564,8 @@ export function ThreadPane({
               )}
             </p>
           </>
+            )}
+          </div>
         )}
       </footer>
 
@@ -1495,17 +1614,118 @@ export function ThreadPane({
   )
 }
 
+/** One email subject-thread in the conversation stream: a header (subject +
+ *  count + last activity) anchored by a fading rule, the chain's bubbles, and a
+ *  quiet Reply at the thread's end. Flush — no card — so threads read as bands,
+ *  not boxes. The thread the composer is replying into warms to gold (a soft
+ *  spine + gold header), binding it to the composer's target chip. */
+function EmailThreadGroup({
+  thread,
+  active,
+  onReply,
+  onRetry,
+  onMediaLoad,
+  senderNames,
+}: {
+  thread: EmailThread
+  /** The composer is currently replying into this thread. */
+  active: boolean
+  onReply: () => void
+  onRetry: (message: OptimisticMessage) => void
+  onMediaLoad: () => void
+  senderNames: Record<string, string>
+}) {
+  return (
+    <section
+      aria-label={`Email thread: ${thread.subject}`}
+      className="relative"
+    >
+      {/* Soft gold spine binding the group — visible only while it's the target. */}
+      <span
+        aria-hidden
+        className={cn(
+          "pointer-events-none absolute -left-3 top-1 bottom-1 w-0.5 rounded-full bg-gold transition-opacity duration-[var(--motion-medium)] ease-[var(--ease-out-soft)] motion-reduce:transition-none",
+          active ? "opacity-60" : "opacity-0",
+        )}
+      />
+      <header className="relative flex items-baseline gap-2 pb-2">
+        <Mail
+          size={13}
+          aria-hidden
+          className={cn(
+            "shrink-0 self-center transition-colors duration-[var(--motion-medium)] ease-[var(--ease-out-soft)] motion-reduce:transition-none",
+            active ? "text-gold" : "text-gold/70",
+          )}
+        />
+        <p
+          className={cn(
+            "min-w-0 flex-1 truncate text-compact font-semibold tracking-tight transition-colors duration-[var(--motion-medium)] ease-[var(--ease-out-soft)] motion-reduce:transition-none",
+            active ? "text-gold-deeper" : "text-ink",
+          )}
+        >
+          {thread.subject}
+        </p>
+        <span className="shrink-0 text-micro text-ink-faint">
+          {thread.count} {thread.count === 1 ? "message" : "messages"}
+        </span>
+        {/* Fading rule: a base hairline + a gold overlay that fades in while the
+            thread is the target. Opacity is interpolable; swapping the gradient
+            directly would hard-cut — so the whole highlight eases as one gesture. */}
+        <span aria-hidden className="absolute inset-x-0 bottom-0 h-px bg-[linear-gradient(to_right,var(--text-hairline),transparent_75%)]" />
+        <span
+          aria-hidden
+          className={cn(
+            "absolute inset-x-0 bottom-0 h-px bg-[linear-gradient(to_right,color-mix(in_oklab,var(--gold)_55%,transparent),transparent_75%)] transition-opacity duration-[var(--motion-medium)] ease-[var(--ease-out-soft)] motion-reduce:transition-none",
+            active ? "opacity-100" : "opacity-0",
+          )}
+        />
+      </header>
+
+      <div className="space-y-2.5 pt-3">
+        {thread.messages.map((m) => (
+          <MessageBubble
+            key={m.id}
+            message={m}
+            hideSubject
+            onRetry={onRetry}
+            onMediaLoad={onMediaLoad}
+            senderName={m.direction === "out" && m.sent_by ? senderNames[m.sent_by] ?? null : null}
+          />
+        ))}
+      </div>
+
+      <div className="mt-2 flex justify-end">
+        <button
+          type="button"
+          onClick={onReply}
+          className={cn(
+            "inline-flex min-h-11 items-center gap-1.5 rounded-pill px-3.5 text-small transition-colors duration-[var(--motion-fast)] ease-[var(--ease-standard)] hover:bg-[color-mix(in_oklab,var(--gold)_8%,transparent)] hover:text-gold-dark motion-reduce:transition-none",
+            active ? "text-gold-dark" : "text-ink-muted",
+          )}
+        >
+          <CornerUpLeft size={13} className="shrink-0" />
+          {active ? "Replying" : "Reply"}
+        </button>
+      </div>
+    </section>
+  )
+}
+
 function MessageBubble({
   message,
   onRetry,
   onMediaLoad,
   senderName,
+  hideSubject = false,
 }: {
   message: OptimisticMessage
   onRetry: (message: OptimisticMessage) => void
   /** Fired once the bubble's image/video lays out, so the thread can re-pin. */
   onMediaLoad: () => void
   senderName: string | null
+  /** In a threaded email group the thread header owns the subject, so the bubble
+   *  drops its own subject line. */
+  hideSubject?: boolean
 }) {
   const isOut = message.direction === "out"
   const isEmail = message.channel === "email"
@@ -1560,7 +1780,7 @@ function MessageBubble({
               />
             </a>
           ))}
-        {isEmail && message.subject && (
+        {isEmail && message.subject && !hideSubject && (
           <p className={cn("font-semibold leading-snug mb-1 break-words", isOut ? "text-white" : "text-ink")}>
             {message.subject}
           </p>
