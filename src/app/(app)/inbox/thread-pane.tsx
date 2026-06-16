@@ -1242,14 +1242,26 @@ export function ThreadPane({
         )}
         {/* Standalone selector for the blocker / AI-preview states; an active
             composer shows it in the controls row above the bar instead. */}
-        {/* Standalone toggle only for the blocker / AI-preview states (where the
-            composer body is replaced); the normal composer keeps it inline in the
-            controls row, grouped with the action buttons, so it never floats off
-            on its own. The whole composer body cross-fades on a switch, so the
-            toggle animates with it. */}
-        {channelToggleVisible && !composerControlsInline && (
-          <div className="mb-2.5 flex items-center justify-end">{channelToggle}</div>
-        )}
+        {/* One stable controls row (action buttons + toggle), hoisted OUT of the
+            channel forms so the toggle persists across a switch and its gold
+            indicator physically GLIDES to the new side. The buttons stay grouped
+            with it (the row holds both) and morph as the channel changes; only
+            the blocker / AI-preview states fall back to a lone right-aligned
+            toggle, since they replace the composer body. */}
+        {channelToggleVisible &&
+          (composerControlsInline ? (
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <div
+                key={channel}
+                className="flex animate-[fade-in_var(--motion-fast)_var(--ease-out-soft)] motion-reduce:animate-none"
+              >
+                {channel === "email" ? emailActionButtons : smsActionButtons}
+              </div>
+              {channelToggle}
+            </div>
+          ) : (
+            <div className="mb-2.5 flex items-center justify-end">{channelToggle}</div>
+          ))}
 
         {activeBlocker === "sms_opt_out" ? (
           <div className="flex items-start gap-2 rounded-md border border-[color-mix(in_oklab,var(--color-warning)_40%,white)] bg-[color-mix(in_oklab,var(--color-warning)_8%,white)] px-3 py-3 text-small text-ink">
@@ -1417,12 +1429,6 @@ export function ThreadPane({
                 </div>
               ) : (
                 <>
-                  {composerControlsInline && (
-                    <div className="mb-2 flex items-center justify-between gap-2">
-                      {emailActionButtons}
-                      {channelToggle}
-                    </div>
-                  )}
                   <div className="flex items-end gap-2">
                     {!composerControlsInline && emailPlusMenu}
                     {/* Subject, divider, body — send anchored bottom-right inside.
@@ -1552,12 +1558,6 @@ export function ThreadPane({
                 className="hidden"
                 onChange={onPickFile}
               />
-              {composerControlsInline && (
-                <div className="flex items-center justify-between gap-2">
-                  {smsActionButtons}
-                  {channelToggle}
-                </div>
-              )}
               <div className="flex items-end gap-2">
                 {!composerControlsInline && smsPlusMenu}
                 <div className={cn("relative", composerControlsInline ? "w-full" : "flex-1 min-w-0")}>
