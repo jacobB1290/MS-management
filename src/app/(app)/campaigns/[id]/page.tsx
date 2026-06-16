@@ -122,6 +122,14 @@ export default async function CampaignDetail({ params }: PageProps) {
     counts.skipped_no_consent +
     counts.failed
 
+  // Surface WHY a blast failed (the Brevo reason recorded by the worker) instead
+  // of just a red badge — otherwise a rejected campaign reads as an unexplained
+  // stall. See advanceBrevoEmailCampaign / recordProviderFailure.
+  const failureDetail =
+    campaign.status === "failed"
+      ? ((campaign.brevo_sync as { detail?: string } | null)?.detail ?? null)
+      : null
+
   return (
     <PageScaffold
       header={
@@ -144,6 +152,12 @@ export default async function CampaignDetail({ params }: PageProps) {
       }
     >
       <div className="space-y-8 pt-6">
+        {failureDetail && (
+          <div className="rounded-lg border border-danger/30 bg-danger/5 px-4 py-3">
+            <p className="eyebrow text-danger">Send failed</p>
+            <p className="mt-1 text-small text-ink-muted break-words">{failureDetail}</p>
+          </div>
+        )}
         {/* Metric band — flush serif numerals on the cream canvas */}
         <div className="grid grid-cols-2 gap-x-8 gap-y-5 border-b border-ink-hairline pb-6 sm:grid-cols-4">
           <Stat label="Total" value={counts.total} />
