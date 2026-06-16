@@ -97,7 +97,7 @@ function getSendShortcutClient(): string {
 // enough to cover a tall viewport). A freshly sent/received message is `fromEnd`
 // 0, so it never waits.
 const STAGGER_CAP = 16
-const STAGGER_STEP_MS = 30
+const STAGGER_STEP_MS = 45
 function bubbleEnterDelay(fromEnd: number): number | null {
   return fromEnd >= 0 && fromEnd < STAGGER_CAP ? fromEnd * STAGGER_STEP_MS : null
 }
@@ -1804,10 +1804,14 @@ function MessageBubble({
     <div
       className={cn("flex flex-col", isOut ? "items-end" : "items-start")}
       // Staggered "waterfall" entrance for the reveal set; `both` keeps it hidden
-      // until its turn. The global reduced-motion rule zeroes the duration.
+      // until its turn. Origin is the bubble's own bottom corner so it unfolds
+      // from its home edge. The global reduced-motion rule zeroes the duration.
       style={
         enterDelay != null
-          ? { animation: `bubble-in var(--motion-medium) var(--ease-out-soft) ${enterDelay}ms both` }
+          ? {
+              animation: `bubble-in var(--motion-slow) var(--ease-out-soft) ${enterDelay}ms both`,
+              transformOrigin: isOut ? "bottom right" : "bottom left",
+            }
           : undefined
       }
     >

@@ -626,12 +626,17 @@ h1, h2, h3, h4, h5, h6 {
   to   { opacity: 1; }
 }
 
-/* Message bubble entrance for the staggered "waterfall" stream reveal: a gentle
- * rise + fade. Per-bubble animation-delay (set inline) cascades the visible run
- * toward the newest. Plays on mount; the global reduced-motion rule zeroes it. */
+/* Message bubble entrance for the staggered "waterfall" stream reveal. A layered
+ * settle, not a pop: opacity resolves gradually while the bubble glides up and
+ * scales from 0.95, anchored (via inline transform-origin) to its own bottom
+ * corner so it unfolds from its home edge. Runs at --motion-slow + ease-out-soft
+ * (front-loaded, so it arrives fast then settles soft). Per-bubble animation-delay
+ * (set inline) cascades the visible run toward the newest; the long duration
+ * overlaps the beats into a continuous wave. Plays on mount; the global
+ * reduced-motion rule zeroes it. */
 @keyframes bubble-in {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(16px) scale(0.95); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 @keyframes menu-in {
