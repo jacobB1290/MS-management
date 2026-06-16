@@ -1194,10 +1194,12 @@ export function ThreadPane({
         )}
         {/* Standalone selector for the blocker / AI-preview states; an active
             composer shows it in the controls row above the bar instead. */}
-        {/* One stable toggle for both channels — rendered OUTSIDE the channel
-            forms so it persists across a switch and its indicator glides (a copy
-            inside each form would remount and snap to the new side). */}
-        {channelToggleVisible && (
+        {/* Standalone toggle only for the blocker / AI-preview states (where the
+            composer body is replaced); the normal composer keeps it inline in the
+            controls row, grouped with the action buttons, so it never floats off
+            on its own. The whole composer body cross-fades on a switch, so the
+            toggle animates with it. */}
+        {channelToggleVisible && !composerControlsInline && (
           <div className="mb-2.5 flex items-center justify-end">{channelToggle}</div>
         )}
 
@@ -1272,7 +1274,16 @@ export function ThreadPane({
               before sending again.
             </p>
           </div>
-        ) : channel === "email" ? (
+        ) : (
+          // Cross-fade the composer body on a channel switch too, so the fields
+          // settle in with the sliding toggle + the stream fade instead of
+          // snapping between the SMS and email layouts. Keyed on channel only, so
+          // typing / attaching / the AI preview never re-fade it.
+          <div
+            key={channel}
+            className="animate-[fade-in_var(--motion-medium)_var(--ease-out-soft)] motion-reduce:animate-none"
+          >
+          {channel === "email" ? (
           <>
             {locked && (
               <div className="mb-2 flex items-center gap-2 text-small text-gold-dark" data-dynamic>
@@ -1358,7 +1369,12 @@ export function ThreadPane({
                 </div>
               ) : (
                 <>
-                  {composerControlsInline && <div className="mb-2 flex items-center">{emailActionButtons}</div>}
+                  {composerControlsInline && (
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      {emailActionButtons}
+                      {channelToggle}
+                    </div>
+                  )}
                   <div className="flex items-end gap-2">
                     {!composerControlsInline && emailPlusMenu}
                     {/* Subject, divider, body — send anchored bottom-right inside.
@@ -1488,7 +1504,12 @@ export function ThreadPane({
                 className="hidden"
                 onChange={onPickFile}
               />
-              {composerControlsInline && <div className="flex items-center">{smsActionButtons}</div>}
+              {composerControlsInline && (
+                <div className="flex items-center justify-between gap-2">
+                  {smsActionButtons}
+                  {channelToggle}
+                </div>
+              )}
               <div className="flex items-end gap-2">
                 {!composerControlsInline && smsPlusMenu}
                 <div className={cn("relative", composerControlsInline ? "w-full" : "flex-1 min-w-0")}>
@@ -1543,6 +1564,8 @@ export function ThreadPane({
               )}
             </p>
           </>
+            )}
+          </div>
         )}
       </footer>
 
