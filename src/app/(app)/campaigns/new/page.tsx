@@ -3,8 +3,7 @@ import { Suspense } from "react"
 import { requireStaff } from "@/server/auth"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { getContactTagOccurrences } from "@/server/contacts/tags"
-import { PageHeader } from "@/components/ui/page-header"
-import { PageScaffold } from "@/components/ui/page-scaffold"
+import { DetailScaffold } from "@/components/ui/detail-scaffold"
 import { PreviewPanel } from "@/components/ui/preview-panel"
 import { Skeleton } from "@/components/ui/skeleton"
 import { eventLongDate, eventDisplayTime } from "@/lib/event-format"
@@ -23,15 +22,11 @@ export default async function NewCampaignPage({ searchParams }: NewCampaignPageP
   const { event, channel, ai } = await searchParams
 
   return (
-    <PageScaffold
-      header={
-        <PageHeader
-          title="New campaign"
-          backHref="/campaigns"
-          backLabel="All campaigns"
-          info="Compose a one-off SMS or email blast. Opted-out and unsubscribed contacts are automatically excluded; the recipient list records who was skipped and why."
-        />
-      }
+    <DetailScaffold
+      title="New campaign"
+      backHref="/campaigns"
+      backLabel="All campaigns"
+      info="Compose a one-off SMS or email blast. Opted-out and unsubscribed contacts are automatically excluded; the recipient list records who was skipped and why."
       // The composer closes with a sticky EditorBar; the scaffold's bottom
       // padding would otherwise show as a cream gap beneath it at scroll end.
       className="pb-0 md:pb-0"
@@ -41,7 +36,7 @@ export default async function NewCampaignPage({ searchParams }: NewCampaignPageP
           <CampaignComposerLoader eventId={event} channel={channel} ai={ai === "1" || ai === "true"} />
         </Suspense>
       </div>
-    </PageScaffold>
+    </DetailScaffold>
   )
 }
 

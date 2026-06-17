@@ -18,6 +18,11 @@ export interface PageScaffoldProps {
   children: React.ReactNode
   /** Extra full-bleed band under the header (e.g. a sub-nav or status strip). */
   headerBand?: React.ReactNode
+  /** Mobile iOS collapsing header (a <MobileCollapsingHeader/>). When set, the
+   *  pinned `header` band becomes md+ only and this rides at the top of the ONE
+   *  scroll region instead — so on phones/tablets the big title scrolls away
+   *  under a frosted bar while desktop keeps the static centered header. */
+  collapseHeader?: React.ReactNode
   /** Ref to the scroll element, for scroll-restoration / sticky-shadow hooks. */
   scrollRef?: React.Ref<HTMLDivElement>
   className?: string
@@ -36,12 +41,17 @@ export function PageScaffold({
   header,
   children,
   headerBand,
+  collapseHeader,
   scrollRef,
   className,
 }: PageScaffoldProps) {
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="shrink-0 bg-bg">
+      {/* The pinned header band. With a collapseHeader it goes md+ only: on
+          mobile the collapsing header (inside the scroll region) takes over, so
+          the band must not also occupy the top. Desktop is byte-for-byte as
+          before. */}
+      <div className={cn("shrink-0 bg-bg", collapseHeader && "hidden md:block")}>
         {/* pt matches the compact masthead rhythm — chrome stays tight so the
             content owns the screen (same value the contacts header uses). */}
         <div className={cn(GUTTER, "pt-4 md:pt-5")}>{header}</div>
@@ -51,7 +61,8 @@ export function PageScaffold({
         ref={scrollRef}
         // Stable hook for descendants that need to drive this one scroll region
         // (e.g. Settings resets it to the top when you switch panes) without
-        // coupling to a Tailwind class name.
+        // coupling to a Tailwind class name. It is also the IntersectionObserver
+        // root for the mobile collapsing header below.
         data-scroll-region
         className={cn(
           "flex-1 min-h-0 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]",
@@ -60,6 +71,10 @@ export function PageScaffold({
           className,
         )}
       >
+        {/* First in the scroll flow so its sticky bar pins to the top edge and
+            the big-title hero scrolls away under it; md:hidden, so it is inert
+            (display:none) on desktop where the band above owns the chrome. */}
+        {collapseHeader}
         {children}
       </div>
     </div>

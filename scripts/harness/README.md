@@ -10,10 +10,36 @@ test the matrix instead of one example viewport.
 npm run harness
 ```
 
-This boots `npm run dev` on port 3000 (reusing an existing dev server if you
+This boots a production build on port 3000 (reusing an existing server if you
 already have one running), then runs every scenario across every viewport
 project and compares against committed baselines. Any pixel drift above the
 tolerance (`maxDiffPixelRatio: 0.005`) fails the run.
+
+## Speed-up env variables (OPT-IN, local only — never set in CI)
+
+### `HARNESS_PROJECTS` — run a single viewport for fast iteration
+
+```
+HARNESS_PROJECTS=mobile-393 npm run harness
+HARNESS_PROJECTS=mobile-393,desktop-1280 npm run harness
+```
+
+Valid names: `mobile-360` | `mobile-393` | `tablet-768` | `desktop-1280` |
+`desktop-1440`. Unset (the default) runs all five. Use this while iterating
+on a single breakpoint — it gives ~5× faster feedback. Always run the full
+matrix before pushing.
+
+### `HARNESS_SKIP_BUILD` — reuse an existing `.next` production build
+
+```
+HARNESS_SKIP_BUILD=1 npm run harness
+```
+
+Skips `next build` and boots the already-compiled `.next` directory. Safe to
+use when you haven't changed any source files since the last successful build.
+The hermetic DEMO_MODE boot is unaffected — only the build step is skipped.
+**Do not use this if you've edited any `src/` files since the last build** —
+screenshots will reflect the old compiled output and mislead you.
 
 ## Update baselines
 
@@ -54,11 +80,13 @@ One file per feature under `scripts/harness/scenarios/` named
 `NN-feature.spec.ts` (`01-login.spec.ts`, `02-inbox.spec.ts`, ...). Keep them
 short: navigate, settle, screenshot. Use the helpers in `helpers.ts`:
 
-- `gotoAndSettle(page, path)` waits for network idle plus a 200ms tail for
-  animations.
-- `screenshotPage(page, name)` takes a full-page screenshot with the standard
-  masks applied (date pills, relative timestamps, anything with
-  `data-dynamic`).
+- `gotoAndSettle(page, path)` navigates to `path` (network idle), then waits
+  for `document.fonts.ready`, one `requestAnimationFrame` flush, and an 80ms
+  tail — so every screenshot starts from a deterministic, font-loaded state.
+- `screenshotPage(page, name)` re-runs the same settle sequence immediately
+  before the shot (cheap if already resolved) then takes a full-page
+  screenshot with the standard masks applied (date pills, relative timestamps,
+  anything with `data-dynamic`).
 
 If a new dynamic element creeps in, add the selector to `MASKS` in
 `helpers.ts` rather than masking ad-hoc in every scenario.

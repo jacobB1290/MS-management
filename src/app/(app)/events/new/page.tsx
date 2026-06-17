@@ -1,7 +1,6 @@
 import type { Metadata } from "next"
 import { requireStaff } from "@/server/auth"
-import { PageHeader } from "@/components/ui/page-header"
-import { PageScaffold } from "@/components/ui/page-scaffold"
+import { DetailScaffold } from "@/components/ui/detail-scaffold"
 import { EventForm } from "../event-form"
 
 export const metadata: Metadata = { title: "New event" }
@@ -10,15 +9,11 @@ export default async function NewEventPage() {
   await requireStaff()
 
   return (
-    <PageScaffold
-      header={
-        <PageHeader
-          title="New event"
-          backHref="/events"
-          backLabel="All events"
-          info="Create an event here, then publish it to the church Google Calendar — ms.church reads that calendar and shows the event automatically. The flyer image is what appears on the site."
-        />
-      }
+    <DetailScaffold
+      title="New event"
+      backHref="/events"
+      backLabel="All events"
+      info="Create an event here, then publish it to the church Google Calendar — ms.church reads that calendar and shows the event automatically. The flyer image is what appears on the site."
       // The editor closes with a sticky EditorBar; the scaffold's bottom
       // padding would otherwise show as a cream gap beneath it at scroll end.
       className="pb-0 md:pb-0"
@@ -26,6 +21,6 @@ export default async function NewEventPage() {
       <div className="pt-6">
         <EventForm mode="create" />
       </div>
-    </PageScaffold>
+    </DetailScaffold>
   )
 }

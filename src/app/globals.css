@@ -691,3 +691,86 @@ dialog[data-closing] > .dialog-panel {
 dialog[data-closing]::backdrop {
   animation: backdrop-in var(--motion-fast) var(--ease-standard) reverse forwards;
 }
+
+/* ============================================================================
+ * Collapsing header — iOS large-title → inline title. MOBILE ONLY.
+ * The big page title rides in a hero at the top of the page's scroll region and
+ * scrolls away; a slim bar stays pinned at the top edge, and as the hero passes
+ * under it the inline title cross-fades in while a frosted, progressively-faded
+ * pane resolves behind the bar so content DISSOLVES under it instead of clipping
+ * on a hard line. Desktop keeps the static centered PageHeader (this whole
+ * subtree is `md:hidden`), so none of this touches the md+ chrome.
+ *
+ * The collapse state is a single `[data-collapsed]` attribute toggled by an
+ * IntersectionObserver (see collapsing-header.tsx); everything that MOVES is a
+ * CSS transition off that attribute — compositor-friendly, and the global
+ * reduced-motion rule above collapses each transition to its correct end state
+ * (inline title shown, frost shown) with no animation. "Animate, never snap"
+ * (CLAUDE.md §7) lands here as a cross-fade, not a glyph-blurring scale.
+ * ============================================================================ */
+:root {
+  /* Slim nav bar: a 44px tap row (back / actions) plus a little breath. Kept in
+   * sync with BAR_H in collapsing-header.tsx (drives the observer's top inset). */
+  --collapse-bar-h: 52px;
+}
+
+.collapse-bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+/* The frosted pane lives BEHIND the bar's controls and overshoots its bottom
+ * edge, so content scrolling under the bar blurs and then sharpens as it leaves
+ * — the progressive-blur "dissolve". The mask fades the blur + tint out over the
+ * overshoot so the pane ends on soft air, never a hard rectangle. Invisible at
+ * rest (the large title sits on plain cream, iOS-style); fades in on collapse. */
+.collapse-bar__scrim {
+  position: absolute;
+  inset: 0;
+  bottom: calc(-1 * var(--space-md));
+  pointer-events: none;
+  opacity: 0;
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - var(--space-md)), transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - var(--space-md)), transparent 100%);
+  transition: opacity var(--motion-medium) var(--ease-out-soft);
+}
+[data-collapsed="true"] .collapse-bar__scrim {
+  opacity: 1;
+}
+
+/* Bottom hairline — structure appears with the frost, so a scrolled page reads
+ * a real chrome edge under the bar. Rides on the scrim's resolve. */
+.collapse-bar__rule {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: var(--text-hairline);
+  opacity: 0;
+  transition: opacity var(--motion-medium) var(--ease-out-soft);
+}
+[data-collapsed="true"] .collapse-bar__rule {
+  opacity: 1;
+}
+
+/* The inline (collapsed) title: hidden and nudged down at rest, it rises and
+ * fades in as the hero leaves — a cross-fade, not a scale, so the glyphs stay
+ * crisp (same reasoning as the menu/dialog transitions above). The hero itself
+ * needs no transition: scrolling away IS its animation, and the handoff reads as
+ * one motion because the inline title resolves on the same beat. */
+.collapse-inline-title {
+  opacity: 0;
+  transform: translateY(6px);
+  transition:
+    opacity var(--motion-medium) var(--ease-out-soft),
+    transform var(--motion-medium) var(--ease-out-soft);
+}
+[data-collapsed="true"] .collapse-inline-title {
+  opacity: 1;
+  transform: translateY(0);
+}

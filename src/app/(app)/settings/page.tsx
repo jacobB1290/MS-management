@@ -11,8 +11,7 @@ import { getModelFamilies } from "@/server/ai/models"
 import { modelChoicesFrom } from "@/lib/ai-models"
 import { listMmsMedia } from "@/server/media/storage"
 import { getLastKnowledgeSync } from "@/server/ai/knowledgeSync"
-import { PageHeader } from "@/components/ui/page-header"
-import { PageScaffold } from "@/components/ui/page-scaffold"
+import { DetailScaffold } from "@/components/ui/detail-scaffold"
 import { BackButton } from "@/components/ui/back-button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -210,17 +209,13 @@ export default async function SettingsPage() {
   ]
 
   return (
-    <PageScaffold
-      header={
-        <PageHeader
-          title="Settings"
-          backSlot={<BackButton label="Back" />}
-          backMobileOnly
-        />
-      }
+    <DetailScaffold
+      title="Settings"
+      backSlot={<BackButton label="Back" />}
+      backMobileOnly
     >
       <SettingsShell sections={sections} />
-    </PageScaffold>
+    </DetailScaffold>
   )
 }
 

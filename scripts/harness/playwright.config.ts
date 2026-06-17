@@ -1,5 +1,58 @@
 import { defineConfig, devices } from "@playwright/test";
 
+// ---------------------------------------------------------------------------
+// HARNESS_PROJECTS — opt-in fast lane for local iteration.
+//
+// By default every run exercises all five viewport projects (the full matrix).
+// During active development you can restrict to one or more projects to get a
+// faster feedback loop:
+//
+//   HARNESS_PROJECTS=mobile-393 npm run harness
+//   HARNESS_PROJECTS=mobile-393,desktop-1280 npm run harness
+//
+// Valid names: mobile-360 | mobile-393 | tablet-768 | desktop-1280 | desktop-1440
+//
+// This is an OPT-IN override — unset (or empty) means "all five", so CI and
+// any unconditional `npm run harness` invocation always cover the full matrix.
+// Never commit a workflow file that sets this variable; it is a dev shortcut
+// only.
+// ---------------------------------------------------------------------------
+const HARNESS_PROJECTS_ENV = process.env.HARNESS_PROJECTS;
+const projectFilter: Set<string> | null = HARNESS_PROJECTS_ENV
+  ? new Set(HARNESS_PROJECTS_ENV.split(",").map((s) => s.trim()).filter(Boolean))
+  : null;
+
+// All five canonical viewport definitions in one place. The filter below
+// either passes the full list through or narrows it to whatever the env
+// variable requested. Unknown names in the env var are silently dropped (you
+// get an empty projects array, which Playwright will surface as "no tests").
+const ALL_PROJECTS = [
+  {
+    name: "mobile-360",
+    use: { ...devices["Desktop Chrome"], viewport: { width: 360, height: 740 } },
+  },
+  {
+    name: "mobile-393",
+    use: { ...devices["Desktop Chrome"], viewport: { width: 393, height: 852 } },
+  },
+  {
+    name: "tablet-768",
+    use: { ...devices["Desktop Chrome"], viewport: { width: 768, height: 1024 } },
+  },
+  {
+    name: "desktop-1280",
+    use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 } },
+  },
+  {
+    name: "desktop-1440",
+    use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
+  },
+];
+
+const activeProjects = projectFilter
+  ? ALL_PROJECTS.filter((p) => projectFilter.has(p.name))
+  : ALL_PROJECTS;
+
 export default defineConfig({
   testDir: "./scenarios",
   outputDir: "../../test-results",
@@ -23,28 +76,7 @@ export default defineConfig({
       reducedMotion: "reduce",
     },
   },
-  projects: [
-    {
-      name: "mobile-360",
-      use: { ...devices["Desktop Chrome"], viewport: { width: 360, height: 740 } },
-    },
-    {
-      name: "mobile-393",
-      use: { ...devices["Desktop Chrome"], viewport: { width: 393, height: 852 } },
-    },
-    {
-      name: "tablet-768",
-      use: { ...devices["Desktop Chrome"], viewport: { width: 768, height: 1024 } },
-    },
-    {
-      name: "desktop-1280",
-      use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 } },
-    },
-    {
-      name: "desktop-1440",
-      use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
-    },
-  ],
+  projects: activeProjects,
   webServer: {
     // Production build + serve (faster than dev-compiling under the first
     // test per route, and the screenshots match what ships). See serve.sh
@@ -60,10 +92,18 @@ export default defineConfig({
     // placeholders: demo mode serves SSR'd fixtures, and they only need to be
     // present + well-formed so the browser Supabase client constructs (its
     // realtime socket never connects, which is fine for screenshots).
+    //
+    // HARNESS_SKIP_BUILD is forwarded explicitly because Playwright's webServer
+    // `env` block can shadow the inherited shell environment on some platforms.
+    // Forwarding it here means `HARNESS_SKIP_BUILD=1 npm run harness` works
+    // regardless of how the host shell's env is inherited by the child process.
     env: {
       DEMO_MODE: "1",
       NEXT_PUBLIC_SUPABASE_URL: "https://demo.supabase.co",
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "demo-anon-key",
+      ...(process.env.HARNESS_SKIP_BUILD
+        ? { HARNESS_SKIP_BUILD: process.env.HARNESS_SKIP_BUILD }
+        : {}),
     },
   },
 });

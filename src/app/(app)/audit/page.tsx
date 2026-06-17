@@ -2,8 +2,7 @@ import type { Metadata } from "next"
 import { format } from "date-fns"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { requireAdmin } from "@/server/auth"
-import { PageHeader } from "@/components/ui/page-header"
-import { PageScaffold } from "@/components/ui/page-scaffold"
+import { DetailScaffold } from "@/components/ui/detail-scaffold"
 import { BackButton } from "@/components/ui/back-button"
 import { Badge } from "@/components/ui/badge"
 import { EmptyState } from "@/components/ui/empty-state"
@@ -39,15 +38,11 @@ export default async function AuditPage() {
     .limit(500)
 
   return (
-    <PageScaffold
-      header={
-        <PageHeader
-          title="Audit log"
-          backSlot={<BackButton label="Back" />}
-          backMobileOnly
-          info="Every privileged write is logged: sends, opt-out toggles, contact edits, campaign starts, logins, invites. Reads are not logged; the threat is unauthorized writes, not legitimate viewing."
-        />
-      }
+    <DetailScaffold
+      title="Audit log"
+      backSlot={<BackButton label="Back" />}
+      backMobileOnly
+      info="Every privileged write is logged: sends, opt-out toggles, contact edits, campaign starts, logins, invites. Reads are not logged; the threat is unauthorized writes, not legitimate viewing."
     >
       {!rows || rows.length === 0 ? (
         <EmptyState
@@ -98,6 +93,6 @@ export default async function AuditPage() {
           </Table>
         </TableCard>
       )}
-    </PageScaffold>
+    </DetailScaffold>
   )
 }

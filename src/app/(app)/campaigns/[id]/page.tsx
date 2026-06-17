@@ -15,8 +15,7 @@ import { isVideoUrl } from "@/lib/media"
 import { formatPhone, cn } from "@/lib/utils"
 import { recipientOutcome, type OutcomeGroup } from "@/lib/campaign-recipient-status"
 import { withContactFrom } from "@/lib/contact-nav"
-import { PageHeader } from "@/components/ui/page-header"
-import { PageScaffold } from "@/components/ui/page-scaffold"
+import { DetailScaffold } from "@/components/ui/detail-scaffold"
 import { Badge } from "@/components/ui/badge"
 import { SectionHeading } from "@/components/ui/section-heading"
 import { EmptyState } from "@/components/ui/empty-state"
@@ -201,26 +200,27 @@ export default async function CampaignDetail({ params }: PageProps) {
       ? ((campaign.brevo_sync as { detail?: string } | null)?.detail ?? null)
       : null
 
+  // Built once, fed to both the desktop PageHeader and the mobile collapsing
+  // header by DetailScaffold.
+  const actions = <CampaignActions campaign={campaign} audienceBreakdown={audienceBreakdown} />
+  const meta = (
+    <>
+      <Badge variant={STATUS_VARIANT[campaign.status] ?? "muted"}>{campaign.status}</Badge>
+      <span className="inline-flex items-center gap-1.5 text-small text-ink-muted">
+        {channel === "sms" ? <MessageSquare size={14} /> : <Mail size={14} />}
+        {channel.toUpperCase()}
+      </span>
+    </>
+  )
+
   return (
-    <PageScaffold
-      header={
-        <PageHeader
-          eyebrow="Campaign"
-          title={campaign.name}
-          backHref="/campaigns"
-          backLabel="All campaigns"
-          actions={<CampaignActions campaign={campaign} audienceBreakdown={audienceBreakdown} />}
-          meta={
-            <>
-              <Badge variant={STATUS_VARIANT[campaign.status] ?? "muted"}>{campaign.status}</Badge>
-              <span className="inline-flex items-center gap-1.5 text-small text-ink-muted">
-                {channel === "sms" ? <MessageSquare size={14} /> : <Mail size={14} />}
-                {channel.toUpperCase()}
-              </span>
-            </>
-          }
-        />
-      }
+    <DetailScaffold
+      eyebrow="Campaign"
+      title={campaign.name}
+      backHref="/campaigns"
+      backLabel="All campaigns"
+      actions={actions}
+      meta={meta}
     >
       <div className="space-y-[var(--space-xl)] pt-6">
         {failureDetail && (
@@ -327,7 +327,7 @@ export default async function CampaignDetail({ params }: PageProps) {
           </section>
         </div>
       </div>
-    </PageScaffold>
+    </DetailScaffold>
   )
 }
 
