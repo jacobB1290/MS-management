@@ -24,6 +24,10 @@ export const optionalPhoneField = z
   .optional()
   .nullable()
   .transform((v, ctx) => {
+    // An OMITTED field stays `undefined` (no opinion) so a partial update never
+    // clears it; only an explicit empty/null value means "clear it". (Conflating
+    // the two wiped phone/email on every is_member / tags-only PATCH.)
+    if (v === undefined) return undefined
     if (!v) return null
     const e164 = toE164(v)
     if (!e164) {
@@ -47,9 +51,11 @@ export const optionalEmailField = z
   .trim()
   .optional()
   .nullable()
-  .transform((v) => (v ? v.toLowerCase() : null))
+  // An OMITTED field stays `undefined` (no opinion) so a partial update never
+  // clears it; only an explicit empty/null value means "clear it".
+  .transform((v) => (v === undefined ? undefined : v ? v.toLowerCase() : null))
   .refine(
-    (v) => v === null || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v),
+    (v) => v == null || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v),
     "Enter a valid email.",
   )
 

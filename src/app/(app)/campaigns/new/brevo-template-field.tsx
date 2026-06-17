@@ -20,6 +20,9 @@ type BrevoTpl = {
   name: string
   updatedAt: string | null
   subject: string | null
+  // Brevo rejects a campaign that references an INACTIVE template, so the picker
+  // must not let an operator choose one (this is what left a blast stuck).
+  isActive: boolean
 }
 
 type LoadState = {
@@ -158,15 +161,32 @@ export function BrevoTemplateField({
                       return (
                         <li key={t.id} className="flex items-center gap-3 py-2.5">
                           <div className="min-w-0 flex-1">
-                            <p className="text-body text-ink truncate">{t.name}</p>
+                            <p className="text-body text-ink truncate">
+                              {t.name}
+                              {!t.isActive && (
+                                <span className="ml-2 align-middle text-micro font-semibold uppercase tracking-[var(--tracking-wide)] text-warning">
+                                  Inactive
+                                </span>
+                              )}
+                            </p>
                             <p className="text-micro text-ink-faint font-mono truncate">#{t.id}</p>
+                            {!t.isActive && (
+                              <p className="mt-0.5 text-micro text-ink-muted">
+                                Activate it in Brevo to use it — a campaign can’t send an inactive template.
+                              </p>
+                            )}
                           </div>
                           <Button
                             type="button"
                             variant={selected ? "ghost" : "secondary"}
                             size="sm"
                             onClick={() => selectTemplate(t)}
-                            disabled={selected}
+                            disabled={selected || !t.isActive}
+                            title={
+                              !t.isActive
+                                ? "Brevo rejects a campaign that uses an inactive template. Activate it in Brevo first."
+                                : undefined
+                            }
                           >
                             {selected ? "Selected" : "Use"}
                           </Button>

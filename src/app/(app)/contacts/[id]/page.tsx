@@ -3,7 +3,7 @@ import type { ReactNode } from "react"
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import { format } from "date-fns"
-import { ArrowLeft, MessageSquare, Mail, Pencil } from "lucide-react"
+import { ArrowLeft, MessageSquare, Mail, Pencil, Phone } from "lucide-react"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { requireStaff } from "@/server/auth"
 import { isVoiceConfigured } from "@/server/comms/voice"
@@ -11,6 +11,7 @@ import { resolveOptInMode } from "@/server/comms/optInMode"
 import { TagList } from "@/components/tag-list"
 import { CallButton } from "@/components/call-button"
 import { cn, formatPhone, humanizeSource } from "@/lib/utils"
+import { resolveContactBack, withContactFrom } from "@/lib/contact-nav"
 import { DeleteContactButton } from "@/components/delete-contact-button"
 import { SuggestTags } from "@/components/suggest-tags"
 import { OptInRequest } from "@/components/opt-in-request"
@@ -29,10 +30,10 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
   const voiceConfigured = isVoiceConfigured()
   const { id } = await params
   const { from } = await searchParams
-  const cameFromThread = from === "inbox"
-  const backHref = cameFromThread ? `/inbox?c=${id}` : "/contacts"
-  const backLabel = cameFromThread ? "Back to conversation" : "All contacts"
-  const editHref = cameFromThread ? `/contacts/${id}/edit?from=inbox` : `/contacts/${id}/edit`
+  // Return-to-origin: the back button and Edit both carry the origin (inbox,
+  // a campaign, or the directory) so navigation lands where you came from.
+  const { href: backHref, label: backLabel } = resolveContactBack(from, id)
+  const editHref = withContactFrom(`/contacts/${id}/edit`, from)
 
   const supabase = await createSupabaseServerClient()
   const [{ data: contact }, { data: submissions }, { count: messageCount }] =
@@ -107,22 +108,42 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
         )}
 
         <div className="mt-5 flex flex-wrap items-start justify-center gap-4">
-          <ActionCircle href={`/inbox?c=${contact.id}`} label="Message" icon={<MessageSquare size={20} />} />
-          {voiceConfigured && contact.phone && (
-            <div className="flex flex-col items-center gap-1.5">
-              <CallButton
-                contactId={contact.id}
-                phone={contact.phone}
-                contactName={contact.name}
-                voiceConfigured={voiceConfigured}
-                variant="icon-soft"
+          {/* Message → the in-app text thread; greyed when there's no number. */}
+          <ActionCircle
+            href={`/inbox?c=${contact.id}&ch=sms`}
+            label="Message"
+            icon={<MessageSquare size={20} />}
+            disabled={!contact.phone}
+            disabledHint="No phone number on file"
+          />
+          {voiceConfigured &&
+            (contact.phone ? (
+              <div className="flex flex-col items-center gap-1.5">
+                <CallButton
+                  contactId={contact.id}
+                  phone={contact.phone}
+                  contactName={contact.name}
+                  voiceConfigured={voiceConfigured}
+                  variant="icon-soft"
+                />
+                <span className="text-micro text-ink-muted">Call</span>
+              </div>
+            ) : (
+              <ActionCircle
+                label="Call"
+                icon={<Phone size={18} />}
+                disabled
+                disabledHint="No phone number on file"
               />
-              <span className="text-micro text-ink-muted">Call</span>
-            </div>
-          )}
-          {contact.email && (
-            <ActionCircle href={`mailto:${contact.email}`} label="Email" icon={<Mail size={20} />} />
-          )}
+            ))}
+          {/* Email → the in-app email thread; greyed when there's no address. */}
+          <ActionCircle
+            href={`/inbox?c=${contact.id}&ch=email`}
+            label="Email"
+            icon={<Mail size={20} />}
+            disabled={!contact.email}
+            disabledHint="No email on file"
+          />
           <ActionCircle href={editHref} label="Edit" icon={<Pencil size={20} />} />
         </div>
       </div>
@@ -260,21 +281,38 @@ function InfoRow({ label, children }: { label: string; children: ReactNode }) {
 }
 
 // A circular quick action (iOS contact-card style): tinted gold circle + label.
-function ActionCircle({ href, label, icon }: { href: string; label: string; icon: ReactNode }) {
-  const content = (
-    <>
+// Greys out to a non-interactive state when the channel it opens has nothing to
+// act on — no phone to text/call, or no email — with a hint on hover.
+function ActionCircle({
+  href,
+  label,
+  icon,
+  disabled = false,
+  disabledHint,
+}: {
+  href?: string
+  label: string
+  icon: ReactNode
+  disabled?: boolean
+  disabledHint?: string
+}) {
+  const className = "flex flex-col items-center gap-1.5"
+  if (disabled || !href) {
+    return (
+      <div
+        className={cn(className, "cursor-not-allowed")}
+        aria-disabled="true"
+        title={disabledHint ?? `${label} unavailable`}
+      >
+        <span className="btn-icon-soft is-disabled">{icon}</span>
+        <span className="text-micro text-ink-faint">{label}</span>
+      </div>
+    )
+  }
+  return (
+    <Link href={href} prefetch aria-label={label} className={className}>
       <span className="btn-icon-soft">{icon}</span>
       <span className="text-micro text-ink-muted">{label}</span>
-    </>
-  )
-  const className = "flex flex-col items-center gap-1.5"
-  return href.startsWith("mailto:") ? (
-    <a href={href} aria-label={label} className={className}>
-      {content}
-    </a>
-  ) : (
-    <Link href={href} prefetch aria-label={label} className={className}>
-      {content}
     </Link>
   )
 }

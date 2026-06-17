@@ -1,4 +1,4 @@
-import { test } from "../auth-fixture"
+import { test, expect } from "../auth-fixture"
 import { gotoAndSettle, screenshotPage } from "../helpers"
 
 test("contacts list", async ({ authed }) => {
@@ -13,6 +13,18 @@ test("contact detail", async ({ authed }) => {
   await authed.waitForURL(/\/contacts\/[\w-]+$/)
   await authed.waitForTimeout(300)
   await screenshotPage(authed, "contact-detail")
+})
+
+test("contact detail greyed quick actions", async ({ authed }) => {
+  // C02 is phone-only (no email, no name → titled by its number, like the iOS
+  // contact card in the request). The Email quick action greys out to a
+  // non-interactive state while Message stays a live link to the text thread.
+  // (Call only renders when voice is configured — off in demo mode.)
+  await gotoAndSettle(authed, "/contacts/C02")
+  await authed.waitForTimeout(300)
+  await expect(authed.getByRole("link", { name: "Message" })).toBeVisible()
+  await expect(authed.getByRole("link", { name: "Email" })).toHaveCount(0)
+  await screenshotPage(authed, "contact-detail-greyed")
 })
 
 test("new contact form", async ({ authed }) => {

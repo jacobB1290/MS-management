@@ -11,6 +11,7 @@ import {
   getProcess,
   importContacts,
   sendCampaignNow,
+  type BrevoCampaignGlobalStats,
 } from "./brevo"
 
 /**
@@ -107,7 +108,7 @@ export async function advanceBrevoEmailCampaign(campaignId: string): Promise<Dis
       return { ok: false, reason: "provider_failed", detail: "could not resolve a Brevo folder" }
     }
     const list = await createList({ name: `crm-${campaignId}`, folderId })
-    if (!list.ok) return { ok: false, reason: "provider_failed", detail: list.error }
+    if (!list.ok) return recordProviderFailure(admin, campaignId, "create Brevo list", list.status, list.error)
     listId = list.data.id
     const imp = await importContacts({
       listIds: [listId],
@@ -116,7 +117,7 @@ export async function advanceBrevoEmailCampaign(campaignId: string): Promise<Dis
         attributes: e.name ? { FIRSTNAME: e.name } : undefined,
       })),
     })
-    if (!imp.ok) return { ok: false, reason: "provider_failed", detail: imp.error }
+    if (!imp.ok) return recordProviderFailure(admin, campaignId, "import contacts", imp.status, imp.error)
     sync.import_process_id = imp.data.processId
     await admin
       .from("campaigns")
@@ -140,13 +141,14 @@ export async function advanceBrevoEmailCampaign(campaignId: string): Promise<Dis
     listIds: [listId],
     replyTo: brevoReplyTo(),
   })
-  if (!created.ok) return { ok: false, reason: "provider_failed", detail: created.error }
+  if (!created.ok)
+    return recordProviderFailure(admin, campaignId, "create email campaign", created.status, created.error)
 
   const sent = await sendCampaignNow(created.data.id)
   if (!sent.ok) {
-    // Persist the id so a retry doesn't recreate the campaign.
+    // Persist the id so a retry doesn't recreate the campaign on Brevo.
     await admin.from("campaigns").update({ brevo_campaign_id: created.data.id }).eq("id", campaignId)
-    return { ok: false, reason: "provider_failed", detail: sent.error }
+    return recordProviderFailure(admin, campaignId, "send campaign", sent.status, sent.error)
   }
 
   await markQueuedSent(admin, campaignId, String(created.data.id))
@@ -166,7 +168,7 @@ export async function refreshBrevoCampaignStats(campaignId: string): Promise<voi
   if (!c?.brevo_campaign_id) return
   const res = await getEmailCampaign(Number(c.brevo_campaign_id))
   if (!res.ok) return
-  const stats = res.data.statistics?.globalStats
+  const stats = aggregateCampaignStats(res.data.statistics)
   if (stats) {
     await admin
       .from("campaigns")
@@ -176,6 +178,39 @@ export async function refreshBrevoCampaignStats(campaignId: string): Promise<voi
 }
 
 // --- helpers ----------------------------------------------------------------
+
+/**
+ * Aggregate a Brevo campaign's engagement. Our blasts always target a per-campaign
+ * LIST, and Brevo leaves `globalStats` all-zero for a list-targeted send while the
+ * real numbers live in the per-list `campaignStats` — so sum those, falling back
+ * to globalStats. (Without this, a delivered campaign read back as 0 in the CRM.)
+ */
+function aggregateCampaignStats(
+  statistics:
+    | { globalStats?: BrevoCampaignGlobalStats; campaignStats?: BrevoCampaignGlobalStats[] }
+    | undefined,
+): BrevoCampaignGlobalStats | null {
+  if (!statistics) return null
+  const perList = statistics.campaignStats
+  if (perList && perList.length > 0) {
+    const keys: (keyof BrevoCampaignGlobalStats)[] = [
+      "sent",
+      "delivered",
+      "hardBounces",
+      "softBounces",
+      "viewed",
+      "uniqueViews",
+      "clickers",
+      "uniqueClicks",
+      "unsubscriptions",
+      "complaints",
+    ]
+    const out: BrevoCampaignGlobalStats = {}
+    for (const k of keys) out[k] = perList.reduce((sum, s) => sum + (s[k] ?? 0), 0)
+    return out
+  }
+  return statistics.globalStats ?? null
+}
 
 async function loadQueuedEmails(
   admin: Admin,
@@ -222,6 +257,54 @@ async function finalize(
       ...(args.brevoCampaignId ? { brevo_campaign_id: args.brevoCampaignId } : {}),
     })
     .eq("id", campaignId)
+}
+
+/**
+ * Surface a Brevo provider failure instead of swallowing it. Before, a rejected
+ * createEmailCampaign / send left the campaign 'sending' with 'queued' recipients
+ * and recorded nothing, so the cron retried it every minute forever — invisible
+ * to the operator ("Queued and not sending") and hammering Brevo's ~100/hr
+ * management cap.
+ *
+ * A 4xx is OUR request (unverified campaign sender, bad template, empty list):
+ * terminal — mark the campaign failed, stamp WHY in brevo_sync (the campaign page
+ * can show it), and fail the queued recipients. A 5xx / network error is
+ * transient — keep 'sending' so the next tick retries, but still record the last
+ * error so it is never an invisible stall.
+ */
+async function recordProviderFailure(
+  admin: Admin,
+  campaignId: string,
+  step: string,
+  status: number,
+  detail: string,
+): Promise<DispatchResult> {
+  const message = `${step}: ${detail}`
+  console.error(`[brevoCampaign] ${campaignId} ${step} failed (status ${status}): ${detail}`)
+  const terminal = status >= 400 && status < 500
+  if (terminal) {
+    await admin
+      .from("campaigns")
+      .update({
+        status: "failed",
+        completed_at: new Date().toISOString(),
+        brevo_sync: { error: "provider_failed", step, status, detail } as unknown as Json,
+      })
+      .eq("id", campaignId)
+    await admin
+      .from("campaign_recipients")
+      .update({ status: "failed", error: message })
+      .eq("campaign_id", campaignId)
+      .eq("status", "queued")
+  } else {
+    await admin
+      .from("campaigns")
+      .update({
+        brevo_sync: { error: "provider_failed", step, status, detail, transient: true } as unknown as Json,
+      })
+      .eq("id", campaignId)
+  }
+  return { ok: false, reason: "provider_failed", detail: message }
 }
 
 async function resolveFolderId(): Promise<number | null> {

@@ -28,12 +28,16 @@ const loadContact = cache(async (id: string): Promise<Tables<"contacts"> | null>
 const loadOptInMode = cache((contact: Tables<"contacts">) => resolveOptInMode(contact))
 
 interface InboxPageProps {
-  searchParams: Promise<{ c?: string }>
+  searchParams: Promise<{ c?: string; ch?: string }>
 }
 
 export default async function InboxPage({ searchParams }: InboxPageProps) {
   const user = await requireStaff()
-  const { c: selectedId } = await searchParams
+  const { c: selectedId, ch } = await searchParams
+  // Optional deep-link to a compose channel (the contact card's Message → text
+  // thread, Email → email thread). Validated to the two real channels; anything
+  // else falls through to ThreadPane's phone/email default.
+  const initialChannel = ch === "email" ? "email" : ch === "sms" ? "sms" : undefined
 
   if (!selectedId) {
     return (
@@ -56,7 +60,7 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
           only time the skeleton shows. ThreadPane resets its own state when the
           contact id changes. */}
       <Suspense fallback={<ThreadSkeleton />}>
-        <ThreadLoader contactId={selectedId} currentUserId={user.id} />
+        <ThreadLoader contactId={selectedId} currentUserId={user.id} initialChannel={initialChannel} />
       </Suspense>
       <div className="hidden lg:flex w-72 xl:w-80 shrink-0 border-l border-ink-hairline bg-surface flex-col min-h-0">
         <Suspense fallback={<ContactPanelSkeleton />}>
@@ -70,9 +74,11 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
 async function ThreadLoader({
   contactId,
   currentUserId,
+  initialChannel,
 }: {
   contactId: string
   currentUserId: string
+  initialChannel?: "sms" | "email"
 }) {
   const supabase = await createSupabaseServerClient()
   // Load the last 80 messages — that's what fits in 2-3 screens. Older
@@ -111,6 +117,7 @@ async function ThreadLoader({
         optInMode={optInMode}
         optInRequestedAt={contact.marketing_opt_in_requested_at}
         aiEnabled={isAiEnabled()}
+        initialChannel={initialChannel}
       />
     </div>
   )

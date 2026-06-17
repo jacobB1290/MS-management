@@ -417,6 +417,16 @@ h1, h2, h3, h4, h5, h6 {
 .btn-icon-soft:hover {
   background: color-mix(in srgb, var(--gold) 22%, transparent);
 }
+/* Greyed, non-interactive quick action — the channel it opens has nothing to
+ * act on (no phone to text/call, or no email on file). Same 52px box as the
+ * live tint so the row never shifts; a neutral ink wash + faint glyph read it
+ * as present-but-unavailable rather than a call to action. */
+.btn-icon-soft.is-disabled,
+.btn-icon-soft.is-disabled:hover {
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  color: var(--text-faint);
+  cursor: not-allowed;
+}
 
 /* Editorial quiet field — the input voice of the composition surfaces (event
  * editor, campaign composer). A softly filled well, one step darker than the
@@ -624,6 +634,19 @@ h1, h2, h3, h4, h5, h6 {
 @keyframes fade-in {
   from { opacity: 0; }
   to   { opacity: 1; }
+}
+
+/* Message bubble entrance for the staggered "waterfall" stream reveal. A layered
+ * settle, not a pop: opacity resolves gradually while the bubble glides up and
+ * scales from 0.95, anchored (via inline transform-origin) to its own bottom
+ * corner so it unfolds from its home edge. Runs at --motion-slow + ease-out-soft
+ * (front-loaded, so it arrives fast then settles soft). Per-bubble animation-delay
+ * (set inline) cascades the visible run toward the newest; the long duration
+ * overlaps the beats into a continuous wave. Plays on mount; the global
+ * reduced-motion rule zeroes it. */
+@keyframes bubble-in {
+  from { opacity: 0; transform: translateY(16px) scale(0.95); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 @keyframes menu-in {
