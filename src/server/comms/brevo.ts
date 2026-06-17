@@ -238,7 +238,15 @@ export interface BrevoCampaignGlobalStats {
 }
 
 export function getEmailCampaign(campaignId: number): Promise<
-  BrevoResult<{ status?: string; statistics?: { globalStats?: BrevoCampaignGlobalStats } }>
+  BrevoResult<{
+    status?: string
+    statistics?: {
+      globalStats?: BrevoCampaignGlobalStats
+      // Per-list breakdown. Brevo leaves globalStats all-zero for a list-targeted
+      // send and puts the real numbers here, so callers must read/sum this.
+      campaignStats?: BrevoCampaignGlobalStats[]
+    }
+  }>
 > {
   return brevoFetch(`/emailCampaigns/${campaignId}`)
 }

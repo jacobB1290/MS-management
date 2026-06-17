@@ -11,6 +11,7 @@ import {
   getProcess,
   importContacts,
   sendCampaignNow,
+  type BrevoCampaignGlobalStats,
 } from "./brevo"
 
 /**
@@ -167,7 +168,7 @@ export async function refreshBrevoCampaignStats(campaignId: string): Promise<voi
   if (!c?.brevo_campaign_id) return
   const res = await getEmailCampaign(Number(c.brevo_campaign_id))
   if (!res.ok) return
-  const stats = res.data.statistics?.globalStats
+  const stats = aggregateCampaignStats(res.data.statistics)
   if (stats) {
     await admin
       .from("campaigns")
@@ -177,6 +178,39 @@ export async function refreshBrevoCampaignStats(campaignId: string): Promise<voi
 }
 
 // --- helpers ----------------------------------------------------------------
+
+/**
+ * Aggregate a Brevo campaign's engagement. Our blasts always target a per-campaign
+ * LIST, and Brevo leaves `globalStats` all-zero for a list-targeted send while the
+ * real numbers live in the per-list `campaignStats` — so sum those, falling back
+ * to globalStats. (Without this, a delivered campaign read back as 0 in the CRM.)
+ */
+function aggregateCampaignStats(
+  statistics:
+    | { globalStats?: BrevoCampaignGlobalStats; campaignStats?: BrevoCampaignGlobalStats[] }
+    | undefined,
+): BrevoCampaignGlobalStats | null {
+  if (!statistics) return null
+  const perList = statistics.campaignStats
+  if (perList && perList.length > 0) {
+    const keys: (keyof BrevoCampaignGlobalStats)[] = [
+      "sent",
+      "delivered",
+      "hardBounces",
+      "softBounces",
+      "viewed",
+      "uniqueViews",
+      "clickers",
+      "uniqueClicks",
+      "unsubscriptions",
+      "complaints",
+    ]
+    const out: BrevoCampaignGlobalStats = {}
+    for (const k of keys) out[k] = perList.reduce((sum, s) => sum + (s[k] ?? 0), 0)
+    return out
+  }
+  return statistics.globalStats ?? null
+}
 
 async function loadQueuedEmails(
   admin: Admin,
