@@ -381,6 +381,10 @@ export function ConversationList({
           the live search query, so typing filters in place without re-flashing. */}
       <ol
         key={segment}
+        // Lets the mobile Topbar's large "Inbox" title shrink as the rail scrolls
+        // (same hook the other tabs use); the capture listener handles the
+        // per-segment remount of this list without a stale binding.
+        data-scroll-region
         className="flex-1 min-h-0 overflow-y-auto overscroll-contain no-scrollbar divide-y divide-ink-hairline animate-[settings-pane-in_var(--motion-medium)_var(--ease-out-soft)] motion-reduce:animate-none"
       >
         {filtered.length === 0 && (

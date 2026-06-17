@@ -39,32 +39,38 @@ export function Topbar({ user, title }: TopbarProps) {
   const section = pathname?.split("/")[1] ?? ""
   const derivedTitle = title ?? SECTION_TITLES[section] ?? "Management"
 
-  // Bind to the active page's ONE scroll region. The Topbar persists across the
-  // primary tabs while the page (and its [data-scroll-region]) remounts under
-  // it, so re-bind per route; wait a frame so the freshly-navigated region is in
-  // the DOM. Pages without one (the inbox) simply keep the large title.
+  // Shrink the large title as the active page's scroll region scrolls. A single
+  // capturing listener on the document reads the scrollTop off whatever
+  // [data-scroll-region] fired — scroll doesn't bubble, but a capture-phase
+  // listener still sees it. This is deliberately NOT bound to a specific element:
+  // the Topbar persists across the tabs while each page's region remounts under
+  // it (the inbox rail even remounts on a filter switch), and an element binding
+  // would go stale. rAF-throttled; non-region scrolls early-return.
   useEffect(() => {
-    let region: HTMLElement | null = null
     let raf = 0
-    const update = () => setScrolled((region?.scrollTop ?? 0) > 4)
-    const onScroll = () => {
+    const onScroll = (e: Event) => {
+      const t = e.target as HTMLElement | null
+      if (!t?.matches?.("[data-scroll-region]")) return
+      const top = t.scrollTop
       cancelAnimationFrame(raf)
-      raf = requestAnimationFrame(update)
+      raf = requestAnimationFrame(() => setScrolled(top > 4))
     }
-    const bind = requestAnimationFrame(() => {
-      region = document.querySelector<HTMLElement>("[data-scroll-region]")
-      if (!region) {
-        setScrolled(false)
-        return
-      }
-      update()
-      region.addEventListener("scroll", onScroll, { passive: true })
-    })
+    document.addEventListener("scroll", onScroll, { capture: true, passive: true })
     return () => {
-      cancelAnimationFrame(bind)
       cancelAnimationFrame(raf)
-      region?.removeEventListener("scroll", onScroll)
+      document.removeEventListener("scroll", onScroll, true)
     }
+  }, [])
+
+  // Reset to the current region's position on route change — a restored
+  // mid-scroll page paints compact, and a page with no region (or scrolled to
+  // top) shows the large title. One frame's wait lets the new region mount.
+  useEffect(() => {
+    const r = requestAnimationFrame(() => {
+      const region = document.querySelector<HTMLElement>("[data-scroll-region]")
+      setScrolled((region?.scrollTop ?? 0) > 4)
+    })
+    return () => cancelAnimationFrame(r)
   }, [pathname])
 
   async function handleSignOut() {
