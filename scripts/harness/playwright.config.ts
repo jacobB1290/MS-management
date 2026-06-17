@@ -62,7 +62,14 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: process.env.CI ? "html" : "list",
+  // The metrics-reporter always runs alongside the human-readable reporter;
+  // it appends one JSON line to scripts/harness/metrics/history.jsonl per run
+  // so we can track duration/failure trends across commits without an external
+  // service. It is wrapped in try/catch internally so a bug there can never
+  // fail the suite.
+  reporter: process.env.CI
+    ? [["html"], ["./metrics-reporter.ts"]]
+    : [["list"], ["./metrics-reporter.ts"]],
   expect: {
     toHaveScreenshot: {
       maxDiffPixelRatio: 0.005,

@@ -104,6 +104,13 @@ test("italics appear only on .motto identity phrases", async ({ authed }) => {
 })
 
 test("subpage chrome: centered title, circular back button", async ({ authed }) => {
+  // Below md the subpage chrome IS the iOS collapsing header (the static centered
+  // PageHeader carries `hidden md:block`, so its h1 is display:none on mobile);
+  // the mobile contract is asserted in 60-collapsing-header.spec.ts instead.
+  test.skip(
+    (authed.viewportSize()?.width ?? 0) < 768,
+    "subpage chrome is md+ chrome; mobile uses the collapsing header",
+  )
   for (const path of ["/campaigns/new", "/events/new", "/contacts/new"]) {
     await gotoAndSettle(authed, path)
     const h1 = authed.locator("h1").first()

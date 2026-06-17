@@ -91,6 +91,55 @@ short: navigate, settle, screenshot. Use the helpers in `helpers.ts`:
 If a new dynamic element creeps in, add the selector to `MASKS` in
 `helpers.ts` rather than masking ad-hoc in every scenario.
 
+## Performance & reliability ledger
+
+Every harness run appends one JSON line to
+`scripts/harness/metrics/history.jsonl`. The ledger tracks duration, pass/fail
+counts, and the git SHA across commits so you can spot regressions in run time
+or reliability without an external service.
+
+### View the ledger
+
+```
+npm run harness:metrics
+```
+
+Prints the last 15 runs as an aligned table. Full runs (all projects) show Δ
+duration and Δ failures vs. the previous full run. Partial runs
+(`HARNESS_PROJECTS`-filtered) are tagged `[partial]` so they are not compared
+against full ones.
+
+Example output:
+
+```
+DATE                  SHA      BRANCH           PROJECTS    DUR(s)  PASS  FAIL  FLAKY  SKIP  NOTES
+2026-06-17 09:12:45   a1b2c3d  main             all         142.3    254     0      0     3
+2026-06-17 08:00:01   a1b2c3d  main             mobile-393   28.1     51     0      0     1   [partial]
+2026-06-17 07:45:00   9f8e7d6  feat/collapse    all         155.2    250     4      1     3   +12.9s dur, +4 fail
+```
+
+### Ledger schema
+
+Each line is a JSON object:
+```jsonc
+{
+  "ts":         "2026-06-17T09:12:45.123Z",   // ISO timestamp
+  "sha":        "a1b2c3d",                     // git rev-parse --short HEAD
+  "branch":     "main",                        // current branch
+  "durationMs": 142300,                        // total suite wall-clock ms
+  "projects":   "all",                         // HARNESS_PROJECTS or "all"
+  "total":      257,
+  "passed":     254,
+  "failed":     0,
+  "flaky":      0,
+  "skipped":    3
+}
+```
+
+The ledger file is committed (`baseline/` style) so trend data survives across
+developer machines. The reporter is wrapped in try/catch — a ledger write
+failure can never fail the suite.
+
 ## Design-system conformance (`50-conformance.spec.ts`)
 
 Screenshots catch "something changed"; the conformance spec catches
