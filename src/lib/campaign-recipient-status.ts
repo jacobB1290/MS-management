@@ -29,7 +29,20 @@ export function recipientOutcome(
   error?: string | null,
   carrierStatus?: string | null,
   carrierError?: string | null,
+  emailEvent?: string | null,
 ): RecipientOutcome {
+  // Per-recipient EMAIL delivery events (from the Brevo webhook) override the
+  // optimistic "sent" — a bounce/spam is the truth for that person, the email
+  // analog of the SMS carrier overlay below.
+  if (channel === "email" && emailEvent) {
+    if (emailEvent === "hard_bounce")
+      return { group: "failed", label: "Bounced", detail: "The email bounced; the address rejected it.", variant: "danger" }
+    if (emailEvent === "spam")
+      return { group: "failed", label: "Marked spam", detail: "They reported this as spam.", variant: "danger" }
+    if (emailEvent === "unsubscribe")
+      return { group: "delivered", label: "Unsubscribed", detail: "Delivered, then they unsubscribed.", variant: "muted" }
+  }
+
   const effective =
     channel === "sms" && carrierStatus ? mergeCarrier(status, carrierStatus) : status
   const failError = carrierError ?? error

@@ -219,6 +219,7 @@ const campaigns: Row[] = [
   {"id":"camp1","name":"Neighborhood card drop — visitor follow-up","channel":"sms","status":"draft","body":"Thanks for reaching out after finding our card! We'd love to see you this Sunday at 9 or 11am. Reply with any questions.","media_url":null,"sendgrid_template_id":null,"email_subject":null,"audience_filter":{"category":"outreach"},"scheduled_at":null,"started_at":null,"completed_at":null,"created_at":ago(30)},
   {"id":"camp2","name":"Volunteer thank-you (draft)","channel":"email","status":"draft","body":null,"media_url":null,"sendgrid_template_id":"d-demo-template-001","email_subject":"Thank you for serving","audience_filter":{"tags":["volunteer"]},"scheduled_at":null,"started_at":null,"completed_at":null,"created_at":ago(1440)},
   {"id":"camp3","name":"Easter service invite","channel":"sms","status":"done","body":"Join us this Sunday for Easter at 9 or 11am, with childcare at both. Hope to see you!","media_url":null,"sendgrid_template_id":null,"email_subject":null,"audience_filter":{"all":true},"scheduled_at":null,"started_at":ago(2),"completed_at":ago(2),"created_at":ago(3)},
+  {"id":"camp4","name":"Easter email invite","channel":"email","status":"done","body":null,"media_url":null,"sendgrid_template_id":null,"brevo_template_id":7,"email_subject":"Join us for Easter at Morning Star","audience_filter":{"all":true},"scheduled_at":null,"started_at":ago(1),"completed_at":ago(1),"created_at":ago(1),"brevo_campaign_id":4,"brevo_list_id":12,"stats":{"sent":3,"delivered":2,"uniqueViews":1,"viewed":1,"uniqueClicks":0,"clickers":0,"unsubscriptions":0,"hardBounces":1,"softBounces":0}},
 ]
 
 const campaignRecipients: Row[] = [
@@ -233,7 +234,10 @@ const campaignRecipients: Row[] = [
   {"campaign_id":"camp3","contact_id":"C06","status":"skipped_no_consent","error":null,"sent_at":null,"provider_id":null,"claimed_at":null},
   {"campaign_id":"camp3","contact_id":"C13","status":"skipped_no_consent","error":null,"sent_at":null,"provider_id":null,"claimed_at":null},
   {"campaign_id":"camp3","contact_id":"C03","status":"skipped_opt_out","error":null,"sent_at":null,"provider_id":null,"claimed_at":null},
-  {"campaign_id":"camp3","contact_id":"C04","status":"skipped_opt_out","error":null,"sent_at":null,"provider_id":null,"claimed_at":null}
+  {"campaign_id":"camp3","contact_id":"C04","status":"skipped_opt_out","error":null,"sent_at":null,"provider_id":null,"claimed_at":null},
+  {"campaign_id":"camp4","contact_id":"C22","status":"sent","error":null,"sent_at":ago(1),"provider_id":"BREVO_camp4_22","claimed_at":ago(1)},
+  {"campaign_id":"camp4","contact_id":"C31","status":"sent","error":null,"sent_at":ago(1),"provider_id":"BREVO_camp4_31","claimed_at":ago(1)},
+  {"campaign_id":"camp4","contact_id":"C36","status":"sent","error":null,"sent_at":ago(1),"provider_id":"BREVO_camp4_36","claimed_at":ago(1)}
 ]
 
 const appUsers: Row[] = [
@@ -316,6 +320,10 @@ const heartbeat: Row[] = [
   {"id":1,"last_run_at":ago(3)},
 ]
 
+const emailEvents: Row[] = [
+  {"provider_event_id":"demo_bounce_c36","event_type":"hard_bounce","email":"aisha.b@example.com","payload":{"camp_id":4,"email":"aisha.b@example.com"},"occurred_at":ago(1)},
+]
+
 /** Tables/views the demo client can serve. Unknown tables resolve to []. */
 export const DEMO_TABLES: Record<string, Row[]> = {
   contacts,
@@ -327,4 +335,5 @@ export const DEMO_TABLES: Record<string, Row[]> = {
   form_submissions: formSubmissions,
   audit_log: auditLog,
   heartbeat,
+  email_events: emailEvents,
 }

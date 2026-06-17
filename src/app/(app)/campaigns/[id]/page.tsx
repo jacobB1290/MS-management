@@ -86,6 +86,36 @@ export default async function CampaignDetail({ params }: PageProps) {
     }
   }
 
+  // Email only: per-recipient delivery events (bounce / spam / unsubscribe) from
+  // the Brevo webhook, keyed by email — they override the optimistic "sent" so a
+  // bounced address doesn't read as delivered. Matched to THIS campaign by the
+  // camp_id the event payload carries. (Requires the Brevo marketing webhook to
+  // be configured; without it there's no per-recipient delivery feed.)
+  const emailEventByEmail = new Map<string, string>()
+  if (channel === "email" && campaign.brevo_campaign_id) {
+    const recipientEmails = contactRows
+      .map((c) => c.email?.toLowerCase())
+      .filter((e): e is string => Boolean(e))
+    if (recipientEmails.length > 0) {
+      const { data: events } = await supabase
+        .from("email_events")
+        .select("email, event_type, payload")
+        .in("email", recipientEmails)
+        .in("event_type", ["hard_bounce", "spam", "unsubscribe"])
+      const severity: Record<string, number> = { hard_bounce: 3, spam: 2, unsubscribe: 1 }
+      for (const ev of events ?? []) {
+        const camp = (ev.payload as { camp_id?: number } | null)?.camp_id
+        if (camp != null && String(camp) !== String(campaign.brevo_campaign_id)) continue
+        const email = ev.email?.toLowerCase()
+        if (!email) continue
+        const cur = emailEventByEmail.get(email)
+        if (!cur || (severity[ev.event_type] ?? 0) > (severity[cur] ?? 0)) {
+          emailEventByEmail.set(email, ev.event_type)
+        }
+      }
+    }
+  }
+
   // Actual cost, summed from per-message prices Twilio settled. Never estimated.
   const cost = { total: 0, settled: 0, pending: 0, mock: 0, currency: "USD" }
   for (const m of messagesRes.data ?? []) {
@@ -120,7 +150,9 @@ export default async function CampaignDetail({ params }: PageProps) {
           : "No phone"
         : c?.email || "No email"
     const carrier = channel === "sms" ? carrierByContact.get(r.contact_id) : undefined
-    const outcome = recipientOutcome(channel, r.status, r.error, carrier?.status, carrier?.error)
+    const emailEvent =
+      channel === "email" && c?.email ? emailEventByEmail.get(c.email.toLowerCase()) ?? null : null
+    const outcome = recipientOutcome(channel, r.status, r.error, carrier?.status, carrier?.error, emailEvent)
     groupCounts[outcome.group] += 1
     const row: RecipientRow = {
       contactId: r.contact_id,
