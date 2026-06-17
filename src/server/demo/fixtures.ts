@@ -316,6 +316,11 @@ const auditLog: Row[] = [
   {"id":"a207","action":"contact.auto_note","actor_user_id":null,"target_table":"contacts","target_id":"C48","created_at":ago(51.6),"ip":null},
 ]
 
+const events: Row[] = [
+  {"id":"E01","title":"Easter Celebration","description":"Join us for a special Easter morning service. All are welcome — childcare available at both the 9am and 11am services.","starts_at":new Date(Date.now() + 7*24*60*60*1000).toISOString(),"ends_at":null,"all_day":false,"location":"1234 Church Lane, Boise, ID 83702","cta_text":"Learn more","cta_url":"https://ms.church/events","image_public_url":null,"image_storage_path":null,"image_drive_file_id":null,"status":"published","source":"crm","gcal_event_id":null,"gcal_calendar_id":null,"created_by":"demo-admin","synced_at":ago(60),"created_at":ago(1440),"updated_at":ago(60)},
+  {"id":"E02","title":"Newcomers Lunch","description":"A casual lunch after the 11am service for anyone exploring the church. Meet the pastoral team and other newcomers.","starts_at":new Date(Date.now() + 14*24*60*60*1000).toISOString(),"ends_at":null,"all_day":false,"location":"Fellowship Hall","cta_text":null,"cta_url":null,"image_public_url":null,"image_storage_path":null,"image_drive_file_id":null,"status":"draft","source":"crm","gcal_event_id":null,"gcal_calendar_id":null,"created_by":"demo-admin","synced_at":null,"created_at":ago(360),"updated_at":ago(360)},
+]
+
 const heartbeat: Row[] = [
   {"id":1,"last_run_at":ago(3)},
 ]
@@ -336,4 +341,5 @@ export const DEMO_TABLES: Record<string, Row[]> = {
   audit_log: auditLog,
   heartbeat,
   email_events: emailEvents,
+  events,
 }

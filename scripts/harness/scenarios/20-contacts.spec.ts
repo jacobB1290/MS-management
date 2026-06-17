@@ -1,6 +1,16 @@
 import { test, expect } from "../auth-fixture"
 import { gotoAndSettle, screenshotPage } from "../helpers"
 
+test("contact detail collapse header (mobile)", async ({ authed }) => {
+  test.skip((authed.viewportSize()?.width ?? 0) >= 768, "collapse header is mobile-only chrome")
+  await gotoAndSettle(authed, "/contacts/C01")
+  await authed.locator("[data-scroll-region]").evaluate((el) => { el.scrollTop = 200 })
+  await authed.waitForTimeout(600)
+  await expect(authed.locator("[data-collapse-bar]")).toHaveAttribute("data-scrolled", "true")
+  await expect(authed.locator("[data-collapse-title]")).toHaveAttribute("data-collapsed", "true")
+  await screenshotPage(authed, "contact-detail-collapsed")
+})
+
 test("contacts list", async ({ authed }) => {
   await gotoAndSettle(authed, "/contacts")
   await screenshotPage(authed, "contacts-list")

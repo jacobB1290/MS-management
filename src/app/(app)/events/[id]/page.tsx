@@ -4,8 +4,7 @@ import { notFound } from "next/navigation"
 import { Mail, MessageSquare } from "lucide-react"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { requireStaff } from "@/server/auth"
-import { PageHeader } from "@/components/ui/page-header"
-import { PageScaffold } from "@/components/ui/page-scaffold"
+import { DetailScaffold } from "@/components/ui/detail-scaffold"
 import { Badge } from "@/components/ui/badge"
 import { eventLongDate, eventDisplayTime } from "@/lib/event-format"
 import { EventForm, type EventFormInitial } from "../event-form"
@@ -55,39 +54,35 @@ export default async function EventDetailPage({ params }: PageProps) {
   const when = `${eventLongDate(event.starts_at)}${timeStr ? ` · ${timeStr}` : ""}`
 
   return (
-    <PageScaffold
-      header={
-        <PageHeader
-          eyebrow="Event"
-          title={event.title}
-          backHref="/events"
-          backLabel="All events"
-          actions={<EventActions id={event.id} status={status} isAdmin={user.role === "admin"} />}
-          meta={
-            <>
-              <Badge variant={STATUS_VARIANT[status] ?? "muted"}>{status}</Badge>
-              <span className="text-small text-ink-muted">{when}</span>
-              {event.source === "gcal" && (
-                <span className="text-micro text-ink-faint">· created in Google Calendar</span>
-              )}
-              {linkedCampaigns && linkedCampaigns.length > 0 && (
-                <span className="flex flex-wrap items-center justify-center gap-1.5">
-                  {linkedCampaigns.map((c) => (
-                    <Link
-                      key={c.id}
-                      href={`/campaigns/${c.id}`}
-                      prefetch
-                      className="inline-flex items-center gap-1 rounded-pill border border-ink-hairline bg-white px-2 py-0.5 text-micro text-ink-muted transition-colors hover:bg-surface motion-reduce:transition-none"
-                    >
-                      {c.channel === "sms" ? <MessageSquare size={11} /> : <Mail size={11} />}
-                      {c.name}
-                    </Link>
-                  ))}
-                </span>
-              )}
-            </>
-          }
-        />
+    <DetailScaffold
+      eyebrow="Event"
+      title={event.title}
+      backHref="/events"
+      backLabel="All events"
+      actions={<EventActions id={event.id} status={status} isAdmin={user.role === "admin"} />}
+      meta={
+        <>
+          <Badge variant={STATUS_VARIANT[status] ?? "muted"}>{status}</Badge>
+          <span className="text-small text-ink-muted">{when}</span>
+          {event.source === "gcal" && (
+            <span className="text-micro text-ink-faint">· created in Google Calendar</span>
+          )}
+          {linkedCampaigns && linkedCampaigns.length > 0 && (
+            <span className="flex flex-wrap items-center justify-center gap-1.5">
+              {linkedCampaigns.map((c) => (
+                <Link
+                  key={c.id}
+                  href={`/campaigns/${c.id}`}
+                  prefetch
+                  className="inline-flex items-center gap-1 rounded-pill border border-ink-hairline bg-white px-2 py-0.5 text-micro text-ink-muted transition-colors hover:bg-surface motion-reduce:transition-none"
+                >
+                  {c.channel === "sms" ? <MessageSquare size={11} /> : <Mail size={11} />}
+                  {c.name}
+                </Link>
+              ))}
+            </span>
+          )}
+        </>
       }
       // The editor closes with a sticky EditorBar; the scaffold's bottom
       // padding would otherwise show as a cream gap beneath it at scroll end.
@@ -96,6 +91,6 @@ export default async function EventDetailPage({ params }: PageProps) {
       <div className="pt-6">
         <EventForm mode="edit" initial={initial} status={status} />
       </div>
-    </PageScaffold>
+    </DetailScaffold>
   )
 }

@@ -356,6 +356,7 @@ The mobile reply UX is **as critical as desktop** — staff will live in it.
 - **Run the harness before pushing UI changes** (`npm run harness`).
   Update snapshots when intentional (`npm run harness:update`) and commit
   the new baselines.
+- **Parallel harness improvement — use it.** While building or modifying UI, spawn a background Sonnet agent (`subagent_type: "claude"`, `model: "sonnet"`, `run_in_background: true`) to extend the harness in parallel: add behavioral assertions for the new feature, improve speed, and catch more regressions. Brief it with the DOM test attributes and the pages affected. Never wait for the harness to be done before starting the feature.
 - **Independent motion review — mandatory, every time it's relevant.** Whenever
   a change adds or alters motion (a transition, a newly animated affordance, an
   optimistic update, a slide/fade/open-close, anything that moves or appears),

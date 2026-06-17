@@ -1,21 +1,16 @@
-import { PageHeader } from "@/components/ui/page-header"
-import { PageScaffold } from "@/components/ui/page-scaffold"
+import { DetailScaffold } from "@/components/ui/detail-scaffold"
 import { Skeleton } from "@/components/ui/skeleton"
 import { SectionHeading } from "@/components/ui/section-heading"
 import { LoadingView, TableSkeleton } from "@/components/ui/loading-blocks"
 
 export default function Loading() {
   return (
-    <PageScaffold
-      header={
-        <PageHeader
-          eyebrow="Campaign"
-          title={<Skeleton className="h-7 w-56" />}
-          backHref="/campaigns"
-          backLabel="All campaigns"
-          meta={<Skeleton className="h-5 w-40" />}
-        />
-      }
+    <DetailScaffold
+      eyebrow="Campaign"
+      title={<Skeleton className="h-7 w-56" />}
+      backHref="/campaigns"
+      backLabel="All campaigns"
+      meta={<Skeleton className="h-5 w-40" />}
     >
       <LoadingView className="space-y-[var(--space-xl)] pt-6">
         {/* Headline + funnel */}
@@ -56,6 +51,6 @@ export default function Loading() {
           </div>
         </div>
       </LoadingView>
-    </PageScaffold>
+    </DetailScaffold>
   )
 }
