@@ -65,7 +65,14 @@ export function PageScaffold({
         // root for the mobile collapsing header below.
         data-scroll-region
         className={cn(
-          "flex-1 min-h-0 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]",
+          // overflow-x-hidden is load-bearing, not cosmetic: this element sets
+          // overflow-y:auto, and CSS computes the unset overflow-x to `auto`
+          // too — so ANY descendant wider than the region (notably iOS Safari's
+          // native date/time controls, which spill past their box) turns the
+          // whole page into a side-to-side pan. Pinning the cross-axis to hidden
+          // makes every detail page "fixed on its spot" no matter what spills.
+          // Vertical stays auto, so the sticky collapse bar still pins normally.
+          "flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain [scrollbar-gutter:stable]",
           GUTTER,
           "pb-8 md:pb-10",
           className,
