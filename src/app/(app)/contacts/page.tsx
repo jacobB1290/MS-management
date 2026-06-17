@@ -104,7 +104,7 @@ export default async function ContactsPage({ searchParams }: ContactsPageProps) 
       </div>
 
       <div className="relative flex-1 min-h-0">
-        <div className="h-full overflow-y-auto overscroll-contain pb-8">
+        <div data-scroll-region className="h-full overflow-y-auto overscroll-contain pb-8">
           {rows.length === 0 ? (
             <div className={cn("py-10", PAGE_GUTTER)}>
               <EmptyState

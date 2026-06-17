@@ -774,3 +774,42 @@ dialog[data-closing]::backdrop {
   opacity: 1;
   transform: translateY(0);
 }
+
+/* ============================================================================
+ * Mobile Topbar — iOS large-title shrink-on-scroll (list pages).
+ * On the primary tabs the section title rides large at rest and tightens to the
+ * compact size as the page scrolls: the "Morning Star" overline collapses away
+ * and the title font shrinks, so the chrome opens generous and settles to a slim
+ * bar at the top edge (the bar's hairline resolves in tandem, handled on the
+ * element). Driven by [data-scrolled], set from the active [data-scroll-region];
+ * pure CSS transitions, so reduced motion lands on the compact end state.
+ *
+ * The title shrinks via font-size (not transform: scale) on purpose — scaling a
+ * line of display type blurs the glyphs mid-transition; font-size stays crisp,
+ * and one short reflow on a single line is cheap. The eyebrow row collapses with
+ * the grid-rows 1fr→0fr trick (even speed, no magic max-height), and because the
+ * header height is content-driven it follows both smoothly with no explicit
+ * height animation.
+ * ============================================================================ */
+.topbar-eyebrow {
+  display: grid;
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transition:
+    grid-template-rows var(--motion-medium) var(--ease-out-soft),
+    opacity var(--motion-fast) var(--ease-standard);
+}
+.topbar-eyebrow > * {
+  overflow: hidden;
+}
+[data-scrolled="true"] .topbar-eyebrow {
+  grid-template-rows: 0fr;
+  opacity: 0;
+}
+.topbar-title {
+  font-size: var(--text-title);
+  transition: font-size var(--motion-medium) var(--ease-out-soft);
+}
+[data-scrolled="true"] .topbar-title {
+  font-size: var(--text-lead);
+}
