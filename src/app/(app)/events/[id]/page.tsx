@@ -64,16 +64,20 @@ export default async function EventDetailPage({ params }: PageProps) {
         <span className="text-micro text-ink-faint">· created in Google Calendar</span>
       )}
       {linkedCampaigns && linkedCampaigns.length > 0 && (
-        <span className="flex flex-wrap items-center justify-center gap-1.5">
+        <span className="flex max-w-full flex-wrap items-center justify-center gap-1.5">
           {linkedCampaigns.map((c) => (
             <Link
               key={c.id}
               href={`/campaigns/${c.id}`}
               prefetch
-              className="inline-flex items-center gap-1 rounded-pill border border-ink-hairline bg-white px-2 py-0.5 text-micro text-ink-muted transition-colors hover:bg-surface motion-reduce:transition-none"
+              className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-pill border border-ink-hairline bg-white px-2 py-0.5 text-micro text-ink-muted transition-colors hover:bg-surface motion-reduce:transition-none"
             >
-              {c.channel === "sms" ? <MessageSquare size={11} /> : <Mail size={11} />}
-              {c.name}
+              {c.channel === "sms" ? (
+                <MessageSquare size={11} className="shrink-0" />
+              ) : (
+                <Mail size={11} className="shrink-0" />
+              )}
+              <span className="truncate">{c.name}</span>
             </Link>
           ))}
         </span>
