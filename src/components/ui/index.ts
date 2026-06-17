@@ -68,9 +68,14 @@ export { EditorSection, type EditorSectionProps } from "./editor-section"
 export { EditorBar, type EditorBarProps } from "./editor-bar"
 export { EmptyState, type EmptyStateProps } from "./empty-state"
 export { PageHeader, type PageHeaderProps } from "./page-header"
+export {
+  MobileCollapsingHeader,
+  type MobileCollapsingHeaderProps,
+} from "./collapsing-header"
 export { PageInfo } from "./page-info"
 export { PageMasthead } from "./page-masthead"
 export { PageScaffold, PAGE_GUTTER, PAGE_GUTTER_BLEED } from "./page-scaffold"
+export { DetailScaffold, type DetailScaffoldProps } from "./detail-scaffold"
 export { SectionHeading } from "./section-heading"
 export { TableCard, Table, Th, Tr, Td } from "./table"
 export {

@@ -252,6 +252,23 @@ One header system, two components, no bespoke page chrome:
   titles** ("Event", "Campaign" over user-entered text); a static title that
   self-describes ("Settings", "New campaign") gets no eyebrow — it doesn't earn
   the row. Full chrome contract: `docs/design-system.md`.
+- **`DetailScaffold` + the mobile collapsing header (iOS large-title).** On
+  phones/tablets every subview header collapses iOS-style: the big title rides in
+  a hero at the top of the ONE scroll region and scrolls away, while a slim
+  frosted bar (back · inline title · actions) stays pinned at the top edge — the
+  inline title cross-fading in behind a progressive backdrop-blur as the hero
+  passes under it, so content dissolves under the bar instead of clipping on a
+  line. Desktop (md+) is unchanged: the static centered `PageHeader`.
+  **`DetailScaffold` is the single source** — pass the header parts once and it
+  renders the desktop `PageHeader` and the `MobileCollapsingHeader` from the same
+  props, so the two layouts can never drift. Route every subview (detail pages,
+  create/edit forms, Settings, Audit) through it; the bespoke contact card uses
+  the same `MobileCollapsingHeader` primitive via the scaffold's `collapseHeader`
+  slot. List pages keep `PageMasthead`; the inbox owns its own chrome. The motion
+  is `[data-collapsed]`-driven CSS transitions (globals.css §Collapsing header) —
+  compositor-friendly, reduced-motion lands on the correct end state. Loading
+  frames go through `DetailScaffold` too, so the collapsed-at-rest frame is
+  pixel-identical and nothing shifts on swap.
 
 **Type tiers (don't invent in-betweens):** page title = `--text-heading`
 (Playfair semibold) → section tier = `--text-lead` (`SectionHeading`,
@@ -365,6 +382,24 @@ The mobile reply UX is **as critical as desktop** — staff will live in it.
   respected. Its findings are blocking polish, not optional notes — address them
   before shipping. The owner cares about this specifically and deeply: animated
   is the floor, *extremely smooth and tastefully done* is the requirement.
+- **Keep the harness sharp — and delegate it.** The harness is never "done":
+  every change should leave it both *faster* and catching *more*. Don't sink your
+  own effort into test plumbing — hand harness work to a parallel agent (e.g. a
+  Sonnet subagent) and just tell it what your change needs covered: the new DOM
+  contract (stable hooks like `data-collapsing-header` / `data-collapsed`), the
+  states (at rest vs scrolled, mobile vs desktop, reduced-motion end state), the
+  viewport matrix, and the failure mode you'd hate to ship. It writes/extends the
+  scenarios + conformance assertions and tunes run speed while you build; spawn
+  it once the DOM contract is stable so its selectors are real. Speed levers live
+  in `scripts/harness` (`HARNESS_PROJECTS` to run a subset, `HARNESS_SKIP_BUILD`
+  to reuse a warm build, a deterministic `fonts.ready` settle).
+- **Measure the harness across sessions.** The harness keeps a committed,
+  append-only ledger of every run — wall-clock time + pass/fail/flaky counts,
+  stamped with the git SHA — under `scripts/harness/metrics/`, summarized by
+  `npm run harness:metrics`. It's how we see whether speed and reliability are
+  improving or regressing over time, and by how much; partial runs are tagged so
+  they're never compared against full ones. Wins and regressions are measured,
+  not guessed.
 
 ## 12. Environment variables
 

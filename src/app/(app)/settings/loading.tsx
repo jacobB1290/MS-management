@@ -1,20 +1,11 @@
-import { PageHeader } from "@/components/ui/page-header"
-import { PageScaffold } from "@/components/ui/page-scaffold"
+import { DetailScaffold } from "@/components/ui/detail-scaffold"
 import { BackButton } from "@/components/ui/back-button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { LoadingView } from "@/components/ui/loading-blocks"
 
 export default function Loading() {
   return (
-    <PageScaffold
-      header={
-        <PageHeader
-          title="Settings"
-          backSlot={<BackButton label="Back" />}
-          backMobileOnly
-        />
-      }
-    >
+    <DetailScaffold title="Settings" backSlot={<BackButton label="Back" />} backMobileOnly>
       <LoadingView className="flex gap-8 pt-4">
         {/* Rail of section nav ghosts — desktop only */}
         <div className="hidden md:flex md:w-60 shrink-0 flex-col gap-2">
@@ -34,6 +25,6 @@ export default function Loading() {
           <Skeleton className="hidden h-40 w-full rounded-lg md:block" />
         </div>
       </LoadingView>
-    </PageScaffold>
+    </DetailScaffold>
   )
 }

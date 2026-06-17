@@ -1895,20 +1895,35 @@ function MessageBubble({
           </p>
         )}
         {message.body && <p className="whitespace-pre-wrap">{message.body}</p>}
+        {/* Metadata caption: sender · time · status. Clamped to ONE line
+            (line-clamp-1) so its rendered height is constant. The relative time
+            is wall-clock-derived; at narrow bubble widths its width sits right at
+            the wrap point, so without the clamp it wraps to a second line on some
+            renders and reflows the whole stream below it — a screenshot-diff
+            flake the masks can't catch (they hide the text, not the box height).
+            line-clamp (not whitespace-nowrap) is deliberate: nowrap forces the
+            line to its full single-line width, which can make the masked,
+            wall-clock-width time the bubble's widest element and ripple a
+            sub-pixel column shift out to the contact panel on desktop. The clamp
+            pins height while leaving the bubble's width driven by the body, so
+            neither axis depends on the (masked) time string. tabular-nums keeps
+            the digits monospaced for a steady caption. */}
         <p
           data-dynamic
           className={cn(
-            "mt-1 text-micro flex items-center gap-1",
+            "mt-1 text-micro leading-normal line-clamp-1 tabular-nums",
             isOut ? "text-white/85" : "text-ink-muted",
           )}
           title={format(new Date(message.created_at), "PPpp")}
         >
-          {isEmail && <Mail size={11} className="shrink-0 opacity-80" aria-label="Email" />}
+          {isEmail && (
+            <Mail size={11} className="mr-1 inline-block align-[-1px] opacity-80" aria-label="Email" />
+          )}
           {isOut && senderName ? `${senderName} · ` : ""}
           {!isOut && message.channel === "form" ? "Web form · " : ""}
           {pending ? "Sending…" : time}
           {!pending && message.status && message.status !== "received" && (
-            <span className="ml-2 capitalize">· {message.status}</span>
+            <span className="capitalize"> · {message.status}</span>
           )}
         </p>
       </div>

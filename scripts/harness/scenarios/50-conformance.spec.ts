@@ -104,6 +104,13 @@ test("italics appear only on .motto identity phrases", async ({ authed }) => {
 })
 
 test("subpage chrome: centered title, circular back button", async ({ authed }) => {
+  // Below md the subpage chrome IS the iOS collapsing header (the static centered
+  // PageHeader carries `hidden md:block`, so its h1 is display:none on mobile);
+  // the mobile contract is asserted in 60-collapsing-header.spec.ts instead.
+  test.skip(
+    (authed.viewportSize()?.width ?? 0) < 768,
+    "subpage chrome is md+ chrome; mobile uses the collapsing header",
+  )
   for (const path of ["/campaigns/new", "/events/new", "/contacts/new"]) {
     await gotoAndSettle(authed, path)
     const h1 = authed.locator("h1").first()
@@ -137,7 +144,23 @@ test("no page pans horizontally", async ({ authed }) => {
   // A single element wider than the viewport lets the whole page slide
   // side-to-side on touch — the classic mobile regression. Assert the scroll
   // plane never exceeds the viewport on any route.
-  for (const path of [...TOP_PAGES, "/campaigns/new", "/events/new", "/contacts/new", "/settings", "/audit"]) {
+  //
+  // /events/E01 + /campaigns/camp4 are the seeded detail/edit pages (demo
+  // fixtures). They're load-bearing here: the original horizontal-pan bug lived
+  // on the events editor (its native date/time inputs render wider in WebKit),
+  // and the create/edit forms 404'd in DEMO_MODE before the fixtures existed, so
+  // the detail layer went uncovered. E01 exercises the events editor; camp4 the
+  // campaign detail (funnel + recipient table).
+  for (const path of [
+    ...TOP_PAGES,
+    "/campaigns/new",
+    "/events/new",
+    "/contacts/new",
+    "/settings",
+    "/audit",
+    "/events/E01",
+    "/campaigns/camp4",
+  ]) {
     await gotoAndSettle(authed, path)
     const overflow = await authed.evaluate(() => {
       const doc = document.scrollingElement!

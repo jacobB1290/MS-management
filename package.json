@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "harness": "playwright test --config=scripts/harness/playwright.config.ts",
     "harness:update": "playwright test --config=scripts/harness/playwright.config.ts --update-snapshots",
+    "harness:metrics": "tsx scripts/harness/metrics-report.ts",
     "verify:events": "tsx scripts/events/verify-mapping.ts",
     "verify:schema": "tsx scripts/validation/verify-contact-schema.ts",
     "ai-eval": "tsx scripts/ai-eval/run.ts",

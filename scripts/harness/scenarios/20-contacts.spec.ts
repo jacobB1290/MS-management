@@ -37,7 +37,10 @@ test("edit contact", async ({ authed }) => {
   // Directory rows are iOS-style Link rows, not a table.
   await authed.locator('a[href^="/contacts/"]:not([href$="/new"])').first().click()
   await authed.waitForURL(/\/contacts\/[\w-]+$/)
-  await authed.locator("a", { hasText: "Edit" }).click()
+  // Edit lives in different places per layout: desktop's quick-action circle
+  // (text "Edit") and mobile's collapsing-bar icon button (aria-label "Edit").
+  // Match by accessible name so both are found, and scope to the visible copy.
+  await authed.getByRole("link", { name: "Edit", exact: true }).filter({ visible: true }).first().click()
   await authed.waitForURL(/\/edit$/)
   await authed.waitForTimeout(300)
   await screenshotPage(authed, "contact-edit")

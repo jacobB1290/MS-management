@@ -169,19 +169,123 @@ export function generate(): string {
     c05Summary.message_count = (c05Summary.message_count as number) + c05Emails.length
   }
 
+  // --- Demo-only: two finished promo campaigns (SMS + email) ------------------
+  // The simulation is inbound triage; these give the campaigns area a real
+  // delivery story — an Easter SMS blast (camp3, with per-recipient delivered/
+  // failed/skipped outcomes and the matching outbound messages) and an Easter
+  // email blast (camp4, a Brevo campaign with stats + a hard bounce). They power
+  // the campaign list, the campaign detail funnel, and the email_events table.
+  const EASTER_SMS = "Join us this Sunday for Easter at 9 or 11am, with childcare at both. Hope to see you!"
+  // Outbound campaign messages, threaded onto the contacts that got the blast.
+  const camp3Sent: Array<{ c: string; status: string }> = [
+    { c: "C09", status: "delivered" },
+    { c: "C15", status: "delivered" },
+    { c: "C27", status: "delivered" },
+    { c: "C36", status: "delivered" },
+    { c: "C22", status: "sent" },
+  ]
+  const camp3Messages = camp3Sent.map(({ c, status }) => ({
+    id: `mc3_${c.slice(1)}`,
+    contact_id: c,
+    direction: "out",
+    body: EASTER_SMS,
+    media_url: null,
+    channel: "sms",
+    twilio_sid: `SMcamp3_${c}`,
+    status,
+    error: null,
+    campaign_id: "camp3",
+    sent_by: "demo-admin",
+    num_segments: 1,
+    price: -0.0079,
+    price_unit: "USD",
+    context: "marketing_promotional",
+    created_at: ago(2),
+  }))
+  // Insert the blast right after C01's opener so the demo's newest activity reads
+  // naturally; the demo client sorts per-contact, so placement is cosmetic only.
+  messages.splice(1, 0, ...camp3Messages)
+
+  // Per-recipient outcomes for camp3 (the delivery funnel): the sent rows above,
+  // plus carrier failures and consent/opt-out skips that the wall produced.
+  const campaignRecipients: Record<string, unknown>[] = [
+    ...camp3Sent.map(({ c, status }) => ({
+      campaign_id: "camp3",
+      contact_id: c,
+      status,
+      error: null,
+      sent_at: ago(2),
+      provider_id: `SMcamp3_${c}`,
+      claimed_at: ago(2),
+    })),
+    { campaign_id: "camp3", contact_id: "C07", status: "failed", error: "30007 Carrier flagged the message as spam and blocked it", sent_at: ago(2), provider_id: null, claimed_at: ago(2) },
+    { campaign_id: "camp3", contact_id: "C29", status: "failed", error: "30003 The handset was unreachable", sent_at: ago(2), provider_id: null, claimed_at: ago(2) },
+    { campaign_id: "camp3", contact_id: "C02", status: "skipped_no_consent", error: null, sent_at: null, provider_id: null, claimed_at: null },
+    { campaign_id: "camp3", contact_id: "C06", status: "skipped_no_consent", error: null, sent_at: null, provider_id: null, claimed_at: null },
+    { campaign_id: "camp3", contact_id: "C13", status: "skipped_no_consent", error: null, sent_at: null, provider_id: null, claimed_at: null },
+    { campaign_id: "camp3", contact_id: "C03", status: "skipped_opt_out", error: null, sent_at: null, provider_id: null, claimed_at: null },
+    { campaign_id: "camp3", contact_id: "C04", status: "skipped_opt_out", error: null, sent_at: null, provider_id: null, claimed_at: null },
+    { campaign_id: "camp4", contact_id: "C22", status: "sent", error: null, sent_at: ago(1), provider_id: "BREVO_camp4_22", claimed_at: ago(1) },
+    { campaign_id: "camp4", contact_id: "C31", status: "sent", error: null, sent_at: ago(1), provider_id: "BREVO_camp4_31", claimed_at: ago(1) },
+    { campaign_id: "camp4", contact_id: "C36", status: "sent", error: null, sent_at: ago(1), provider_id: "BREVO_camp4_36", claimed_at: ago(1) },
+  ]
+
+  // A published event mirrored from Google Calendar (source "gcal"), with a flyer
+  // and a structured CTA — the widest event-detail meta. camp5 below promotes it,
+  // so the event detail renders its linked-campaign chip. The image URL is a
+  // plausible Drive render URL; the harness is hermetic so it never loads, but the
+  // flyer slot is part of the layout we want under test.
+  const events = [
+    {
+      id: "E01",
+      gcal_event_id: "demo_gcal_easter_2026",
+      gcal_calendar_id: null,
+      title: "Community Sunday at Morning Star",
+      description: "A joyful Sunday celebration with two services, childcare at both, and a community brunch on the lawn afterward. Everyone is welcome.",
+      // Fixed instants, NOT relative ago(): the date + time render UNMASKED in
+      // the event hero, the events list, and the promo prefill, so a
+      // runtime-relative value would shift every server start and make those
+      // screenshots flaky (the same class of bug as the inbox timestamps).
+      // Stored UTC; the UI renders in America/Boise (UTC-6 in July), so 15:00Z
+      // shows as a 9-11 AM Sunday service (matching the demo's "9 or 11am" copy).
+      starts_at: "2026-07-12T15:00:00.000Z",
+      ends_at: "2026-07-12T17:00:00.000Z",
+      all_day: false,
+      location: "3080 Wildwood St, Boise",
+      cta_text: "Save your seat",
+      cta_url: "https://ms.church/sunday",
+      image_drive_file_id: "demo_drive_easter_flyer",
+      image_public_url: "https://lh3.googleusercontent.com/d/demo_drive_easter_flyer=w800",
+      image_storage_path: "events/demo-easter-flyer.jpg",
+      status: "published",
+      source: "gcal",
+      synced_at: ago(120),
+      created_by: "demo-admin",
+      created_at: ago(60 * 24 * 5),
+      updated_at: ago(120),
+    },
+  ]
+
   auditLog.sort((a, b) => (a.created_at as { __ago: number }).__ago - (b.created_at as { __ago: number }).__ago)
   const auditRecent = auditLog.slice(0, 60)
 
   const campaigns = [
     { id: "camp1", name: "Neighborhood card drop — visitor follow-up", channel: "sms", status: "draft", body: "Thanks for reaching out after finding our card! We'd love to see you this Sunday at 9 or 11am. Reply with any questions.", media_url: null, sendgrid_template_id: null, email_subject: null, audience_filter: { category: "outreach" }, scheduled_at: null, started_at: null, completed_at: null, created_at: ago(30) },
     { id: "camp2", name: "Volunteer thank-you (draft)", channel: "email", status: "draft", body: null, media_url: null, sendgrid_template_id: "d-demo-template-001", email_subject: "Thank you for serving", audience_filter: { tags: ["volunteer"] }, scheduled_at: null, started_at: null, completed_at: null, created_at: ago(60 * 24) },
+    { id: "camp3", name: "Easter service invite", channel: "sms", status: "done", body: EASTER_SMS, media_url: null, sendgrid_template_id: null, email_subject: null, audience_filter: { all: true }, scheduled_at: null, started_at: ago(2), completed_at: ago(2), created_at: ago(3) },
+    { id: "camp4", name: "Easter email invite", channel: "email", status: "done", body: null, media_url: null, sendgrid_template_id: null, brevo_template_id: 7, email_subject: "Join us for Easter at Morning Star", audience_filter: { all: true }, scheduled_at: null, started_at: ago(1), completed_at: ago(1), created_at: ago(1), brevo_campaign_id: 4, brevo_list_id: 12, stats: { sent: 3, delivered: 2, uniqueViews: 1, viewed: 1, uniqueClicks: 0, clickers: 0, unsubscriptions: 0, hardBounces: 1, softBounces: 0 } },
+    // Promo campaign linked to the published event E01 — drives the
+    // linked-campaign chip in the event detail's meta (the widest meta state).
+    { id: "camp5", name: "Community Sunday — flyer promo", channel: "sms", status: "draft", body: "Community Sunday at Morning Star — two services with childcare and a brunch after. Save your seat: https://ms.church/sunday", media_url: "https://lh3.googleusercontent.com/d/demo_drive_easter_flyer=w800", sendgrid_template_id: null, email_subject: null, audience_filter: { all: true }, event_id: "E01", scheduled_at: null, started_at: null, completed_at: null, created_at: ago(90) },
   ]
-  const campaignRecipients: Record<string, unknown>[] = []
   const appUsers = [
     { user_id: "demo-admin", role: "admin", display_name: "Demo Staff", created_at: ago(60 * 24 * 60) },
     { user_id: "demo-member", role: "member", display_name: "Sam Rivera", created_at: ago(30 * 24 * 60) },
   ]
   const heartbeat = [{ id: 1, last_run_at: ago(3) }]
+  const emailEvents = [
+    { provider_event_id: "demo_bounce_c36", event_type: "hard_bounce", email: "aisha.b@example.com", payload: { camp_id: 4, email: "aisha.b@example.com" }, occurred_at: ago(1) },
+  ]
 
   // Serialize rows, then turn each {"__ago":N} sentinel into an ago(N) call.
   const lines = (rows: unknown[]) =>
@@ -263,6 +367,15 @@ const heartbeat: Row[] = [
 ${lines(heartbeat)}
 ]
 
+const emailEvents: Row[] = [
+${lines(emailEvents)}
+]
+
+// events — the CRM mirror/editor for the church Google Calendar (see §13.2).
+const events: Row[] = [
+${lines(events)}
+]
+
 /** Tables/views the demo client can serve. Unknown tables resolve to []. */
 export const DEMO_TABLES: Record<string, Row[]> = {
   contacts,
@@ -274,6 +387,8 @@ export const DEMO_TABLES: Record<string, Row[]> = {
   form_submissions: formSubmissions,
   audit_log: auditLog,
   heartbeat,
+  email_events: emailEvents,
+  events,
 }
 `
 }

@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { requireStaff } from "@/server/auth"
 import { BASE_TAG_VOCAB } from "@/server/ai/prompts"
 import { getContactTagOccurrences } from "@/server/contacts/tags"
-import { PageHeader } from "@/components/ui/page-header"
+import { DetailScaffold } from "@/components/ui/detail-scaffold"
 import { ContactForm } from "./contact-form"
 
 export const metadata: Metadata = { title: "New contact" }
@@ -15,21 +15,17 @@ export default async function NewContactPage() {
     .filter(Boolean)
     .sort()
   return (
-    <div className="flex flex-col h-full min-h-0">
-      <div className="shrink-0 px-4 md:px-8 pt-4 md:pt-5 pb-4 bg-bg max-w-2xl w-full mx-auto">
-        <PageHeader
-          title="New contact"
-          backHref="/contacts"
-          backLabel="All contacts"
-          info="Add someone manually. For everyone arriving from the public website form, the form receiver creates them automatically with the form as the proof of opt-in."
-        />
-      </div>
-
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 md:px-8 pb-6 md:pb-8 max-w-2xl w-full mx-auto">
+    <DetailScaffold
+      title="New contact"
+      backHref="/contacts"
+      backLabel="All contacts"
+      info="Add someone manually. For everyone arriving from the public website form, the form receiver creates them automatically with the form as the proof of opt-in."
+    >
+      <div className="mx-auto w-full max-w-2xl pt-6">
         <div className="rounded-lg border border-ink-hairline bg-white p-6 md:p-8">
           <ContactForm tagSuggestions={tagSuggestions} />
         </div>
       </div>
-    </div>
+    </DetailScaffold>
   )
 }
