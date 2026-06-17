@@ -19,9 +19,6 @@ export interface DetailScaffoldProps {
   /** Hide the back affordance on md+ (Settings/Audit have the sidebar). The
    *  mobile collapsing bar always keeps it — it's the only way out on a phone. */
   backMobileOnly?: boolean
-  /** Replace the mobile collapsing header's hero body (e.g. the contact card's
-   *  quick-action row). Desktop keeps the standard centered PageHeader. */
-  mobileHero?: React.ReactNode
   children: React.ReactNode
   /** Forwarded to the scroll region (e.g. "pb-0 md:pb-0" under a sticky bar). */
   className?: string
@@ -50,7 +47,6 @@ export function DetailScaffold({
   backLabel,
   backSlot,
   backMobileOnly,
-  mobileHero,
   children,
   className,
   headerBand,
@@ -84,7 +80,6 @@ export function DetailScaffold({
           backHref={backHref}
           backLabel={backLabel}
           backSlot={backSlot}
-          hero={mobileHero}
         />
       }
     >

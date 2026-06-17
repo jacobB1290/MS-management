@@ -105,10 +105,12 @@ export interface MobileCollapsingHeaderProps {
   /** A custom back affordance (history-aware button) when there's no single
    *  parent route — mirrors PageHeader.backSlot. */
   backSlot?: React.ReactNode
-  /** Replace the default eyebrow+title+meta hero with a bespoke body (e.g. the
-   *  contact card's quick-action row). The bar's inline title still uses
-   *  `title`, so the collapsed handoff is identical across pages. */
-  hero?: React.ReactNode
+  /** Extra hero content rendered BELOW the title + handoff marker (e.g. the
+   *  contact card's status + quick-action row). Because it sits after the
+   *  sentinel, it keeps scrolling under the frosted bar once the title has handed
+   *  off to the inline title — so the title swap tracks the title, not the whole
+   *  hero. The component always renders `title`, so the handoff is identical. */
+  heroExtra?: React.ReactNode
   className?: string
 }
 
@@ -121,7 +123,7 @@ export function MobileCollapsingHeader({
   backHref,
   backLabel,
   backSlot,
-  hero,
+  heroExtra,
   className,
 }: MobileCollapsingHeaderProps) {
   const { sentinelRef, collapsed } = useCollapseOnScroll()
@@ -141,15 +143,22 @@ export function MobileCollapsingHeader({
   ) : null
 
   return (
-    // -mx-4 bleeds the bar to the screen edges (the scroll region pads px-4);
-    // inner rows re-apply px-4 so the controls sit on the gutter. md:hidden — the
+    // `contents` (the wrapper generates no box) is load-bearing: position:sticky
+    // pins an element only while its PARENT is in view. A real wrapping <div> is
+    // only as tall as the bar + hero, so the sticky bar would scroll away with it
+    // the instant the hero cleared the top edge (the "I see the bar briefly, then
+    // it scrolls away" bug). display:contents hoists the bar/hero/sentinel to be
+    // direct children of [data-scroll-region], so the bar's containing block spans
+    // the whole page and it stays pinned over all the content. md:hidden — the
     // whole collapsing system is phone/tablet chrome.
     <div
       data-collapsing-header
       data-collapsed={collapsed ? "true" : "false"}
-      className={cn("md:hidden -mx-4", className)}
+      className={cn("contents md:hidden", className)}
     >
-      <header className="collapse-bar">
+      {/* -mx-4 bleeds the frosted bar to the screen edges (the scroll region pads
+          px-4); the inner grid re-applies px-4 so the controls sit on the gutter. */}
+      <header className="collapse-bar -mx-4">
         <div className="collapse-bar__scrim" aria-hidden />
         <div className="collapse-bar__rule" aria-hidden />
         <div
@@ -168,33 +177,41 @@ export function MobileCollapsingHeader({
         </div>
       </header>
 
-      <div className="px-4 pb-3 pt-2">
-        {hero ?? (
-          <div className="flex min-w-0 flex-col items-center text-center">
-            {eyebrow && <span className="eyebrow leading-none">{eyebrow}</span>}
-            <div className="flex min-w-0 items-center gap-2">
-              <p
-                aria-hidden
-                className={cn(
-                  "min-w-0 truncate font-display text-heading font-semibold leading-[var(--leading-snug)] tracking-[var(--tracking-tight)] text-ink",
-                  eyebrow && "mt-1",
-                )}
-              >
-                {title}
-              </p>
-              {info && <PageInfo>{info}</PageInfo>}
-            </div>
-            {meta && (
-              <div className="mt-2 flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
-                {meta}
-              </div>
-            )}
+      {/* The hero scrolls away under the pinned bar. The sentinel sits right after
+          the TITLE (not the whole hero), so collapse hands off as the big title
+          passes under the bar — no "title gone but inline not yet" gap on tall
+          heroes; meta / heroExtra below keep scrolling under the frosted bar.
+          Hero is a direct child of the scroll region (contents wrapper), so its
+          gutter comes from the region's px-4 — only vertical rhythm here. */}
+      <div className="pt-2 pb-3">
+        <div className="flex min-w-0 flex-col items-center text-center">
+          {eyebrow && <span className="eyebrow leading-none">{eyebrow}</span>}
+          <div className="flex min-w-0 items-center gap-2">
+            <p
+              aria-hidden
+              className={cn(
+                "min-w-0 truncate font-display text-heading font-semibold leading-[var(--leading-snug)] tracking-[var(--tracking-tight)] text-ink",
+                eyebrow && "mt-1",
+              )}
+            >
+              {title}
+            </p>
+            {info && <PageInfo>{info}</PageInfo>}
           </div>
-        )}
-      </div>
+        </div>
 
-      {/* The handoff trigger: a hairline marker at the bottom of the hero. */}
-      <div ref={sentinelRef} aria-hidden className="h-px w-full" />
+        {/* Handoff marker — directly under the title line, so the inline title
+            cross-fades in exactly as the big title passes under the bar. */}
+        <div ref={sentinelRef} aria-hidden className="h-px w-full" />
+
+        {heroExtra ? (
+          <div className="mt-3">{heroExtra}</div>
+        ) : meta ? (
+          <div className="mt-2 flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
+            {meta}
+          </div>
+        ) : null}
+      </div>
     </div>
   )
 }

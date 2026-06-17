@@ -1,4 +1,5 @@
-import { test, expect, type Page } from "../auth-fixture"
+import type { Page } from "@playwright/test"
+import { test, expect } from "../auth-fixture"
 import { gotoAndSettle } from "../helpers"
 
 /**
@@ -25,7 +26,7 @@ async function collapsingHeaderPresent(page: Page): Promise<boolean> {
 }
 
 async function computedOpacity(page: Page, selector: string): Promise<number> {
-  return page.evaluate((sel) => {
+  return page.evaluate((sel: string) => {
     const el = document.querySelector<HTMLElement>(sel)
     return el ? parseFloat(getComputedStyle(el).opacity) : NaN
   }, selector)
@@ -73,6 +74,67 @@ test.describe("collapsing header — mobile, at rest", () => {
       expect(scrim, `${path}: frosted scrim hidden at rest (opacity ${scrim})`).toBeLessThanOrEqual(0.1)
     })
   }
+})
+
+test.describe("collapsing header — mobile, after scroll", () => {
+  test.beforeEach(({ authed }) => {
+    test.skip((authed.viewportSize()?.width ?? 0) >= 768, "mobile affordance")
+  })
+
+  // The bug this guards: the bar is position:sticky, but if its containing block
+  // is the short header wrapper it scrolls away with the hero (taking the back
+  // button with it). Here it must STAY pinned to the scroll region's top edge
+  // over the page body, and the inline title + frosted scrim must resolve.
+  test("contact detail: bar stays pinned + collapses on scroll", async ({ authed }) => {
+    await gotoAndSettle(authed, "/contacts")
+    const href = await authed.evaluate(() => {
+      const a = document.querySelector<HTMLAnchorElement>('a[href^="/contacts/"]:not([href$="/new"])')
+      return a?.getAttribute("href") ?? null
+    })
+    if (!href) {
+      test.skip(true, "no contact detail link in demo")
+      return
+    }
+    await gotoAndSettle(authed, href)
+
+    // Scroll to the bottom; skip if the page is too short to clear the hero.
+    const scrolled = await authed.evaluate(() => {
+      const r = document.querySelector<HTMLElement>("[data-scroll-region]")
+      if (!r) return 0
+      r.scrollTop = r.scrollHeight
+      return r.scrollTop
+    })
+    if (scrolled < 120) {
+      test.skip(true, "contact detail not scrollable enough in demo")
+      return
+    }
+    await authed.waitForTimeout(150)
+
+    await expect(
+      authed.locator("[data-collapsing-header]").first(),
+      "collapsed after scroll",
+    ).toHaveAttribute("data-collapsed", "true")
+
+    const geo = await authed.evaluate(() => {
+      const bar = document.querySelector<HTMLElement>(".collapse-bar")
+      const region = document.querySelector<HTMLElement>("[data-scroll-region]")
+      if (!bar || !region) return null
+      return {
+        barTop: bar.getBoundingClientRect().top,
+        regionTop: region.getBoundingClientRect().top,
+      }
+    })
+    expect(geo, "bar + region present").not.toBeNull()
+    expect(
+      Math.abs(geo!.barTop - geo!.regionTop),
+      `bar must stay pinned to the region top (bar ${geo!.barTop}, region ${geo!.regionTop})`,
+    ).toBeLessThanOrEqual(2)
+
+    const inline = await computedOpacity(authed, ".collapse-inline-title")
+    expect(inline, `inline title visible after scroll (${inline})`).toBeGreaterThanOrEqual(0.9)
+    const scrim = await computedOpacity(authed, ".collapse-bar__scrim")
+    expect(scrim, `frosted scrim resolved after scroll (${scrim})`).toBeGreaterThanOrEqual(0.9)
+  })
 })
 
 test.describe("collapsing header — desktop is unaffected", () => {

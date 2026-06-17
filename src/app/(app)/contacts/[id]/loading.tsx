@@ -35,15 +35,10 @@ export default function Loading() {
         className="flex-1 min-h-0 overflow-hidden px-4 md:px-8 pb-6 md:pb-8 max-w-3xl w-full mx-auto"
       >
         <MobileCollapsingHeader
-          title={<Skeleton className="h-5 w-32" />}
+          title={<Skeleton className="h-7 w-44" />}
           backHref="/contacts"
           backLabel="All contacts"
-          hero={
-            <div className="flex flex-col items-center gap-4">
-              <Skeleton className="h-7 w-44" />
-              {quickActionsGhost}
-            </div>
-          }
+          heroExtra={quickActionsGhost}
         />
         <div className="space-y-6">
           <FormSkeleton fields={5} />

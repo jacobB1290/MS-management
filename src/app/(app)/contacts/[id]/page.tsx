@@ -84,7 +84,7 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
       </div>
     ) : null
 
-  const quickActions = (
+  const renderQuickActions = (includeEdit: boolean) => (
     <div className="flex flex-wrap items-start justify-center gap-4">
       {/* Message → the in-app text thread; greyed when there's no number. */}
       <ActionCircle
@@ -122,7 +122,9 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
         disabled={!contact.email}
         disabledHint="No email on file"
       />
-      <ActionCircle href={editHref} label="Edit" icon={<Pencil size={20} />} />
+      {includeEdit && (
+        <ActionCircle href={editHref} label="Edit" icon={<Pencil size={20} />} />
+      )}
     </div>
   )
 
@@ -143,7 +145,7 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
           <span aria-hidden className="[grid-area:actions]" />
         </div>
         {statusMeta && <div className="mt-1.5">{statusMeta}</div>}
-        <div className="mt-5">{quickActions}</div>
+        <div className="mt-5">{renderQuickActions(true)}</div>
       </div>
 
       {/* The ONE scroll region. On mobile the collapsing header rides at its top:
@@ -163,18 +165,10 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
               <Pencil size={18} />
             </Link>
           }
-          hero={
+          heroExtra={
             <div className="flex flex-col items-center gap-4">
-              <div className="flex w-full flex-col items-center gap-1.5">
-                <p
-                  aria-hidden
-                  className="min-w-0 max-w-full truncate text-center font-display text-heading font-semibold leading-[var(--leading-snug)] tracking-[var(--tracking-tight)] text-ink"
-                >
-                  {displayName}
-                </p>
-                {statusMeta}
-              </div>
-              {quickActions}
+              {statusMeta}
+              {renderQuickActions(false)}
             </div>
           }
         />
