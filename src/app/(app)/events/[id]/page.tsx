@@ -48,6 +48,11 @@ export default async function EventDetailPage({ params }: PageProps) {
     location: event.location,
     cta_text: event.cta_text,
     cta_url: event.cta_url,
+    secondary_cta_text: event.secondary_cta_text,
+    secondary_cta_url: event.secondary_cta_url,
+    cost: event.cost,
+    ages: event.ages,
+    rsvp_by: event.rsvp_by,
     image_public_url: event.image_public_url,
     image_storage_path: event.image_storage_path,
   }

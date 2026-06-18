@@ -11,12 +11,21 @@
  *
  * The website contract, condensed:
  *   - title       <- event.summary
- *   - body text   <- event.description with the FIRST `[CTA:...]` tag stripped
- *   - CTA button  <- `[CTA: TEXT | https://url]` in the description (the site
- *                    only renders it when the link is a real http(s) URL)
+ *   - body text   <- event.description with EVERY structured tag stripped
+ *   - facts        <- `[Cost: …]` `[Ages: …]` `[RSVP by: …]` tags (shown in the
+ *                    event detail view as a labeled facts row)
+ *   - CTA buttons <- one or more `[CTA: TEXT | https://url]` tags (the site only
+ *                    renders a button when the link is a real http(s) URL)
+ *   - location    <- event.location (shown in the detail view + a maps link)
  *   - flyer image <- the first image attachment (a public Google Drive file),
  *                    shown via https://lh3.googleusercontent.com/d/<id>=w800
  *   - all-day     <- start.date present and start.dateTime absent
+ *
+ * The format is a superset of the original `[CTA: text | url]`-only scheme, so
+ * events authored before this (and events hand-typed in Google Calendar) keep
+ * parsing: a single CTA, facts absent, body is everything else. A hand-authored
+ * "Label: https://…" or bare URL still becomes a button when no `[CTA:]` tag is
+ * present.
  */
 
 /**
@@ -29,98 +38,149 @@ export const CALENDAR_TIME_ZONE = "America/Boise"
 /** Width token the website appends to the Drive render URL. */
 const IMAGE_WIDTH = 800
 
-// --- CTA <-> description ----------------------------------------------------
+// --- structured tags <-> description ----------------------------------------
 
-// Mirrors the website's extraction regex verbatim:
-//   description.match(/\[CTA:\s*([^|]+)\s*\|\s*([^\]]+)\]/)
-const CTA_REGEX = /\[CTA:\s*([^|]+)\s*\|\s*([^\]]+)\]/
-// Mirrors the website's strip (no `g` flag — only the first tag is removed):
-//   description.replace(/\[CTA:[^\]]+\]/, '')
-const CTA_STRIP_REGEX = /\[CTA:[^\]]+\]/
-// The site ALSO turns a plain link in the description into a button: a
-// "Label: https://…" pattern (label becomes the button text) or a bare URL
-// ("Learn more"). These mirror ms.church's home-scripts.ts verbatim so the CRM
-// surfaces the same button the public site would render.
+// Mirrors the website's extraction regexes verbatim (kept in lockstep with
+// ms.church's `src/routes/calendar.ts`; `verify-mapping.ts` re-copies them and
+// asserts the round-trip). CTA is global — multiple buttons are allowed; the
+// first is the primary one shown on the card.
+const CTA_REGEX = /\[CTA:\s*([^|\]]+?)\s*\|\s*([^\]]+?)\s*\]/g
+const COST_REGEX = /\[Cost:\s*([^\]]+?)\s*\]/i
+const AGES_REGEX = /\[Ages:\s*([^\]]+?)\s*\]/i
+const RSVP_REGEX = /\[RSVP by:\s*([^\]]+?)\s*\]/i
+// Strips every recognized tag from the visible body (the site shows the body in
+// the event detail view, so leftover tags would read as raw text).
+const TAG_STRIP_REGEX = /\[(?:CTA|Cost|Ages|RSVP by):[^\]]*\]/gi
+// The site ALSO turns a plain link in the body into a button when no explicit
+// `[CTA:]` tag exists: a "Label: https://…" pattern (label becomes the button
+// text) or a bare URL ("Learn more"). These mirror ms.church verbatim.
 const LABELED_LINK_REGEX = /([A-Za-z][A-Za-z0-9 ]{0,30}?)\s*:\s*(https?:\/\/[^\s<>"']+)/
 const BARE_LINK_REGEX = /https?:\/\/[^\s<>"']+/
 const TRAILING_PUNCT = /[.,;)\]]+$/
 
-/**
- * Compose the description we store on the Google Calendar event: the human body
- * with a single `[CTA: text | url]` tag appended when a CTA is set. The site
- * strips that tag from the visible body and renders it as the flyer button.
- *
- * Guards: the tag must survive the site's `[^\]]`/`[^|]` character classes, so
- * a `]` in either field or a `|` in the text would corrupt parsing. The Zod
- * schema rejects those up front; here we defensively drop a malformed CTA
- * rather than emit a broken tag.
- */
-export function buildEventDescription(input: {
+/** A single call-to-action button (text + link). */
+export type EventCta = { text: string; url: string }
+
+/** The structured fields encoded into (and parsed out of) the gcal description. */
+export type EventStructured = {
   description?: string | null
-  ctaText?: string | null
-  ctaUrl?: string | null
-}): string {
-  const body = (input.description ?? "").trim()
-  const text = (input.ctaText ?? "").trim()
-  const url = (input.ctaUrl ?? "").trim()
+  ctas?: EventCta[] | null
+  cost?: string | null
+  ages?: string | null
+  rsvpBy?: string | null
+}
 
-  const ctaOk = text && url && !text.includes("|") && !text.includes("]") && !url.includes("]")
-  if (!ctaOk) return body
-
-  const tag = `[CTA: ${text} | ${url}]`
-  return body ? `${body}\n\n${tag}` : tag
+/** Whether a tag value is safe to serialize without corrupting the site parser. */
+function safeValue(v: string | null | undefined): string {
+  return (v ?? "").trim()
+}
+function ctaIsSerializable(c: EventCta): boolean {
+  const text = safeValue(c.text)
+  const url = safeValue(c.url)
+  return (
+    !!text && !!url && !text.includes("|") && !text.includes("]") && !url.includes("]")
+  )
 }
 
 /**
- * Inverse of {@link buildEventDescription}: pull the CTA back out of a calendar
- * event's description and return the cleaned body. Used when importing/syncing
- * events that were authored directly in Google Calendar.
+ * Compose the description we store on the Google Calendar event: the human body,
+ * then a block of structured tags (facts first, then one `[CTA:]` per button).
+ * The site strips every tag from the visible body and renders them as the facts
+ * row + the flyer button(s).
+ *
+ * Guards: tag values must survive the site's `[^\]]`/`[^|]` character classes,
+ * so a `]` (or a `|` in CTA text) would corrupt parsing. The Zod schema rejects
+ * those up front; here we defensively drop a malformed tag rather than emit a
+ * broken one.
+ */
+export function buildEventDescription(input: EventStructured): string {
+  const body = safeValue(input.description)
+  const tags: string[] = []
+
+  const cost = safeValue(input.cost)
+  if (cost && !cost.includes("]")) tags.push(`[Cost: ${cost}]`)
+  const ages = safeValue(input.ages)
+  if (ages && !ages.includes("]")) tags.push(`[Ages: ${ages}]`)
+  const rsvpBy = safeValue(input.rsvpBy)
+  if (rsvpBy && !rsvpBy.includes("]")) tags.push(`[RSVP by: ${rsvpBy}]`)
+
+  for (const cta of input.ctas ?? []) {
+    if (ctaIsSerializable(cta)) tags.push(`[CTA: ${cta.text.trim()} | ${cta.url.trim()}]`)
+  }
+
+  if (tags.length === 0) return body
+  const tagBlock = tags.join("\n")
+  return body ? `${body}\n\n${tagBlock}` : tagBlock
+}
+
+/**
+ * Inverse of {@link buildEventDescription}: pull the structured fields back out
+ * of a calendar event's description and return the cleaned body. Used when
+ * importing/syncing events authored directly in Google Calendar, and by the
+ * editor to lift a hand-typed link into a button.
+ *
+ * `ctaText`/`ctaUrl` echo the PRIMARY CTA so existing single-CTA callers keep
+ * working unchanged.
  */
 export function parseEventDescription(raw: string | null | undefined): {
   description: string
   ctaText: string | null
   ctaUrl: string | null
+  ctas: EventCta[]
+  cost: string | null
+  ages: string | null
+  rsvpBy: string | null
 } {
   const text = raw ?? ""
 
-  // 1) An explicit [CTA: text | url] tag wins.
-  const cta = text.match(CTA_REGEX)
-  if (cta) {
-    return {
-      description: text.replace(CTA_STRIP_REGEX, "").trim(),
-      ctaText: cta[1].trim(),
-      ctaUrl: cta[2].trim(),
+  // Explicit [CTA:] tags (zero or more). The global regex needs a fresh
+  // lastIndex per call, which a literal in a function scope gives us.
+  const ctas: EventCta[] = []
+  for (const m of text.matchAll(CTA_REGEX)) {
+    ctas.push({ text: m[1].trim(), url: m[2].trim() })
+  }
+
+  const cost = text.match(COST_REGEX)?.[1].trim() ?? null
+  const ages = text.match(AGES_REGEX)?.[1].trim() ?? null
+  const rsvpBy = text.match(RSVP_REGEX)?.[1].trim() ?? null
+
+  // Body = everything with the recognized tags removed, blank runs collapsed.
+  let body = text.replace(TAG_STRIP_REGEX, "")
+
+  // Legacy fallback: when there's no explicit [CTA:] tag, the site still turns a
+  // link in the body into a button. "Label: url" wins (label = button text),
+  // else a bare URL ("Learn more"). Pull the matched link out of the body.
+  if (ctas.length === 0) {
+    const labeled = body.match(LABELED_LINK_REGEX)
+    if (labeled) {
+      ctas.push({ text: labeled[1].trim(), url: labeled[2].replace(TRAILING_PUNCT, "") })
+      body = body.replace(labeled[0], "")
+    } else {
+      const bare = body.match(BARE_LINK_REGEX)
+      if (bare) {
+        ctas.push({ text: "Learn more", url: bare[0].replace(TRAILING_PUNCT, "") })
+        body = body.replace(bare[0], "")
+      }
     }
   }
 
-  // 2) "Label: https://…" — the label becomes the button text. Pull the whole
-  //    "Label: url" out of the body so it isn't shown twice.
-  const labeled = text.match(LABELED_LINK_REGEX)
-  if (labeled) {
-    return {
-      description: text.replace(labeled[0], "").trim(),
-      ctaText: labeled[1].trim(),
-      ctaUrl: labeled[2].replace(TRAILING_PUNCT, ""),
-    }
-  }
+  body = body.replace(/\n{3,}/g, "\n\n").trim()
 
-  // 3) A bare URL → a generic "Learn more" button.
-  const bare = text.match(BARE_LINK_REGEX)
-  if (bare) {
-    return {
-      description: text.replace(bare[0], "").trim(),
-      ctaText: "Learn more",
-      ctaUrl: bare[0].replace(TRAILING_PUNCT, ""),
-    }
+  return {
+    description: body,
+    ctaText: ctas[0]?.text ?? null,
+    ctaUrl: ctas[0]?.url ?? null,
+    ctas,
+    cost,
+    ages,
+    rsvpBy,
   }
-
-  return { description: text.trim(), ctaText: null, ctaUrl: null }
 }
 
 /**
  * Whether a CTA URL is one the site will actually render as a button. The
- * website only shows the overlay button for real http(s) links (not anchors
- * like `#contact`), so the editor warns when a CTA wouldn't appear publicly.
+ * website only shows the button for real http(s) links (not anchors like
+ * `#contact`), so the editor warns when a CTA wouldn't appear publicly.
  */
 export function ctaIsLive(url: string | null | undefined): boolean {
   return !!url && /^https?:\/\//i.test(url.trim())
@@ -219,7 +279,27 @@ export type EventForGcal = {
   location: string | null
   cta_text: string | null
   cta_url: string | null
+  secondary_cta_text: string | null
+  secondary_cta_url: string | null
+  cost: string | null
+  ages: string | null
+  rsvp_by: string | null
   image_drive_file_id: string | null
+}
+
+/** The ordered, de-duplicated CTA list for a row (primary first, then secondary). */
+export function ctasForRow(ev: {
+  cta_text: string | null
+  cta_url: string | null
+  secondary_cta_text: string | null
+  secondary_cta_url: string | null
+}): EventCta[] {
+  const out: EventCta[] = []
+  if (ev.cta_text && ev.cta_url) out.push({ text: ev.cta_text, url: ev.cta_url })
+  if (ev.secondary_cta_text && ev.secondary_cta_url) {
+    out.push({ text: ev.secondary_cta_text, url: ev.secondary_cta_url })
+  }
+  return out
 }
 
 /**
@@ -232,8 +312,10 @@ export function eventToGcalPayload(ev: EventForGcal): GcalEventPayload {
     summary: ev.title.trim(),
     description: buildEventDescription({
       description: ev.description,
-      ctaText: ev.cta_text,
-      ctaUrl: ev.cta_url,
+      ctas: ctasForRow(ev),
+      cost: ev.cost,
+      ages: ev.ages,
+      rsvpBy: ev.rsvp_by,
     }),
     ...(ev.location?.trim() ? { location: ev.location.trim() } : {}),
     start: ev.all_day
@@ -289,6 +371,11 @@ export type ImportedEvent = {
   location: string | null
   cta_text: string | null
   cta_url: string | null
+  secondary_cta_text: string | null
+  secondary_cta_url: string | null
+  cost: string | null
+  ages: string | null
+  rsvp_by: string | null
   image_drive_file_id: string | null
   image_public_url: string | null
   status: "published" | "cancelled"
@@ -303,7 +390,7 @@ export function isWebsiteVisible(ev: GcalEvent): boolean {
 
 /**
  * Convert a Google Calendar event into the fields we store. Mirrors the
- * website's all-day detection, CTA stripping, and first-image-attachment rule.
+ * website's all-day detection, tag stripping, and first-image-attachment rule.
  * All-day instants are anchored at noon UTC so the Boise calendar date never
  * rolls back a day.
  */
@@ -318,7 +405,7 @@ export function gcalEventToRow(ev: GcalEvent): ImportedEvent {
       ? new Date(ev.end.dateTime).toISOString()
       : null
 
-  const { description, ctaText, ctaUrl } = parseEventDescription(ev.description)
+  const { description, ctas, cost, ages, rsvpBy } = parseEventDescription(ev.description)
 
   let driveFileId: string | null = null
   if (ev.attachments && ev.attachments.length > 0) {
@@ -334,8 +421,13 @@ export function gcalEventToRow(ev: GcalEvent): ImportedEvent {
     ends_at: endsAt,
     all_day: allDay,
     location: ev.location?.trim() || null,
-    cta_text: ctaText,
-    cta_url: ctaUrl,
+    cta_text: ctas[0]?.text ?? null,
+    cta_url: ctas[0]?.url ?? null,
+    secondary_cta_text: ctas[1]?.text ?? null,
+    secondary_cta_url: ctas[1]?.url ?? null,
+    cost,
+    ages,
+    rsvp_by: rsvpBy,
     image_drive_file_id: driveFileId,
     image_public_url: driveFileId ? publicImageUrl(driveFileId) : null,
     status: ev.status === "cancelled" ? "cancelled" : "published",

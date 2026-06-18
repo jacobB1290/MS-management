@@ -12,8 +12,8 @@ import { PreviewStage } from "@/components/ui/preview-stage"
 import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
 import { uploadMedia } from "@/lib/media"
-import { ctaIsLive, parseEventDescription } from "@/server/google/eventMapping"
-import { EventPreview } from "./event-preview"
+import { ctaIsLive, parseEventDescription, type EventCta } from "@/server/google/eventMapping"
+import { EventPreview, EventDetailPreview } from "./event-preview"
 
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"]
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024
@@ -28,6 +28,11 @@ export interface EventFormInitial {
   location: string | null
   cta_text: string | null
   cta_url: string | null
+  secondary_cta_text: string | null
+  secondary_cta_url: string | null
+  cost: string | null
+  ages: string | null
+  rsvp_by: string | null
   image_public_url: string | null
   image_storage_path: string | null
 }
@@ -56,24 +61,34 @@ export function EventForm({ mode, initial, status }: EventFormProps) {
   const initStart = splitLocal(initial?.starts_at ?? null)
   const initEnd = splitLocal(initial?.ends_at ?? null)
 
-  // A synced event may keep its button as a link in the description (the
-  // ms.church "Label: url" convention) with no structured CTA yet. Lift it so
-  // the editor + preview show it as a button from the first paint.
-  const lifted =
-    !initial?.cta_url && initial?.description ? parseEventDescription(initial.description) : null
+  // Parse the stored description so legacy rows (whose description column may
+  // still hold `[CTA:]`/`[Cost:]`… tags) open with a clean body and the tags
+  // lifted into their fields. New rows already store a clean body + columns, so
+  // the column value wins (the ?? short-circuits before the parse).
+  const parsedInit = initial?.description ? parseEventDescription(initial.description) : null
 
   const [title, setTitle] = useState(initial?.title ?? "")
-  const [description, setDescription] = useState(
-    lifted?.ctaUrl ? lifted.description : (initial?.description ?? ""),
-  )
+  const [description, setDescription] = useState(parsedInit?.description ?? initial?.description ?? "")
   const [location, setLocation] = useState(initial?.location ?? "")
   const [allDay, setAllDay] = useState(initial?.all_day ?? false)
   const [startDate, setStartDate] = useState(initStart.date)
   const [startTime, setStartTime] = useState(initStart.time || "18:00")
   const [endDate, setEndDate] = useState(initEnd.date)
   const [endTime, setEndTime] = useState(initEnd.time)
-  const [ctaText, setCtaText] = useState(initial?.cta_text ?? lifted?.ctaText ?? "")
-  const [ctaUrl, setCtaUrl] = useState(initial?.cta_url ?? lifted?.ctaUrl ?? "")
+  const [ctaText, setCtaText] = useState(initial?.cta_text ?? parsedInit?.ctaText ?? "")
+  const [ctaUrl, setCtaUrl] = useState(initial?.cta_url ?? parsedInit?.ctaUrl ?? "")
+  const [secondaryCtaText, setSecondaryCtaText] = useState(
+    initial?.secondary_cta_text ?? parsedInit?.ctas[1]?.text ?? "",
+  )
+  const [secondaryCtaUrl, setSecondaryCtaUrl] = useState(
+    initial?.secondary_cta_url ?? parsedInit?.ctas[1]?.url ?? "",
+  )
+  const [cost, setCost] = useState(initial?.cost ?? parsedInit?.cost ?? "")
+  const [ages, setAges] = useState(initial?.ages ?? parsedInit?.ages ?? "")
+  const [rsvpBy, setRsvpBy] = useState(initial?.rsvp_by ?? parsedInit?.rsvpBy ?? "")
+  const [showSecondCta, setShowSecondCta] = useState(
+    Boolean((initial?.secondary_cta_url ?? parsedInit?.ctas[1]?.url) ?? ""),
+  )
   const [imageUrl, setImageUrl] = useState<string | null>(initial?.image_public_url ?? null)
   const [imagePath, setImagePath] = useState<string | null>(initial?.image_storage_path ?? null)
   const [uploading, setUploading] = useState(false)
@@ -138,6 +153,11 @@ export function EventForm({ mode, initial, status }: EventFormProps) {
       location: location.trim() || null,
       cta_text: ctaText.trim() || null,
       cta_url: ctaUrl.trim() || null,
+      secondary_cta_text: secondaryCtaText.trim() || null,
+      secondary_cta_url: secondaryCtaUrl.trim() || null,
+      cost: cost.trim() || null,
+      ages: ages.trim() || null,
+      rsvp_by: rsvpBy.trim() || null,
       image_storage_path: imagePath,
       image_public_url: imageUrl,
     }
@@ -162,6 +182,10 @@ export function EventForm({ mode, initial, status }: EventFormProps) {
     }
     if (ctaUrl.trim() && !ctaText.trim()) {
       toast.error("Add button text for the link.")
+      return
+    }
+    if (secondaryCtaUrl.trim() && !secondaryCtaText.trim()) {
+      toast.error("Add text for the second button.")
       return
     }
     setSaving(true)
@@ -190,6 +214,17 @@ export function EventForm({ mode, initial, status }: EventFormProps) {
   }
 
   const ctaWarn = ctaUrl.trim() !== "" && !ctaIsLive(ctaUrl)
+  const secondaryCtaWarn = secondaryCtaUrl.trim() !== "" && !ctaIsLive(secondaryCtaUrl)
+
+  // The live CTAs (only real http(s) links), primary first — exactly what the
+  // public site renders. The card shows the first; the detail view shows all.
+  const liveCtas: EventCta[] = []
+  if (ctaText.trim() && ctaUrl.trim() && ctaIsLive(ctaUrl)) {
+    liveCtas.push({ text: ctaText.trim(), url: ctaUrl.trim() })
+  }
+  if (secondaryCtaText.trim() && secondaryCtaUrl.trim() && ctaIsLive(secondaryCtaUrl)) {
+    liveCtas.push({ text: secondaryCtaText.trim(), url: secondaryCtaUrl.trim() })
+  }
 
   // The time fields soften away when "all day" is on — the dates keep the grid,
   // so nothing reflows, the times simply stop being part of the story.
@@ -214,14 +249,29 @@ export function EventForm({ mode, initial, status }: EventFormProps) {
     endIso,
     allDay,
     imageUrl,
-    ctaText,
-    ctaUrl,
+    // The card shows the first live CTA (or "View details" when there's none).
+    ctaText: liveCtas[0]?.text ?? "",
+    ctaUrl: liveCtas[0]?.url ?? "",
     uploading,
     onFile: handleFile,
     onRemove: () => {
       setImageUrl(null)
       setImagePath(null)
     },
+  }
+
+  const detailProps = {
+    title,
+    startsAt: startIso,
+    endsAt: endIso,
+    allDay,
+    imageUrl,
+    location: location.trim() || null,
+    cost: cost.trim() || null,
+    ages: ages.trim() || null,
+    rsvpBy: rsvpBy.trim() || null,
+    description: description.trim() || null,
+    ctas: liveCtas,
   }
 
   return (
@@ -338,7 +388,7 @@ export function EventForm({ mode, initial, status }: EventFormProps) {
                   Location<span className="font-normal text-ink-faint"> · optional</span>
                 </>
               }
-              hint="Shown on the site only if you mention it in the description."
+              hint="Shown in the event’s detail view on ms.church, with a tap-to-open map link."
             >
               <Input
                 variant="quiet"
@@ -350,14 +400,14 @@ export function EventForm({ mode, initial, status }: EventFormProps) {
             </FormField>
           </EditorSection>
 
-          {/* One step for the public artifact: the flyer and the button that
-              lives on it. On mobile the site card sits in the flow — you
-              compose the artifact top to bottom; on xl it moves to the rail
-              and this step keeps just the button fields. */}
+          {/* One step for the public artifact: the flyer and the button(s) that
+              live on it. On mobile the site card sits in the flow — you compose
+              the artifact top to bottom; on xl it moves to the rail and this
+              step keeps just the button fields. */}
           <EditorSection
             step="02"
-            title="Flyer & button"
-            note="What visitors see on ms.church. The button appears on the flyer when its link is a full https address."
+            title="Flyer & buttons"
+            note="What visitors see on ms.church. A button appears on the card when its link is a full https address; add a second for things like directions."
           >
             <FlyerCard
               {...flyerCardProps}
@@ -390,12 +440,79 @@ export function EventForm({ mode, initial, status }: EventFormProps) {
                 />
               </FormField>
             </div>
+
+            {/* Optional second button — revealed on demand so the common
+                single-button case stays uncluttered. */}
+            {!showSecondCta && (
+              <button
+                type="button"
+                onClick={() => setShowSecondCta(true)}
+                className="min-h-11 self-start text-small font-medium text-gold-dark underline-offset-4 transition-colors duration-[var(--motion-fast)] hover:text-gold hover:underline motion-reduce:transition-none"
+              >
+                + Add a second button
+              </button>
+            )}
+            <div
+              aria-hidden={!showSecondCta}
+              className={cn(
+                "grid transition-all duration-[var(--motion-medium)] ease-[var(--ease-out-soft)] motion-reduce:transition-none",
+                showSecondCta ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
+              )}
+            >
+              <div className="overflow-hidden">
+                <div className="grid max-w-[560px] grid-cols-1 gap-[var(--space-lg)] pt-[var(--space-lg)] sm:grid-cols-2">
+                  <FormField variant="quiet" label="Second button text" htmlFor="cta2-text">
+                    <Input
+                      variant="quiet"
+                      id="cta2-text"
+                      value={secondaryCtaText}
+                      onChange={(e) => setSecondaryCtaText(e.target.value)}
+                      placeholder="Get directions"
+                      maxLength={40}
+                      tabIndex={showSecondCta ? undefined : -1}
+                    />
+                  </FormField>
+                  <FormField
+                    variant="quiet"
+                    label="Second button link"
+                    htmlFor="cta2-url"
+                    error={
+                      secondaryCtaWarn
+                        ? "Use a full https:// link or it won’t show on the site."
+                        : undefined
+                    }
+                  >
+                    <Input
+                      variant="quiet"
+                      id="cta2-url"
+                      value={secondaryCtaUrl}
+                      onChange={(e) => setSecondaryCtaUrl(e.target.value)}
+                      placeholder="https://maps.google.com/…"
+                      inputMode="url"
+                      tabIndex={showSecondCta ? undefined : -1}
+                    />
+                  </FormField>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSecondaryCtaText("")
+                    setSecondaryCtaUrl("")
+                    setShowSecondCta(false)
+                  }}
+                  className="mt-[var(--space-sm)] min-h-11 text-small text-ink-muted underline-offset-4 transition-colors duration-[var(--motion-fast)] hover:text-danger hover:underline motion-reduce:transition-none"
+                  tabIndex={showSecondCta ? undefined : -1}
+                >
+                  Remove second button
+                </button>
+              </div>
+            </div>
           </EditorSection>
 
           <EditorSection
             step="03"
-            title="Details"
-            note="Context for staff and accessibility — not shown as text on the card."
+            title="Details & facts"
+            note="The description and these quick facts appear in the event’s detail view when someone taps the flyer on ms.church."
           >
             <FormField variant="quiet" label="Description" htmlFor="description">
               <Textarea
@@ -406,23 +523,102 @@ export function EventForm({ mode, initial, status }: EventFormProps) {
                 onChange={(e) => setDescription(e.target.value)}
                 onBlur={liftDescriptionLink}
                 rows={3}
-                placeholder="A free community celebration with games, food, and an egg hunt."
+                placeholder={
+                  "A free community celebration with games, food, and an egg hunt.\n\nWhat to bring:\n- A blanket\n- Your neighbors"
+                }
               />
             </FormField>
+            <div className="grid grid-cols-1 gap-[var(--space-lg)] sm:grid-cols-3">
+              <FormField
+                variant="quiet"
+                htmlFor="cost"
+                label={
+                  <>
+                    Cost<span className="font-normal text-ink-faint"> · optional</span>
+                  </>
+                }
+              >
+                <Input
+                  variant="quiet"
+                  id="cost"
+                  value={cost}
+                  onChange={(e) => setCost(e.target.value)}
+                  placeholder="Free"
+                  maxLength={80}
+                />
+              </FormField>
+              <FormField
+                variant="quiet"
+                htmlFor="ages"
+                label={
+                  <>
+                    Who it’s for<span className="font-normal text-ink-faint"> · optional</span>
+                  </>
+                }
+              >
+                <Input
+                  variant="quiet"
+                  id="ages"
+                  value={ages}
+                  onChange={(e) => setAges(e.target.value)}
+                  placeholder="All ages"
+                  maxLength={80}
+                />
+              </FormField>
+              <FormField
+                variant="quiet"
+                htmlFor="rsvp-by"
+                label={
+                  <>
+                    RSVP by<span className="font-normal text-ink-faint"> · optional</span>
+                  </>
+                }
+              >
+                <Input
+                  variant="quiet"
+                  id="rsvp-by"
+                  value={rsvpBy}
+                  onChange={(e) => setRsvpBy(e.target.value)}
+                  placeholder="April 1"
+                  maxLength={80}
+                />
+              </FormField>
+            </div>
           </EditorSection>
+
+          {/* On mobile the detail preview folds into the flow under the editor,
+              so staff see the opened view their facts + description compose. */}
+          <div className="xl:hidden">
+            <PreviewStage
+              variant="bare"
+              label="When opened"
+              caption="The detail view that opens when someone taps the flyer on ms.church."
+            >
+              <EventDetailPreview {...detailProps} />
+            </PreviewStage>
+          </div>
         </form>
 
-        {/* The live site card in its own side panel — a window into ms.church
-            beside the editor, clearly segmented from the working surface. The
-            card itself is still the flyer drop zone. */}
+        {/* The live site surfaces in their own side panel — windows into
+            ms.church beside the editor. The card itself is still the flyer
+            drop zone; the detail view shows how the facts + body read. */}
         <PreviewPanel>
-          <PreviewStage
-            variant="bare"
-            label="On ms.church"
-            caption="How the event appears in the ms.church events carousel once published. Changes go live within ~5 minutes. JPG, PNG, or WebP up to 5 MB."
-          >
-            <FlyerCard {...flyerCardProps} className="w-full max-w-[320px]" />
-          </PreviewStage>
+          <div className="flex flex-col gap-[var(--space-2xl)]">
+            <PreviewStage
+              variant="bare"
+              label="On ms.church"
+              caption="How the event appears in the ms.church events carousel once published. Changes go live within ~5 minutes. JPG, PNG, or WebP up to 5 MB."
+            >
+              <FlyerCard {...flyerCardProps} className="w-full max-w-[320px]" />
+            </PreviewStage>
+            <PreviewStage
+              variant="bare"
+              label="When opened"
+              caption="The detail view that opens when someone taps the flyer."
+            >
+              <EventDetailPreview {...detailProps} />
+            </PreviewStage>
+          </div>
         </PreviewPanel>
       </div>
 

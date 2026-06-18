@@ -183,6 +183,15 @@ const ctaUrlField = z
   .max(600)
   .refine((v) => !v.includes("]"), { message: "The link can’t contain a ] character." })
 
+// A short structured fact (Cost / Ages / RSVP by). Serialized into the calendar
+// description as a `[Key: value]` tag, so the value must avoid `]` (the site's
+// `[^\]]` parsing) — same defense the mapping layer applies.
+const factField = z
+  .string()
+  .trim()
+  .max(80)
+  .refine((v) => !v.includes("]"), { message: "This can’t contain a ] character." })
+
 const eventBaseShape = {
   title: z.string().trim().min(1, "Add a title.").max(160),
   description: z.string().trim().max(4000).optional().nullable(),
@@ -192,15 +201,32 @@ const eventBaseShape = {
   location: z.string().trim().max(300).optional().nullable(),
   cta_text: ctaTextField.optional().nullable(),
   cta_url: ctaUrlField.optional().nullable(),
+  // A second button (e.g. "Get directions" alongside "Reserve"). Serialized as a
+  // second [CTA:] tag; the public site shows both in the event detail view.
+  secondary_cta_text: ctaTextField.optional().nullable(),
+  secondary_cta_url: ctaUrlField.optional().nullable(),
+  // Structured facts shown in the detail view's labeled facts row.
+  cost: factField.optional().nullable(),
+  ages: factField.optional().nullable(),
+  rsvp_by: factField.optional().nullable(),
   // The CRM-hosted flyer (mms-media bucket) the operator uploaded, if any. The
   // bytes get copied to Drive on publish so the public site can show them.
   image_storage_path: z.string().trim().max(200).optional().nullable(),
   image_public_url: z.string().trim().url().max(1000).optional().nullable(),
 }
 
+// A button needs its text whenever it has a link (applies to both CTAs).
+function ctaTextPresentWhenUrl(
+  d: { cta_text?: string | null; cta_url?: string | null; secondary_cta_text?: string | null; secondary_cta_url?: string | null },
+): boolean {
+  const primaryOk = !d.cta_url || (d.cta_text != null && d.cta_text.length > 0)
+  const secondaryOk = !d.secondary_cta_url || (d.secondary_cta_text != null && d.secondary_cta_text.length > 0)
+  return primaryOk && secondaryOk
+}
+
 export const eventCreateSchema = z
   .object(eventBaseShape)
-  .refine((d) => !d.cta_url || (d.cta_text != null && d.cta_text.length > 0), {
+  .refine(ctaTextPresentWhenUrl, {
     message: "Add button text for the link.",
     path: ["cta_text"],
   })
@@ -221,10 +247,15 @@ export const eventUpdateSchema = z
     location: eventBaseShape.location,
     cta_text: eventBaseShape.cta_text,
     cta_url: eventBaseShape.cta_url,
+    secondary_cta_text: eventBaseShape.secondary_cta_text,
+    secondary_cta_url: eventBaseShape.secondary_cta_url,
+    cost: eventBaseShape.cost,
+    ages: eventBaseShape.ages,
+    rsvp_by: eventBaseShape.rsvp_by,
     image_storage_path: eventBaseShape.image_storage_path,
     image_public_url: eventBaseShape.image_public_url,
   })
-  .refine((d) => d.cta_url == null || (d.cta_text != null && d.cta_text.length > 0), {
+  .refine(ctaTextPresentWhenUrl, {
     message: "Add button text for the link.",
     path: ["cta_text"],
   })
