@@ -7,7 +7,14 @@
  * server-only `@/server/ai/config`, which re-exports everything here.
  */
 
-export type AiFeature = "drafting" | "tagging" | "triage" | "notes" | "optout" | "promote"
+export type AiFeature =
+  | "drafting"
+  | "tagging"
+  | "triage"
+  | "notes"
+  | "optout"
+  | "promote"
+  | "segment"
 /**
  * Reasoning-effort tiers, lowest → highest. `xhigh` sits between `high` and
  * `max` (it is NOT an alias for high). Not every model accepts every tier —
@@ -223,6 +230,11 @@ export const AI_DEFAULTS: Record<AiFeature, AiFeatureConfig> = {
   // message, audience, timing. The most capable model at high effort; it runs
   // once per "Promote", not in a hot loop, so cost isn't the constraint.
   promote: { model: AI_MODEL_FAMILIES.opus.latest, effort: "high" },
+  // Sermon segmentation reads a full ~40-minute service transcript and splits it
+  // into typed chapters (sermon, songs, scripture, prayer, announcements) with
+  // titles, summaries, and scripture refs. Long context + careful structure ->
+  // Opus at high effort. Runs once per service (weekly cron), so cost is moot.
+  segment: { model: AI_MODEL_FAMILIES.opus.latest, effort: "high" },
 }
 
 export const AI_FEATURE_META: Record<AiFeature, { label: string; description: string }> = {
@@ -252,6 +264,11 @@ export const AI_FEATURE_META: Record<AiFeature, { label: string; description: st
     description:
       "Reads an event’s flyer and drafts the whole promo campaign — message, the best audience, and when to send it.",
   },
+  segment: {
+    label: "Sermon segmentation",
+    description:
+      "Reads a service transcript and splits it into chapters (sermon, songs, scripture, prayer) with titles and summaries for the website.",
+  },
 }
 
 /** Ordered feature list for rendering the pickers. */
@@ -262,6 +279,7 @@ export const AI_FEATURES: readonly AiFeature[] = [
   "notes",
   "optout",
   "promote",
+  "segment",
 ]
 
 /**
@@ -307,6 +325,7 @@ export function normalizeConfig(input: unknown): Record<AiFeature, AiFeatureConf
     notes: coerce("notes", r.notes),
     optout: coerce("optout", r.optout),
     promote: coerce("promote", r.promote),
+    segment: coerce("segment", r.segment),
   }
 }
 

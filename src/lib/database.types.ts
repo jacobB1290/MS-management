@@ -151,6 +151,10 @@ export type Database = {
         Row: {
           audience_filter: Json
           body: string | null
+          brevo_campaign_id: number | null
+          brevo_list_id: number | null
+          brevo_sync: Json | null
+          brevo_template_id: number | null
           channel: string
           completed_at: string | null
           created_at: string
@@ -162,18 +166,18 @@ export type Database = {
           name: string
           scheduled_at: string | null
           sendgrid_template_id: string | null
-          brevo_campaign_id: number | null
-          brevo_list_id: number | null
-          brevo_sync: Json | null
-          brevo_template_id: number | null
-          stats: Json | null
           started_at: string | null
+          stats: Json | null
           status: string
           updated_at: string
         }
         Insert: {
           audience_filter?: Json
           body?: string | null
+          brevo_campaign_id?: number | null
+          brevo_list_id?: number | null
+          brevo_sync?: Json | null
+          brevo_template_id?: number | null
           channel: string
           completed_at?: string | null
           created_at?: string
@@ -185,18 +189,18 @@ export type Database = {
           name: string
           scheduled_at?: string | null
           sendgrid_template_id?: string | null
-          brevo_campaign_id?: number | null
-          brevo_list_id?: number | null
-          brevo_sync?: Json | null
-          brevo_template_id?: number | null
-          stats?: Json | null
           started_at?: string | null
+          stats?: Json | null
           status?: string
           updated_at?: string
         }
         Update: {
           audience_filter?: Json
           body?: string | null
+          brevo_campaign_id?: number | null
+          brevo_list_id?: number | null
+          brevo_sync?: Json | null
+          brevo_template_id?: number | null
           channel?: string
           completed_at?: string | null
           created_at?: string
@@ -208,12 +212,8 @@ export type Database = {
           name?: string
           scheduled_at?: string | null
           sendgrid_template_id?: string | null
-          brevo_campaign_id?: number | null
-          brevo_list_id?: number | null
-          brevo_sync?: Json | null
-          brevo_template_id?: number | null
-          stats?: Json | null
           started_at?: string | null
+          stats?: Json | null
           status?: string
           updated_at?: string
         }
@@ -421,7 +421,9 @@ export type Database = {
       }
       events: {
         Row: {
+          ages: string | null
           all_day: boolean
+          cost: string | null
           created_at: string
           created_by: string | null
           cta_text: string | null
@@ -435,6 +437,9 @@ export type Database = {
           image_public_url: string | null
           image_storage_path: string | null
           location: string | null
+          rsvp_by: string | null
+          secondary_cta_text: string | null
+          secondary_cta_url: string | null
           source: string
           starts_at: string
           status: string
@@ -443,7 +448,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          ages?: string | null
           all_day?: boolean
+          cost?: string | null
           created_at?: string
           created_by?: string | null
           cta_text?: string | null
@@ -457,6 +464,9 @@ export type Database = {
           image_public_url?: string | null
           image_storage_path?: string | null
           location?: string | null
+          rsvp_by?: string | null
+          secondary_cta_text?: string | null
+          secondary_cta_url?: string | null
           source?: string
           starts_at: string
           status?: string
@@ -465,7 +475,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          ages?: string | null
           all_day?: boolean
+          cost?: string | null
           created_at?: string
           created_by?: string | null
           cta_text?: string | null
@@ -479,6 +491,9 @@ export type Database = {
           image_public_url?: string | null
           image_storage_path?: string | null
           location?: string | null
+          rsvp_by?: string | null
+          secondary_cta_text?: string | null
+          secondary_cta_url?: string | null
           source?: string
           starts_at?: string
           status?: string
@@ -684,6 +699,119 @@ export type Database = {
           p256dh?: string
           user_agent?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      sermon_pipeline_runs: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          error: string | null
+          finished_at: string | null
+          id: string
+          sermon_id: string | null
+          started_at: string
+          status: string
+          steps: Json
+          trigger: string
+          updated_at: string
+          youtube_video_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          sermon_id?: string | null
+          started_at?: string
+          status?: string
+          steps?: Json
+          trigger?: string
+          updated_at?: string
+          youtube_video_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          sermon_id?: string | null
+          started_at?: string
+          status?: string
+          steps?: Json
+          trigger?: string
+          updated_at?: string
+          youtube_video_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sermon_pipeline_runs_sermon_id_fkey"
+            columns: ["sermon_id"]
+            isOneToOne: false
+            referencedRelation: "sermons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sermons: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          duration_sec: number | null
+          error: string | null
+          id: string
+          published_at: string | null
+          segments: Json
+          seo: Json | null
+          slug: string | null
+          source: string
+          status: string
+          summary: string | null
+          thumbnail_url: string | null
+          title: string
+          transcript: string | null
+          updated_at: string
+          youtube_video_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          duration_sec?: number | null
+          error?: string | null
+          id?: string
+          published_at?: string | null
+          segments?: Json
+          seo?: Json | null
+          slug?: string | null
+          source?: string
+          status?: string
+          summary?: string | null
+          thumbnail_url?: string | null
+          title: string
+          transcript?: string | null
+          updated_at?: string
+          youtube_video_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          duration_sec?: number | null
+          error?: string | null
+          id?: string
+          published_at?: string | null
+          segments?: Json
+          seo?: Json | null
+          slug?: string | null
+          source?: string
+          status?: string
+          summary?: string | null
+          thumbnail_url?: string | null
+          title?: string
+          transcript?: string | null
+          updated_at?: string
+          youtube_video_id?: string
         }
         Relationships: []
       }
