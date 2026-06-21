@@ -56,6 +56,24 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
 
   const displayName = contact.name ?? formatPhone(contact.phone) ?? contact.email ?? "Unknown"
 
+  // What each submission was about, newest first, de-duplicated. The website
+  // attaches a human topic label when a specific CTA (e.g. the cooking ministry)
+  // was used; plain "Contact" submissions carry none and are simply omitted.
+  const submissionTopics = Array.from(
+    new Set(
+      (submissions ?? [])
+        .map((s) => {
+          const p = s.payload
+          if (p && typeof p === "object" && !Array.isArray(p)) {
+            const label = (p as Record<string, unknown>).topic_label
+            if (typeof label === "string") return label.trim()
+          }
+          return ""
+        })
+        .filter((label) => label.length > 0),
+    ),
+  )
+
   // Provenance collapses to one line: for most contacts the consent date is the
   // same event as creation, so we show source + how they consented + one date.
   const provenanceDate = contact.consent_at ?? contact.created_at
@@ -260,6 +278,11 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
               {submissions.length === 1 ? "1 form submission" : `${submissions.length} form submissions`} on
               file as proof of opt-in · {format(new Date(submissions[0].created_at), "PP")}
             </p>
+            {submissionTopics.length > 0 && (
+              <p className="text-small text-ink-muted mt-1.5">
+                Reached out about: {submissionTopics.join(" · ")}
+              </p>
+            )}
           </section>
         )}
 

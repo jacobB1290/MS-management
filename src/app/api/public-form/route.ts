@@ -7,6 +7,7 @@ import { sendPushToStaff } from "@/server/push/send"
 import { organizeConversation } from "@/server/ai/organizeInbound"
 import { sendWelcome } from "@/server/comms/welcome"
 import { formatPhone } from "@/lib/utils"
+import { isInboxCategory } from "@/lib/inbox-segments"
 
 const REPLAY_WINDOW_MS = 5 * 60 * 1000 // 5 minutes
 
@@ -74,6 +75,22 @@ export async function POST(request: NextRequest) {
     payloadObj.marketing_opt_in === true ||
     payloadObj.updates_opt_in === true
 
+  // Per-CTA intent the public website attaches when a specific CTA (e.g. "Join
+  // the next cook") was used. The website owns the topic taxonomy and sends only
+  // generic primitives: a suggested interest tag and an inbox category hint. We
+  // apply the tag additively (via the upsert RPC's atomic union) and seed the
+  // inbox segment for a brand-new contact, so the submission is organized the
+  // moment it lands — even with the AI organizer off. Validated defensively even
+  // though the request is HMAC-signed.
+  const suggestedTagRaw =
+    typeof payloadObj.suggested_tag === "string" ? payloadObj.suggested_tag.trim().toLowerCase() : ""
+  const suggestedTag = /^[a-z0-9][a-z0-9-]{0,39}$/.test(suggestedTagRaw) ? suggestedTagRaw : null
+  const categoryHintRaw =
+    typeof payloadObj.category_hint === "string" ? payloadObj.category_hint : ""
+  // 'general' is the default catch-all (no lifecycle), so a general hint is a no-op.
+  const categoryHint =
+    isInboxCategory(categoryHintRaw) && categoryHintRaw !== "general" ? categoryHintRaw : null
+
   const admin = createSupabaseAdminClient()
 
   // Nonce dedupe via form_submissions.payload->>'_nonce'. We don't have a
@@ -119,7 +136,8 @@ export async function POST(request: NextRequest) {
       p_source: "public_form",
       p_consent_method: data.consent_method,
       p_consent_at: new Date().toISOString(),
-      p_tags: null,
+      // Additive: the RPC unions + dedupes into contacts.tags (new or existing).
+      p_tags: suggestedTag ? [suggestedTag] : null,
       p_language: "en",
     } as never,
   )
@@ -158,6 +176,28 @@ export async function POST(request: NextRequest) {
           marketing_opted_out_at: null,
         })
         .eq("id", contactId)
+    }
+
+    // Seed the inbox segment from the CTA's category hint, but ONLY for a
+    // brand-new contact still at the default 'general'. The `.eq` guard makes
+    // this a no-op for anyone already classified, so it can never override a
+    // staff decision or the AI organizer (which still refines later if enabled).
+    if (created && categoryHint) {
+      try {
+        const nowIso = new Date().toISOString()
+        await admin
+          .from("contacts")
+          .update({
+            inbox_category: categoryHint,
+            inbox_category_at: nowIso,
+            inbox_status: "new",
+            inbox_status_at: nowIso,
+          })
+          .eq("id", contactId)
+          .eq("inbox_category", "general")
+      } catch (err) {
+        console.error("[public-form] inbox segment seed failed:", err)
+      }
     }
 
     // Seed the inbox thread. The message the person typed becomes the first
@@ -246,6 +286,8 @@ export async function POST(request: NextRequest) {
       had_email: Boolean(data.email),
       marketing_opt_in: marketingOptIn,
       seeded_message: Boolean(messageId),
+      applied_tag: suggestedTag,
+      seeded_category: created ? categoryHint : null,
     },
     ip,
     userAgent,
