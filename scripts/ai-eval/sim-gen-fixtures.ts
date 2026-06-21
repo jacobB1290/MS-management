@@ -230,41 +230,8 @@ export function generate(): string {
     { campaign_id: "camp4", contact_id: "C36", status: "sent", error: null, sent_at: ago(1), provider_id: "BREVO_camp4_36", claimed_at: ago(1) },
   ]
 
-  // A published event mirrored from Google Calendar (source "gcal"), with a flyer
-  // and a structured CTA — the widest event-detail meta. camp5 below promotes it,
-  // so the event detail renders its linked-campaign chip. The image URL is a
-  // plausible Drive render URL; the harness is hermetic so it never loads, but the
-  // flyer slot is part of the layout we want under test.
-  const events = [
-    {
-      id: "E01",
-      gcal_event_id: "demo_gcal_easter_2026",
-      gcal_calendar_id: null,
-      title: "Community Sunday at Morning Star",
-      description: "A joyful Sunday celebration with two services, childcare at both, and a community brunch on the lawn afterward. Everyone is welcome.",
-      // Fixed instants, NOT relative ago(): the date + time render UNMASKED in
-      // the event hero, the events list, and the promo prefill, so a
-      // runtime-relative value would shift every server start and make those
-      // screenshots flaky (the same class of bug as the inbox timestamps).
-      // Stored UTC; the UI renders in America/Boise (UTC-6 in July), so 15:00Z
-      // shows as a 9-11 AM Sunday service (matching the demo's "9 or 11am" copy).
-      starts_at: "2026-07-12T15:00:00.000Z",
-      ends_at: "2026-07-12T17:00:00.000Z",
-      all_day: false,
-      location: "3080 Wildwood St, Boise",
-      cta_text: "Save your seat",
-      cta_url: "https://ms.church/sunday",
-      image_drive_file_id: "demo_drive_easter_flyer",
-      image_public_url: "https://lh3.googleusercontent.com/d/demo_drive_easter_flyer=w800",
-      image_storage_path: "events/demo-easter-flyer.jpg",
-      status: "published",
-      source: "gcal",
-      synced_at: ago(120),
-      created_by: "demo-admin",
-      created_at: ago(60 * 24 * 5),
-      updated_at: ago(120),
-    },
-  ]
+  // Demo events live in src/server/demo/events-fixtures.ts (merged in by the
+  // demo client), kept out of this generated file which sim:verify byte-matches.
 
   auditLog.sort((a, b) => (a.created_at as { __ago: number }).__ago - (b.created_at as { __ago: number }).__ago)
   const auditRecent = auditLog.slice(0, 60)
@@ -274,9 +241,9 @@ export function generate(): string {
     { id: "camp2", name: "Volunteer thank-you (draft)", channel: "email", status: "draft", body: null, media_url: null, sendgrid_template_id: "d-demo-template-001", email_subject: "Thank you for serving", audience_filter: { tags: ["volunteer"] }, scheduled_at: null, started_at: null, completed_at: null, created_at: ago(60 * 24) },
     { id: "camp3", name: "Easter service invite", channel: "sms", status: "done", body: EASTER_SMS, media_url: null, sendgrid_template_id: null, email_subject: null, audience_filter: { all: true }, scheduled_at: null, started_at: ago(2), completed_at: ago(2), created_at: ago(3) },
     { id: "camp4", name: "Easter email invite", channel: "email", status: "done", body: null, media_url: null, sendgrid_template_id: null, brevo_template_id: 7, email_subject: "Join us for Easter at Morning Star", audience_filter: { all: true }, scheduled_at: null, started_at: ago(1), completed_at: ago(1), created_at: ago(1), brevo_campaign_id: 4, brevo_list_id: 12, stats: { sent: 3, delivered: 2, uniqueViews: 1, viewed: 1, uniqueClicks: 0, clickers: 0, unsubscriptions: 0, hardBounces: 1, softBounces: 0 } },
-    // Promo campaign linked to the published event E01 — drives the
-    // linked-campaign chip in the event detail's meta (the widest meta state).
-    { id: "camp5", name: "Community Sunday — flyer promo", channel: "sms", status: "draft", body: "Community Sunday at Morning Star — two services with childcare and a brunch after. Save your seat: https://ms.church/sunday", media_url: "https://lh3.googleusercontent.com/d/demo_drive_easter_flyer=w800", sendgrid_template_id: null, email_subject: null, audience_filter: { all: true }, event_id: "E01", scheduled_at: null, started_at: null, completed_at: null, created_at: ago(90) },
+    // Promo campaign linked to event E01 (Easter in the Park, in events-fixtures)
+    // — drives the linked-campaign chip in the event detail's meta.
+    { id: "camp5", name: "Easter in the Park — flyer promo", channel: "sms", status: "draft", body: "Easter in the Park — free games, food, and an egg hunt for all ages. Reserve your spot: https://ms.church/form", media_url: "https://lh3.googleusercontent.com/d/demo_drive_easter_flyer=w800", sendgrid_template_id: null, email_subject: null, audience_filter: { all: true }, event_id: "E01", scheduled_at: null, started_at: null, completed_at: null, created_at: ago(90) },
   ]
   const appUsers = [
     { user_id: "demo-admin", role: "admin", display_name: "Demo Staff", created_at: ago(60 * 24 * 60) },
@@ -371,11 +338,6 @@ const emailEvents: Row[] = [
 ${lines(emailEvents)}
 ]
 
-// events — the CRM mirror/editor for the church Google Calendar (see §13.2).
-const events: Row[] = [
-${lines(events)}
-]
-
 /** Tables/views the demo client can serve. Unknown tables resolve to []. */
 export const DEMO_TABLES: Record<string, Row[]> = {
   contacts,
@@ -388,7 +350,6 @@ export const DEMO_TABLES: Record<string, Row[]> = {
   audit_log: auditLog,
   heartbeat,
   email_events: emailEvents,
-  events,
 }
 `
 }

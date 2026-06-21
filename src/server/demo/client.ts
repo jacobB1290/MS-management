@@ -2,8 +2,13 @@ import "server-only"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { Database } from "@/lib/database.types"
 import { DEMO_TABLES, DEMO_AUTH_USER } from "./fixtures"
+import { demoEvents } from "./events-fixtures"
 
 type Row = Record<string, unknown>
+
+// The generated fixtures.ts is byte-matched by sim:verify, so the events demo
+// data lives in its own module and is merged in here.
+const DEMO_TABLES_ALL: Record<string, Row[]> = { ...DEMO_TABLES, events: demoEvents }
 
 function compare(a: unknown, b: unknown): number {
   if (typeof a === "number" && typeof b === "number") return a - b
@@ -169,7 +174,7 @@ function demoStorageBucket() {
 export function createDemoClient(): SupabaseClient<Database> {
   const client = {
     from(table: string) {
-      return new DemoQuery((DEMO_TABLES[table] ?? []).map((r) => ({ ...r })))
+      return new DemoQuery((DEMO_TABLES_ALL[table] ?? []).map((r) => ({ ...r })))
     },
     // RPCs used by rendered pages return believable demo values; everything
     // else resolves empty so demo mode never throws.

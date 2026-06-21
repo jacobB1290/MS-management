@@ -37,6 +37,11 @@ export type EventCreateInput = {
   location?: string | null
   cta_text?: string | null
   cta_url?: string | null
+  secondary_cta_text?: string | null
+  secondary_cta_url?: string | null
+  cost?: string | null
+  ages?: string | null
+  rsvp_by?: string | null
   image_storage_path?: string | null
   image_public_url?: string | null
 }
@@ -53,6 +58,11 @@ function rowToGcal(row: EventRow): EventForGcal {
     location: row.location,
     cta_text: row.cta_text,
     cta_url: row.cta_url,
+    secondary_cta_text: row.secondary_cta_text,
+    secondary_cta_url: row.secondary_cta_url,
+    cost: row.cost,
+    ages: row.ages,
+    rsvp_by: row.rsvp_by,
     image_drive_file_id: row.image_drive_file_id,
   }
 }
@@ -128,6 +138,11 @@ export async function createEvent(
       location: input.location ?? null,
       cta_text: input.cta_text ?? null,
       cta_url: input.cta_url ?? null,
+      secondary_cta_text: input.secondary_cta_text ?? null,
+      secondary_cta_url: input.secondary_cta_url ?? null,
+      cost: input.cost ?? null,
+      ages: input.ages ?? null,
+      rsvp_by: input.rsvp_by ?? null,
       image_storage_path: input.image_storage_path ?? null,
       image_public_url: input.image_public_url ?? null,
       status: "draft",
@@ -175,6 +190,11 @@ export async function updateEvent(
   if (input.location !== undefined) patch.location = input.location ?? null
   if (input.cta_text !== undefined) patch.cta_text = input.cta_text ?? null
   if (input.cta_url !== undefined) patch.cta_url = input.cta_url ?? null
+  if (input.secondary_cta_text !== undefined) patch.secondary_cta_text = input.secondary_cta_text ?? null
+  if (input.secondary_cta_url !== undefined) patch.secondary_cta_url = input.secondary_cta_url ?? null
+  if (input.cost !== undefined) patch.cost = input.cost ?? null
+  if (input.ages !== undefined) patch.ages = input.ages ?? null
+  if (input.rsvp_by !== undefined) patch.rsvp_by = input.rsvp_by ?? null
   // A new uploaded flyer clears the Drive copy so it re-uploads on the push.
   if (input.image_storage_path !== undefined || input.image_public_url !== undefined) {
     patch.image_storage_path = input.image_storage_path ?? null
@@ -354,6 +374,11 @@ export async function syncEventsFromCalendar(userId: string): Promise<SyncResult
         location: ev.location,
         cta_text: ev.cta_text,
         cta_url: ev.cta_url,
+        secondary_cta_text: ev.secondary_cta_text,
+        secondary_cta_url: ev.secondary_cta_url,
+        cost: ev.cost,
+        ages: ev.ages,
+        rsvp_by: ev.rsvp_by,
         image_drive_file_id: ev.image_drive_file_id,
         image_public_url: ev.image_public_url,
         status: ev.status,
@@ -375,6 +400,11 @@ export async function syncEventsFromCalendar(userId: string): Promise<SyncResult
           location: ev.location,
           cta_text: ev.cta_text,
           cta_url: ev.cta_url,
+          secondary_cta_text: ev.secondary_cta_text,
+          secondary_cta_url: ev.secondary_cta_url,
+          cost: ev.cost,
+          ages: ev.ages,
+          rsvp_by: ev.rsvp_by,
           image_drive_file_id: ev.image_drive_file_id,
           ...(existing.image_storage_path ? {} : { image_public_url: ev.image_public_url }),
           status: ev.status,

@@ -81,12 +81,16 @@ Six core tables + three supporting. See `supabase/migrations/0001_init.sql`.
 - `app_users` — `auth.users.id` → role (`admin` | `member`).
 - `audit_log` — write-only privileged action log.
 - `heartbeat` — single row, kept warm by a Supabase pg_cron job (`0035`).
-- `events` (added in `0028`) — CRM mirror/editor for the church Google Calendar
-  that ms.church reads. `gcal_event_id UNIQUE` (sync key), structured CTA
-  (`cta_text`/`cta_url`), the flyer's Drive file id + public URL, `status`
-  (`draft`/`published`/`cancelled`), `source` (`crm`/`gcal`). `campaigns.event_id`
-  links a promo campaign to it. Google Calendar is the public source of truth;
-  this table is the working copy + CRM metadata. See §13.2.
+- `events` (added in `0028`, extended in `0036`) — CRM mirror/editor for the
+  church Google Calendar that ms.church reads. `gcal_event_id UNIQUE` (sync key),
+  a structured CTA (`cta_text`/`cta_url`) plus an optional second
+  (`secondary_cta_text`/`secondary_cta_url`), quick facts (`cost`/`ages`/`rsvp_by`),
+  the flyer's Drive file id + public URL, `status` (`draft`/`published`/`cancelled`),
+  `source` (`crm`/`gcal`). `campaigns.event_id` links a promo campaign to it. The
+  CTAs + facts serialize into the calendar event's description as a `[Key: value]`
+  tag block that ms.church parses back out and renders in the event detail view
+  (see §13.2). Google Calendar is the public source of truth; this table is the
+  working copy + CRM metadata.
 
 **Migrations are the only way to change schema.** Never hand-edit via the
 dashboard. New migration file under `supabase/migrations/` + apply via the
@@ -493,15 +497,24 @@ parses — no website change. Google Calendar is the public source of truth; the
 - **Single source of the contract:** `src/server/google/eventMapping.ts` (pure,
   dependency-free) is the only place that translates an event ↔ a Google
   Calendar event, mirroring ms.church's own regexes:
-  - title → `summary`; description → `description` with a `[CTA: text | url]`
-    tag appended (the site strips it and renders it as the flyer button — only
-    for real `http(s)` links); flyer → a **public Drive attachment**
+  - title → `summary`; flyer → a **public Drive attachment**
     (`supportsAttachments=true`), shown via `lh3.googleusercontent.com/d/<id>=w800`;
     timed events send `dateTime` + `timeZone: America/Boise`, all-day uses
-    exclusive `end.date`.
+    exclusive `end.date`; `location` → `location`.
+  - description → `description` (the human body) followed by a **structured tag
+    block** — one `[CTA: text | url]` per button (multiple allowed; only real
+    `http(s)` links render), plus `[Cost: …]`, `[Ages: …]`, `[RSVP by: …]`. The
+    site strips every tag from the visible body and renders the buttons + a
+    labeled facts row in the **event detail view** (the lightbox a card's flyer
+    opens). A hand-authored "Label: https://…" or bare URL still becomes a button
+    when no `[CTA:]` tag is present (back-compat). The format is a superset of the
+    original CTA-only scheme, so events authored before `0036` keep parsing.
   - `npm run verify:events` asserts our output against the site's verbatim
-    regexes. **Run it after touching the mapping.** If ms.church changes how it
-    reads the calendar, update the mapping + this verifier together.
+    regexes (CTA + facts + the strip), AND, when the `ms.church` repo is a sibling
+    checkout, re-reads its `src/routes/calendar.ts` and asserts those regexes are
+    still copied verbatim — the cross-repo drift guard. **Run it after touching
+    the mapping.** If ms.church changes how it reads the calendar, update the
+    mapping + the site parser + this verifier together.
 - **Auth + degrade-to-mock (like Twilio/Brevo):** `src/server/google/auth.ts`.
   Reads work with `GOOGLE_CALENDAR_API_KEY` *or* OAuth; writes (events + Drive
   uploads) need an OAuth refresh token for the church account

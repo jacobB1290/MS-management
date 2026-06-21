@@ -87,3 +87,34 @@ export function flyerRenderSrc(url: string | null | undefined): string | null {
   const m = url.match(/lh3\.googleusercontent\.com\/d\/([A-Za-z0-9_-]+)/)
   return m ? `/api/events/flyer?id=${m[1]}` : url
 }
+
+/** A Google Maps search link for a location string (shown in the detail view). */
+export function eventMapsLink(location: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`
+}
+
+/** A formatted block of the description body. Mirrors the site's renderer. */
+export type EventBodyBlock = { type: "p"; lines: string[] } | { type: "ul"; items: string[] }
+
+/**
+ * Light formatting for the description body, byte-for-byte mirroring ms.church's
+ * `formatEventBody`: blank lines split paragraphs; a run of "- " / "• " lines
+ * becomes a bullet list. Returns structured blocks the preview renders as JSX
+ * (no dangerouslySetInnerHTML), so the CRM detail preview matches the site.
+ */
+export function formatEventBlocks(text: string): EventBodyBlock[] {
+  return text
+    .split(/\n{2,}/)
+    .map((block): EventBodyBlock | null => {
+      const lines = block
+        .split("\n")
+        .map((l) => l.trim())
+        .filter((l) => l !== "")
+      if (lines.length === 0) return null
+      if (lines.every((l) => /^[-•]\s+/.test(l))) {
+        return { type: "ul", items: lines.map((l) => l.replace(/^[-•]\s+/, "")) }
+      }
+      return { type: "p", lines }
+    })
+    .filter((b): b is EventBodyBlock => b !== null)
+}
