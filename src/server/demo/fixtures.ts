@@ -220,7 +220,7 @@ const campaigns: Row[] = [
   {"id":"camp2","name":"Volunteer thank-you (draft)","channel":"email","status":"draft","body":null,"media_url":null,"sendgrid_template_id":"d-demo-template-001","email_subject":"Thank you for serving","audience_filter":{"tags":["volunteer"]},"scheduled_at":null,"started_at":null,"completed_at":null,"created_at":ago(1440)},
   {"id":"camp3","name":"Easter service invite","channel":"sms","status":"done","body":"Join us this Sunday for Easter at 9 or 11am, with childcare at both. Hope to see you!","media_url":null,"sendgrid_template_id":null,"email_subject":null,"audience_filter":{"all":true},"scheduled_at":null,"started_at":ago(2),"completed_at":ago(2),"created_at":ago(3)},
   {"id":"camp4","name":"Easter email invite","channel":"email","status":"done","body":null,"media_url":null,"sendgrid_template_id":null,"brevo_template_id":7,"email_subject":"Join us for Easter at Morning Star","audience_filter":{"all":true},"scheduled_at":null,"started_at":ago(1),"completed_at":ago(1),"created_at":ago(1),"brevo_campaign_id":4,"brevo_list_id":12,"stats":{"sent":3,"delivered":2,"uniqueViews":1,"viewed":1,"uniqueClicks":0,"clickers":0,"unsubscriptions":0,"hardBounces":1,"softBounces":0}},
-  {"id":"camp5","name":"Community Sunday — flyer promo","channel":"sms","status":"draft","body":"Community Sunday at Morning Star — two services with childcare and a brunch after. Save your seat: https://ms.church/sunday","media_url":"https://lh3.googleusercontent.com/d/demo_drive_easter_flyer=w800","sendgrid_template_id":null,"email_subject":null,"audience_filter":{"all":true},"event_id":"E01","scheduled_at":null,"started_at":null,"completed_at":null,"created_at":ago(90)},
+  {"id":"camp5","name":"Easter in the Park — flyer promo","channel":"sms","status":"draft","body":"Easter in the Park — free games, food, and an egg hunt for all ages. Reserve your spot: https://ms.church/form","media_url":"https://lh3.googleusercontent.com/d/demo_drive_easter_flyer=w800","sendgrid_template_id":null,"email_subject":null,"audience_filter":{"all":true},"event_id":"E01","scheduled_at":null,"started_at":null,"completed_at":null,"created_at":ago(90)},
 ]
 
 const campaignRecipients: Row[] = [
@@ -325,11 +325,6 @@ const emailEvents: Row[] = [
   {"provider_event_id":"demo_bounce_c36","event_type":"hard_bounce","email":"aisha.b@example.com","payload":{"camp_id":4,"email":"aisha.b@example.com"},"occurred_at":ago(1)},
 ]
 
-// events — the CRM mirror/editor for the church Google Calendar (see §13.2).
-const events: Row[] = [
-  {"id":"E01","gcal_event_id":"demo_gcal_easter_2026","gcal_calendar_id":null,"title":"Community Sunday at Morning Star","description":"A joyful Sunday celebration with two services, childcare at both, and a community brunch on the lawn afterward. Everyone is welcome.","starts_at":"2026-07-12T15:00:00.000Z","ends_at":"2026-07-12T17:00:00.000Z","all_day":false,"location":"3080 Wildwood St, Boise","cta_text":"Save your seat","cta_url":"https://ms.church/sunday","image_drive_file_id":"demo_drive_easter_flyer","image_public_url":"https://lh3.googleusercontent.com/d/demo_drive_easter_flyer=w800","image_storage_path":"events/demo-easter-flyer.jpg","status":"published","source":"gcal","synced_at":ago(120),"created_by":"demo-admin","created_at":ago(7200),"updated_at":ago(120)},
-]
-
 /** Tables/views the demo client can serve. Unknown tables resolve to []. */
 export const DEMO_TABLES: Record<string, Row[]> = {
   contacts,
@@ -342,5 +337,4 @@ export const DEMO_TABLES: Record<string, Row[]> = {
   audit_log: auditLog,
   heartbeat,
   email_events: emailEvents,
-  events,
 }

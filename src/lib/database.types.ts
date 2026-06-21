@@ -421,7 +421,9 @@ export type Database = {
       }
       events: {
         Row: {
+          ages: string | null
           all_day: boolean
+          cost: string | null
           created_at: string
           created_by: string | null
           cta_text: string | null
@@ -435,6 +437,9 @@ export type Database = {
           image_public_url: string | null
           image_storage_path: string | null
           location: string | null
+          rsvp_by: string | null
+          secondary_cta_text: string | null
+          secondary_cta_url: string | null
           source: string
           starts_at: string
           status: string
@@ -443,7 +448,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          ages?: string | null
           all_day?: boolean
+          cost?: string | null
           created_at?: string
           created_by?: string | null
           cta_text?: string | null
@@ -457,6 +464,9 @@ export type Database = {
           image_public_url?: string | null
           image_storage_path?: string | null
           location?: string | null
+          rsvp_by?: string | null
+          secondary_cta_text?: string | null
+          secondary_cta_url?: string | null
           source?: string
           starts_at: string
           status?: string
@@ -465,7 +475,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          ages?: string | null
           all_day?: boolean
+          cost?: string | null
           created_at?: string
           created_by?: string | null
           cta_text?: string | null
@@ -479,6 +491,9 @@ export type Database = {
           image_public_url?: string | null
           image_storage_path?: string | null
           location?: string | null
+          rsvp_by?: string | null
+          secondary_cta_text?: string | null
+          secondary_cta_url?: string | null
           source?: string
           starts_at?: string
           status?: string
