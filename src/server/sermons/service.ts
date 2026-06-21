@@ -443,3 +443,23 @@ export async function unpublishSermon(id: string, userId: string): Promise<Publi
   })
   return { ok: true, id }
 }
+
+/**
+ * Permanently delete a sermon (admin). The YouTube video itself is untouched —
+ * this only removes the CRM's working copy + published record, so a future run
+ * would re-detect the video as new.
+ */
+export async function deleteSermon(id: string, userId: string): Promise<PublishResult> {
+  const admin = createSupabaseAdminClient()
+  const { data: row } = await admin.from("sermons").select("title").eq("id", id).maybeSingle()
+  const { error } = await admin.from("sermons").delete().eq("id", id)
+  if (error) return { ok: false, error: error.message }
+  await logAudit({
+    action: "sermon.delete",
+    actorUserId: userId,
+    targetTable: "sermons",
+    targetId: id,
+    diff: row ? { title: row.title } : undefined,
+  })
+  return { ok: true, id }
+}
