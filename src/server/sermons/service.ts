@@ -85,6 +85,25 @@ async function uniqueSlug(
   return `${base}-${videoId.slice(0, 6).toLowerCase()}`
 }
 
+/**
+ * The distinct topics already used across sermons, handed to the segmenter so it
+ * reuses an existing topic when one fits instead of coining near-duplicates (the
+ * same reuse-first idea as contact tags). These become the public site's topic
+ * filter chips + SEO topic pages, so a tight, consistent vocabulary matters.
+ * Sorted + capped for a byte-stable prompt prefix.
+ */
+async function fetchKnownTopics(admin: Admin): Promise<string[]> {
+  const { data } = await admin.from("sermons").select("topics")
+  const set = new Set<string>()
+  for (const row of data ?? []) {
+    for (const t of ((row.topics as string[] | null) ?? [])) {
+      const v = String(t).trim().toLowerCase()
+      if (v) set.add(v)
+    }
+  }
+  return Array.from(set).sort().slice(0, 200)
+}
+
 /** Live tracker that persists the run's step list after every transition. */
 class RunRecorder {
   private steps: PipelineStep[] = []
@@ -354,13 +373,17 @@ export async function runSermonPipeline(opts: RunOptions): Promise<RunResult> {
     }
   }
   await admin.from("sermons").update({ status: "segmenting", error: null }).eq("id", sermon.id)
-  const seg = await segmentSermon(timestamped, durationSec)
+  const knownTopics = await fetchKnownTopics(admin)
+  const seg = await segmentSermon(timestamped, durationSec, knownTopics)
   if (!seg.ok) {
     await rec.finish("segment", "failed", { error: `${seg.reason}${seg.detail ? `: ${seg.detail}` : ""}` })
     return fail(sermon.id, `segment_${seg.reason}`)
   }
 
   const slug = await uniqueSlug(admin, sermon.title, sermon.published_at, video.videoId, sermon.id)
+  // Core result — works on any schema version, so the autonomous cron run still
+  // lands a reviewable sermon even if migration 0038 (the watch-library columns)
+  // hasn't been applied yet.
   const { error: sErr } = await admin
     .from("sermons")
     .update({
@@ -375,6 +398,17 @@ export async function runSermonPipeline(opts: RunOptions): Promise<RunResult> {
   if (sErr) {
     await rec.finish("segment", "failed", { error: sErr.message })
     return fail(sermon.id, sErr.message)
+  }
+  // Classification fields from migration 0038 (format / speakers / topics).
+  // Best-effort + logged: a not-yet-migrated database still completes the sermon
+  // (the public feed defaults format to 'sermon' and topics to []); a re-run
+  // after the migration backfills these.
+  const { error: cErr } = await admin
+    .from("sermons")
+    .update({ format: seg.data.format, speakers: seg.data.speakers, topics: seg.data.topics })
+    .eq("id", sermon.id)
+  if (cErr) {
+    console.error("sermon classification write failed (is migration 0038 applied?):", cErr.message)
   }
   await rec.finish("segment", "succeeded", {
     detail: `${seg.data.segments.length} chapters`,

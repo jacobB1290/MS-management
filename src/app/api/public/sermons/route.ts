@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { createSupabaseAdminClient } from "@/lib/supabase/server"
 import type { Tables } from "@/lib/database.types"
-import type { SermonSegment } from "@/server/ai/segmentSermon"
+import type { SermonSegment, SermonFormat } from "@/server/ai/segmentSermon"
 
 /**
  * Public, read-only feed of PUBLISHED sermons for ms.church to render (chaptered
@@ -24,6 +24,12 @@ type PublicSermon = {
   slug: string
   youtubeVideoId: string
   title: string
+  /** 'sermon' (one preacher) or 'discussion' (two hosts) — drives the site's tabs. */
+  format: SermonFormat
+  /** The preacher, or the two hosts, named when stated. */
+  speakers: string[]
+  /** Self-managing topic keywords — the site's filter chips + topic pages. */
+  topics: string[]
   publishedAt: string | null
   thumbnailUrl: string | null
   durationSec: number | null
@@ -41,6 +47,9 @@ function toPublic(row: Row, includeTranscript: boolean): PublicSermon {
     slug: row.slug ?? row.youtube_video_id,
     youtubeVideoId: row.youtube_video_id,
     title: row.title,
+    format: row.format === "discussion" ? "discussion" : "sermon",
+    speakers: Array.isArray(row.speakers) ? row.speakers : [],
+    topics: Array.isArray(row.topics) ? row.topics : [],
     publishedAt: row.published_at,
     thumbnailUrl: row.thumbnail_url,
     durationSec: row.duration_sec,

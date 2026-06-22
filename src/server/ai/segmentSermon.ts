@@ -21,7 +21,8 @@ export const SEGMENT_TYPES = [
   "worship", // congregational singing / music
   "scripture", // a read passage
   "prayer",
-  "sermon", // the message / teaching
+  "sermon", // the message / teaching (one person preaching)
+  "discussion", // the message as a 2-host discussion + congregational Q&A
   "poem",
   "testimony",
   "offering",
@@ -31,21 +32,26 @@ export const SEGMENT_TYPES = [
 ] as const
 export type SegmentType = (typeof SEGMENT_TYPES)[number]
 
-const SYSTEM_PROMPT = `You segment the transcript of a Sunday worship service at Morning Star Christian Church in Boise, Idaho into an ordered list of chapters.
+const SYSTEM_PROMPT = `You segment the transcript of a Sunday worship service at Morning Star Christian Church in Boise, Idaho into an ordered list of chapters, and you classify the service.
 
 You receive the full transcript with [mm:ss] or [h:mm:ss] timestamps at the start of caption lines. Captions may be auto-generated, so expect minor transcription errors, missing punctuation, and run-on text. Read for meaning, not literal spelling.
 
+The week's MESSAGE is delivered in one of two formats: a sermon (one person teaching) or a discussion (two hosts talking it through together, sometimes taking congregational questions). Decide which.
+
 Produce:
+- format: "sermon" or "discussion" — how the main message was delivered this week.
+- speakers: the people who gave the message, named only if the transcript states their names (the preaching pastor, or the two hosts). Use the form given (first name, or first + last). Empty array if no name is stated. Never guess a name.
+- topics: 1-3 short, lowercase theme keywords for the message (e.g. "grace", "fatherhood", "prayer", "the good shepherd"). REUSE an existing topic from the provided list whenever one fits; only coin a new topic when none of them capture it. Broad, durable themes — not the church name, not a bare Bible-book name.
 - segments: an ordered, NON-overlapping, gap-free cover of the service from start to finish. Each segment has:
   - start_sec / end_sec: integers in seconds, taken from the nearest surrounding timestamps. The first segment starts at 0; each segment's end_sec equals the next segment's start_sec; the last ends at the final timestamp.
-  - type: one of welcome, worship, scripture, prayer, sermon, poem, testimony, offering, announcement, benediction, other. Use "worship" for congregational singing/music, "sermon" for the main message/teaching, "scripture" for a passage being read aloud.
+  - type: one of welcome, worship, scripture, prayer, sermon, discussion, poem, testimony, offering, announcement, benediction, other. Use "worship" for congregational singing/music, "sermon" for a preached message, "discussion" for a two-host message, "scripture" for a passage being read aloud.
   - title: a short, specific, human title (e.g. "Opening worship", "Sermon: Mending the Broken", "Reading: Psalm 23"). Sentence case, no trailing period.
-  - summary: 1-3 plain sentences on what happens in this chapter. For the sermon, capture the actual main point, not "the pastor preaches".
+  - summary: 1-3 plain sentences on what happens in this chapter. For the message, capture the actual main point, not "the pastor preaches".
   - scripture_refs: array of normalized references mentioned or read (e.g. "John 3:16", "Psalm 23:1-6"). Empty array if none.
-- summary: 2-4 sentences summarizing the whole service for a website visitor deciding whether to watch. Lead with the sermon's topic.
-- seo: { description: a single ~155-character meta description for the service page; tags: 5-10 lowercase topical keywords (themes, book names, no the church name). }
+- summary: 2-4 sentences summarizing the whole service for a website visitor deciding whether to watch. Lead with the message's topic.
+- seo: { description: a single ~155-character meta description for the service page; tags: 5-10 lowercase topical keywords (themes, book names, not the church name). }
 
-Aim for roughly 4-12 segments — real chapters, not one per song line. Merge adjacent same-type material. Voice: warm, plain, accurate. Use curly apostrophes. Do not invent content that is not in the transcript; if the sermon topic is unclear, describe it generally rather than guessing specifics.`
+Aim for roughly 4-12 segments — real chapters, not one per song line. Merge adjacent same-type material. Voice: warm, plain, accurate. Use curly apostrophes. Do not invent content that is not in the transcript; if the message topic is unclear, describe it generally rather than guessing specifics.`
 
 // NOTE: Anthropic structured-output JSON Schema does NOT support numeric range
 // keywords (minimum/maximum/multipleOf) or length keywords (minLength/maxLength).
@@ -55,6 +61,11 @@ const JSON_SCHEMA = {
   type: "object",
   additionalProperties: false,
   properties: {
+    // Limits like "1-3 topics" / "2 hosts" live in the prompt + repair pass, not
+    // the schema — structured-output JSON Schema rejects minItems/maxItems.
+    format: { type: "string", enum: ["sermon", "discussion"] },
+    speakers: { type: "array", items: { type: "string" } },
+    topics: { type: "array", items: { type: "string" } },
     segments: {
       type: "array",
       items: {
@@ -82,7 +93,7 @@ const JSON_SCHEMA = {
       required: ["description", "tags"],
     },
   },
-  required: ["segments", "summary", "seo"],
+  required: ["format", "speakers", "topics", "segments", "summary", "seo"],
 } as const
 
 const SegmentSchema = z.object({
@@ -95,6 +106,9 @@ const SegmentSchema = z.object({
 })
 
 const ResultSchema = z.object({
+  format: z.enum(["sermon", "discussion"]),
+  speakers: z.array(z.string()),
+  topics: z.array(z.string()),
   segments: z.array(SegmentSchema),
   summary: z.string(),
   seo: z.object({
@@ -112,7 +126,12 @@ export type SermonSegment = {
   scriptureRefs: string[]
 }
 
+export type SermonFormat = "sermon" | "discussion"
+
 export type SermonSegmentation = {
+  format: SermonFormat
+  speakers: string[]
+  topics: string[]
   segments: SermonSegment[]
   summary: string
   seo: { description: string; tags: string[] }
@@ -133,6 +152,7 @@ const MAX_TRANSCRIPT_CHARS = 120_000
 export async function segmentSermon(
   timestampedTranscript: string,
   durationSec: number,
+  knownTopics: string[] = [],
 ): Promise<SegmentResult> {
   if (!process.env.ANTHROPIC_API_KEY) return { ok: false, reason: "disabled" }
 
@@ -166,7 +186,7 @@ export async function segmentSermon(
         messages: [
           {
             role: "user",
-            content: `Service length: about ${Math.round(durationSec)} seconds.\n\nTranscript:\n${transcript}`,
+            content: `Service length: about ${Math.round(durationSec)} seconds.\n\nExisting topics used across past services (reuse one when it fits; only coin a new topic when none do):\n${knownTopics.length ? knownTopics.join(", ") : "(none yet)"}\n\nTranscript:\n${transcript}`,
           },
         ],
         output_config: {
@@ -220,6 +240,11 @@ export async function segmentSermon(
   return {
     ok: true,
     data: {
+      format: parsed.format,
+      speakers: Array.from(new Set(parsed.speakers.map((s) => s.trim()).filter(Boolean))),
+      topics: Array.from(
+        new Set(parsed.topics.map((t) => t.trim().toLowerCase()).filter(Boolean)),
+      ).slice(0, 3),
       segments: cleaned,
       summary: parsed.summary.trim(),
       seo: {

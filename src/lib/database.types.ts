@@ -761,16 +761,19 @@ export type Database = {
           created_by: string | null
           duration_sec: number | null
           error: string | null
+          format: string
           id: string
           published_at: string | null
           segments: Json
           seo: Json | null
           slug: string | null
           source: string
+          speakers: string[]
           status: string
           summary: string | null
           thumbnail_url: string | null
           title: string
+          topics: string[]
           transcript: string | null
           updated_at: string
           youtube_video_id: string
@@ -780,16 +783,19 @@ export type Database = {
           created_by?: string | null
           duration_sec?: number | null
           error?: string | null
+          format?: string
           id?: string
           published_at?: string | null
           segments?: Json
           seo?: Json | null
           slug?: string | null
           source?: string
+          speakers?: string[]
           status?: string
           summary?: string | null
           thumbnail_url?: string | null
           title: string
+          topics?: string[]
           transcript?: string | null
           updated_at?: string
           youtube_video_id: string
@@ -799,16 +805,19 @@ export type Database = {
           created_by?: string | null
           duration_sec?: number | null
           error?: string | null
+          format?: string
           id?: string
           published_at?: string | null
           segments?: Json
           seo?: Json | null
           slug?: string | null
           source?: string
+          speakers?: string[]
           status?: string
           summary?: string | null
           thumbnail_url?: string | null
           title?: string
+          topics?: string[]
           transcript?: string | null
           updated_at?: string
           youtube_video_id?: string
