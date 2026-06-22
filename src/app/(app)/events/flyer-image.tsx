@@ -1,5 +1,5 @@
 "use client"
-import { useState } from "react"
+import { useCallback, useState } from "react"
 import { CalendarDays } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { flyerRenderSrc } from "@/lib/event-format"
@@ -24,6 +24,11 @@ export function FlyerImage({
   const src = flyerRenderSrc(url)
   const [loaded, setLoaded] = useState(false)
   const [failed, setFailed] = useState(false)
+  // Show an already-decoded image (cached / data URL) at full opacity on mount
+  // instead of waiting on a load event that already fired.
+  const imgRef = useCallback((node: HTMLImageElement | null) => {
+    if (node?.complete && node.naturalWidth > 0) setLoaded(true)
+  }, [])
 
   if (!src || failed) {
     return (
@@ -37,6 +42,7 @@ export function FlyerImage({
     // eslint-disable-next-line @next/next/no-img-element
     <img
       key={src}
+      ref={imgRef}
       src={src}
       alt={alt}
       loading="lazy"
