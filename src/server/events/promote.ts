@@ -4,7 +4,7 @@ import type Anthropic from "@anthropic-ai/sdk"
 import { createSupabaseAdminClient } from "@/lib/supabase/server"
 import { logAudit } from "@/server/audit"
 import { createAnthropicClient } from "@/server/ai/client"
-import { getFeatureConfig, modelSupportsEffort } from "@/server/ai/config"
+import { getFeatureConfig, modelSupportsEffort, maxTokensWithThinking } from "@/server/ai/config"
 import { eventLongDate, eventDisplayTime } from "@/lib/event-format"
 
 /**
@@ -226,9 +226,11 @@ export async function proposePromotion(
     const client = createAnthropicClient()
     const response = await client.messages.create({
       model: config.model,
-      max_tokens: 1024,
-      // No `thinking` field: it's off by default on Opus 4.7+/Sonnet 4.6, and
-      // {type:"disabled"} 400s on Fable 5. `effort` below is the separate control.
+      // Adaptive thinking so the Settings `effort` genuinely tunes reasoning depth
+      // on this vision + campaign-planning task; max_tokens reserves thinking
+      // headroom so a thinking pass can't truncate the JSON. Haiku: no thinking.
+      max_tokens: maxTokensWithThinking(config.model, config.effort, 1024),
+      ...(supportsEffort ? { thinking: { type: "adaptive" as const } } : {}),
       system: [
         { type: "text", text: PROMOTE_SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
       ],
@@ -238,6 +240,9 @@ export async function proposePromotion(
         ...(supportsEffort ? { effort: config.effort } : {}),
       },
     })
+    if (response.stop_reason === "refusal" || response.stop_reason === "max_tokens") {
+      return { ok: false, reason: "provider_failed", detail: `stop_reason:${response.stop_reason}` }
+    }
     const raw = response.content
       .filter((b): b is Anthropic.TextBlock => b.type === "text")
       .map((b) => b.text)

@@ -2,7 +2,7 @@ import "server-only"
 import { z } from "zod"
 import type Anthropic from "@anthropic-ai/sdk"
 import { createAnthropicClient } from "@/server/ai/client"
-import { getFeatureConfig, modelSupportsEffort } from "@/server/ai/config"
+import { getFeatureConfig, modelSupportsEffort, maxTokensWithThinking } from "@/server/ai/config"
 
 /**
  * Sermon segmentation: hand the model a full service transcript (timestamped)
@@ -146,23 +146,40 @@ export async function segmentSermon(
     const config = await getFeatureConfig("segment")
     const supportsEffort = modelSupportsEffort(config.model)
     const client = createAnthropicClient()
-    const response = await client.messages.create({
-      model: config.model,
-      max_tokens: 4096,
-      system: [
-        { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
-      ],
-      messages: [
-        {
-          role: "user",
-          content: `Service length: about ${Math.round(durationSec)} seconds.\n\nTranscript:\n${transcript}`,
+    // Stream + finalMessage(): segment runs on the weekly cron with a large
+    // max_tokens (adaptive thinking headroom + the chapter JSON) over a long
+    // transcript. Anthropic's docs recommend streaming for high-max_tokens /
+    // long-running calls — it sidesteps the SDK's 10-minute non-streaming
+    // timeout guard and dropped idle connections. finalMessage() returns the
+    // same assembled Message, so the parsing below is unchanged.
+    const response = await client.messages
+      .stream({
+        model: config.model,
+        // Adaptive thinking so the Settings `effort` genuinely tunes reasoning
+        // depth on this long-transcript segmentation; max_tokens reserves thinking
+        // headroom so a thinking pass can't truncate the chapter JSON. Haiku: none.
+        max_tokens: maxTokensWithThinking(config.model, config.effort, 4096),
+        ...(supportsEffort ? { thinking: { type: "adaptive" as const } } : {}),
+        system: [
+          { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
+        ],
+        messages: [
+          {
+            role: "user",
+            content: `Service length: about ${Math.round(durationSec)} seconds.\n\nTranscript:\n${transcript}`,
+          },
+        ],
+        output_config: {
+          format: { type: "json_schema", schema: JSON_SCHEMA },
+          ...(supportsEffort ? { effort: config.effort } : {}),
         },
-      ],
-      output_config: {
-        format: { type: "json_schema", schema: JSON_SCHEMA },
-        ...(supportsEffort ? { effort: config.effort } : {}),
-      },
-    })
+      })
+      .finalMessage()
+    // A refusal (HTTP 200) or a truncation returns non-schema content; surface it
+    // as a clean reason instead of a cryptic JSON parse error downstream.
+    if (response.stop_reason === "refusal" || response.stop_reason === "max_tokens") {
+      return { ok: false, reason: "provider_failed", detail: `stop_reason:${response.stop_reason}` }
+    }
     const raw = response.content
       .filter((b): b is Anthropic.TextBlock => b.type === "text")
       .map((b) => b.text)
