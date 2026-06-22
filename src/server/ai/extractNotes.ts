@@ -51,7 +51,8 @@ export async function mergeNotes(
     const response = await client.messages.create({
       model: config.model,
       max_tokens: 700,
-      ...(supportsEffort ? { thinking: { type: "disabled" as const } } : {}),
+      // No `thinking` field: it's off by default on Opus 4.7+/Sonnet 4.6, and
+      // {type:"disabled"} 400s on Fable 5. `effort` below is the separate control.
       system: [{ type: "text", text: NOTES_SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
       messages: [{ role: "user", content: userContent }],
       output_config: {

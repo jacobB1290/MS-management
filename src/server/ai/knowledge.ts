@@ -104,10 +104,12 @@ export async function generateWithKnowledge(args: {
   userContent: string
 }): Promise<string> {
   const { client, config, maxTokens, system, userContent } = args
-  // Effort/extended-thinking applies only to Opus + Sonnet; Haiku rejects the
-  // params. Thinking stays disabled — a pastoral reply needs no reasoning trace.
+  // Effort applies only to Opus/Sonnet/Fable; Haiku rejects it. We omit the
+  // `thinking` field rather than send {type:"disabled"}: thinking is off by
+  // default on Opus 4.7+/Sonnet 4.6, and "disabled" 400s on Fable 5. Effort is a
+  // separate output-level control. A pastoral reply needs no reasoning trace.
   const tuning = modelSupportsEffort(config.model)
-    ? { thinking: { type: "disabled" as const }, output_config: { effort: config.effort } }
+    ? { output_config: { effort: config.effort } }
     : {}
 
   const messages: Anthropic.MessageParam[] = [{ role: "user", content: userContent }]

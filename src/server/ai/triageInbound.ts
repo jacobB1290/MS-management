@@ -110,7 +110,8 @@ export async function classifyConversation(
     const response = await client.messages.create({
       model: config.model,
       max_tokens: 256,
-      ...(supportsEffort ? { thinking: { type: "disabled" as const } } : {}),
+      // No `thinking` field: it's off by default on Opus 4.7+/Sonnet 4.6, and
+      // {type:"disabled"} 400s on Fable 5. `effort` below is the separate control.
       system: [{ type: "text", text: TRIAGE_SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
       messages: [{ role: "user", content: `Recent thread (oldest first):\n${buildTranscript(thread)}` }],
       output_config: {

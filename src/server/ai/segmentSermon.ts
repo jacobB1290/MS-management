@@ -47,6 +47,10 @@ Produce:
 
 Aim for roughly 4-12 segments — real chapters, not one per song line. Merge adjacent same-type material. Voice: warm, plain, accurate. Use curly apostrophes. Do not invent content that is not in the transcript; if the sermon topic is unclear, describe it generally rather than guessing specifics.`
 
+// NOTE: Anthropic structured-output JSON Schema does NOT support numeric range
+// keywords (minimum/maximum/multipleOf) or length keywords (minLength/maxLength).
+// Non-negativity + the [0, duration] bounds are enforced by the boundary-repair
+// pass below, so we omit them from the schema rather than have the API reject it.
 const JSON_SCHEMA = {
   type: "object",
   additionalProperties: false,
@@ -57,8 +61,8 @@ const JSON_SCHEMA = {
         type: "object",
         additionalProperties: false,
         properties: {
-          start_sec: { type: "integer", minimum: 0 },
-          end_sec: { type: "integer", minimum: 0 },
+          start_sec: { type: "integer" },
+          end_sec: { type: "integer" },
           type: { type: "string", enum: SEGMENT_TYPES as unknown as string[] },
           title: { type: "string" },
           summary: { type: "string" },

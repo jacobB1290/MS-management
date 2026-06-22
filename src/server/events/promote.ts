@@ -227,7 +227,8 @@ export async function proposePromotion(
     const response = await client.messages.create({
       model: config.model,
       max_tokens: 1024,
-      ...(supportsEffort ? { thinking: { type: "disabled" as const } } : {}),
+      // No `thinking` field: it's off by default on Opus 4.7+/Sonnet 4.6, and
+      // {type:"disabled"} 400s on Fable 5. `effort` below is the separate control.
       system: [
         { type: "text", text: PROMOTE_SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
       ],
