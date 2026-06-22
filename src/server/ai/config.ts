@@ -60,6 +60,7 @@ export async function getAiConfig(): Promise<Record<AiFeature, AiFeatureConfig>>
       notes: AI_DEFAULTS.notes,
       optout: AI_DEFAULTS.optout,
       promote: AI_DEFAULTS.promote,
+      segment: AI_DEFAULTS.segment,
     }
   }
 }

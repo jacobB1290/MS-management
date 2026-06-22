@@ -3,12 +3,18 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import type { Database } from "@/lib/database.types"
 import { DEMO_TABLES, DEMO_AUTH_USER } from "./fixtures"
 import { demoEvents } from "./events-fixtures"
+import { demoSermons, demoSermonRuns } from "./sermons-fixtures"
 
 type Row = Record<string, unknown>
 
-// The generated fixtures.ts is byte-matched by sim:verify, so the events demo
-// data lives in its own module and is merged in here.
-const DEMO_TABLES_ALL: Record<string, Row[]> = { ...DEMO_TABLES, events: demoEvents }
+// The generated fixtures.ts is byte-matched by sim:verify, so hand-authored demo
+// data (events, sermons) lives in its own modules and is merged in here.
+const DEMO_TABLES_ALL: Record<string, Row[]> = {
+  ...DEMO_TABLES,
+  events: demoEvents,
+  sermons: demoSermons,
+  sermon_pipeline_runs: demoSermonRuns,
+}
 
 function compare(a: unknown, b: unknown): number {
   if (typeof a === "number" && typeof b === "number") return a - b

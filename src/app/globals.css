@@ -636,6 +636,18 @@ h1, h2, h3, h4, h5, h6 {
   to   { opacity: 1; }
 }
 
+/* "Live" status dot — a soft gold halo that breathes outward from a solid dot,
+ * the one indicator that a pipeline run is in flight. A pure box-shadow ring, so
+ * it needs no extra DOM and reads on the gold token + soft easing rather than
+ * Tailwind's generic grey opacity pulse. The reduced-motion rule above settles
+ * it to the bare solid dot (no halo). */
+@keyframes live-dot {
+  0%   { box-shadow: 0 0 0 0 color-mix(in oklab, var(--gold) 45%, transparent); }
+  70%  { box-shadow: 0 0 0 5px color-mix(in oklab, var(--gold) 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--gold) 0%, transparent); }
+}
+.live-dot { animation: live-dot 1.8s var(--ease-out-soft) infinite; }
+
 /* Message bubble entrance for the staggered "waterfall" stream reveal. A layered
  * settle, not a pop: opacity resolves gradually while the bubble glides up and
  * scales from 0.95, anchored (via inline transform-origin) to its own bottom
