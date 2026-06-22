@@ -30,6 +30,8 @@ export type AuditAction =
   | "sermon.unpublish"
   | "sermon.update"
   | "sermon.delete"
+  | "sermon.backfill_enqueue"
+  | "sermon.bulk_publish"
   | "form.submitted"
   | "media.upload"
   | "media.delete"

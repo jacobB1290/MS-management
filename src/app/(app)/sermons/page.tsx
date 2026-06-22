@@ -1,12 +1,13 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { formatDistanceToNowStrict } from "date-fns"
-import { Mic } from "lucide-react"
+import { History, Mic } from "lucide-react"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { requireStaff } from "@/server/auth"
 import { isAiEnabled } from "@/server/ai/client"
 import { hasCaptionAccess } from "@/server/youtube/captions"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { EmptyState } from "@/components/ui/empty-state"
 import { PageMasthead } from "@/components/ui/page-masthead"
 import { PageScaffold } from "@/components/ui/page-scaffold"
@@ -89,7 +90,18 @@ export default async function SermonsPage() {
         <PageMasthead
           title="Sermons"
           description="Sunday services, transcribed and chaptered for ms.church."
-          actions={<SermonsToolbar />}
+          actions={
+            <div className="flex items-center gap-2">
+              <Button variant="secondary" size="sm" asChild>
+                <Link href="/sermons/backfill" prefetch>
+                  <History size={15} />
+                  <span className="hidden sm:inline">Process past services</span>
+                  <span className="sm:hidden">Past</span>
+                </Link>
+              </Button>
+              <SermonsToolbar />
+            </div>
+          }
         />
       }
     >

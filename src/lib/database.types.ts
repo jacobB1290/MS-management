@@ -702,6 +702,53 @@ export type Database = {
         }
         Relationships: []
       }
+      sermon_backfill_queue: {
+        Row: {
+          attempts: number
+          error: string | null
+          finished_at: string | null
+          published_at: string | null
+          requested_at: string
+          requested_by: string | null
+          started_at: string | null
+          status: string
+          title: string | null
+          youtube_video_id: string
+        }
+        Insert: {
+          attempts?: number
+          error?: string | null
+          finished_at?: string | null
+          published_at?: string | null
+          requested_at?: string
+          requested_by?: string | null
+          started_at?: string | null
+          status?: string
+          title?: string | null
+          youtube_video_id: string
+        }
+        Update: {
+          attempts?: number
+          error?: string | null
+          finished_at?: string | null
+          published_at?: string | null
+          requested_at?: string
+          requested_by?: string | null
+          started_at?: string | null
+          status?: string
+          title?: string | null
+          youtube_video_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sermon_backfill_queue_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sermon_pipeline_runs: {
         Row: {
           created_at: string

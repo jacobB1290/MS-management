@@ -1,4 +1,5 @@
 import "server-only"
+import { getYouTubeAccessToken } from "./captions"
 
 /**
  * Latest-video detection off the church YouTube channel's public RSS feed.
@@ -78,4 +79,63 @@ export async function fetchRecentVideos(limit = 5): Promise<FeedVideo[]> {
 export async function fetchLatestVideo(): Promise<FeedVideo | null> {
   const [latest] = await fetchRecentVideos(1)
   return latest ?? null
+}
+
+/**
+ * The FULL playlist (back catalog), newest first, via the YouTube Data API
+ * `playlistItems.list` — the RSS feed above only returns the latest ~15, which
+ * is enough for "what's new" but not for backfilling years of services. Needs
+ * read access: the channel-owner OAuth token (same one captions use) or a public
+ * API key (`GOOGLE_YOUTUBE_API_KEY` / `GOOGLE_CALENDAR_API_KEY`). Returns [] when
+ * neither is configured (mock mode) so the backfill UI degrades to empty, never
+ * throws. Paginated; capped at `maxPages` * 50 so a huge channel can't run away.
+ */
+export async function fetchAllPlaylistVideos(maxPages = 40): Promise<FeedVideo[]> {
+  const apiKey = process.env.GOOGLE_YOUTUBE_API_KEY || process.env.GOOGLE_CALENDAR_API_KEY
+  const token = apiKey ? null : await getYouTubeAccessToken().catch(() => null)
+  if (!apiKey && !token) return []
+
+  const out: FeedVideo[] = []
+  let pageToken: string | undefined
+  try {
+    for (let page = 0; page < maxPages; page++) {
+      const url = new URL("https://www.googleapis.com/youtube/v3/playlistItems")
+      url.searchParams.set("part", "snippet,contentDetails")
+      url.searchParams.set("playlistId", YOUTUBE_PLAYLIST_ID)
+      url.searchParams.set("maxResults", "50")
+      if (pageToken) url.searchParams.set("pageToken", pageToken)
+      if (apiKey) url.searchParams.set("key", apiKey)
+      const res = await fetch(url.toString(), {
+        cache: "no-store",
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      })
+      if (!res.ok) break
+      const json = (await res.json()) as {
+        nextPageToken?: string
+        items?: {
+          snippet?: { title?: string; resourceId?: { videoId?: string } }
+          contentDetails?: { videoId?: string; videoPublishedAt?: string }
+        }[]
+      }
+      for (const it of json.items ?? []) {
+        const videoId = it.contentDetails?.videoId || it.snippet?.resourceId?.videoId
+        if (!videoId) continue
+        out.push({
+          videoId,
+          title: it.snippet?.title?.trim() || "Sunday Service",
+          publishedAt: it.contentDetails?.videoPublishedAt ?? null,
+          thumbnailUrl: thumb(videoId),
+        })
+      }
+      pageToken = json.nextPageToken
+      if (!pageToken) break
+    }
+  } catch {
+    return out
+  }
+  // De-dupe (a video can appear twice in a playlist) and sort newest-first.
+  const seen = new Set<string>()
+  return out
+    .filter((v) => (seen.has(v.videoId) ? false : (seen.add(v.videoId), true)))
+    .sort((a, b) => (b.publishedAt ?? "").localeCompare(a.publishedAt ?? ""))
 }

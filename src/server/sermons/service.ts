@@ -177,12 +177,25 @@ async function upsertSermonRow(
 /** Resolve the target video for this run from feed metadata when possible. */
 async function resolveVideo(
   videoId: string | undefined,
+  videoMeta?: RunOptions["videoMeta"],
 ): Promise<FeedVideo | null> {
   if (!videoId) return fetchLatestVideo()
   const recent = await fetchRecentVideos(15)
   const found = recent.find((v) => v.videoId === videoId)
   if (found) return found
-  // Not in the recent feed (older backfill): minimal metadata, captions still work.
+  // Caller-supplied metadata (backfill carries the real playlist title + date so
+  // the slug and the public card aren't a generic "Sunday Service").
+  if (videoMeta) {
+    return {
+      videoId,
+      title: videoMeta.title || "Sunday Service",
+      publishedAt: videoMeta.publishedAt ?? null,
+      thumbnailUrl:
+        videoMeta.thumbnailUrl ||
+        `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+    }
+  }
+  // Not in the recent feed and no metadata: minimal, captions still work.
   return {
     videoId,
     title: "Sunday Service",
@@ -196,6 +209,11 @@ export type RunOptions = {
   userId?: string | null
   /** Target a specific video; omit for the cron's "latest" behavior. */
   videoId?: string
+  /**
+   * Real video metadata for a target outside the recent RSS feed (backfill of an
+   * old service). Without it, an old `videoId` falls back to a generic title.
+   */
+  videoMeta?: { title: string; publishedAt: string | null; thumbnailUrl?: string }
   /** Re-run all steps even if the sermon is already processed. */
   force?: boolean
 }
@@ -209,7 +227,7 @@ export async function runSermonPipeline(opts: RunOptions): Promise<RunResult> {
   const admin = createSupabaseAdminClient()
   const userId = opts.userId ?? null
 
-  const video = await resolveVideo(opts.videoId)
+  const video = await resolveVideo(opts.videoId, opts.videoMeta)
 
   // Open the run row up front so even a no-video run is visible in the monitor.
   const { data: run, error: runErr } = await admin

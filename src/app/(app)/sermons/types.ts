@@ -126,3 +126,55 @@ export function formatElapsed(startIso: string, endIso: string | null): string |
 export function youtubeChapterUrl(videoId: string, startSec: number): string {
   return `https://youtu.be/${videoId}?t=${Math.max(0, Math.floor(startSec))}`
 }
+
+/* ----------------------------------------------------------------------- */
+/* Back-catalog backfill (the "Process past services" picker)              */
+/* ----------------------------------------------------------------------- */
+
+export type BackfillState =
+  | "new"
+  | "queued"
+  | "processing"
+  | "review"
+  | "published"
+  | "in_progress"
+  | "failed"
+  | "skipped"
+
+export type BackfillCandidate = {
+  videoId: string
+  title: string
+  publishedAt: string | null
+  thumbnailUrl: string
+  state: BackfillState
+  sermonId: string | null
+  sermonStatus: string | null
+  queueStatus: string | null
+  queueError: string | null
+  selectable: boolean
+}
+
+export type BackfillListing = {
+  configured: boolean
+  candidates: BackfillCandidate[]
+  counts: {
+    total: number
+    new: number
+    queuedOrRunning: number
+    review: number
+    published: number
+    failed: number
+  }
+}
+
+/** Backfill state → label + badge color for the picker rows. */
+export const BACKFILL_STATE: Record<BackfillState, { label: string; variant: BadgeVariant }> = {
+  new: { label: "Not processed", variant: "muted" },
+  queued: { label: "Queued", variant: "default" },
+  processing: { label: "Processing", variant: "gold" },
+  in_progress: { label: "In progress", variant: "gold" },
+  review: { label: "Ready to review", variant: "gold" },
+  published: { label: "Published", variant: "success" },
+  failed: { label: "Failed", variant: "danger" },
+  skipped: { label: "Skipped", variant: "muted" },
+}

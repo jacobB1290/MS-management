@@ -42,7 +42,7 @@ export function hasCaptionAccess(): boolean {
 
 let cached: { value: string; expiresAt: number } | null = null
 
-async function getYouTubeAccessToken(): Promise<string | null> {
+export async function getYouTubeAccessToken(): Promise<string | null> {
   if (!hasCaptionAccess()) return null
   const now = Date.now()
   if (cached && now < cached.expiresAt - 60_000) return cached.value
