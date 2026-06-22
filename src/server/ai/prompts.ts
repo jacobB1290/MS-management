@@ -2,8 +2,13 @@
  * Single source of truth for the background-automation system prompts and the
  * deterministic guards that floor them. Pure strings + regexes + small pure
  * helpers — no server imports, no PII, no church-specific data — so:
- *   - the prompt blocks stay byte-stable and prompt-caching reuses them across
- *     every inbound (placed first in each call), and
+ *   - the prompt blocks stay byte-stable (placed first in each call) so prompt
+ *     caching can reuse the prefix once it clears the model's cache minimum
+ *     (1,024 tokens on Opus 4.8 / Sonnet 4.6, 4,096 on Haiku 4.5). These prompts
+ *     are short and sit below that today, so the `cache_control` on them is a
+ *     harmless no-op that engages automatically if a prefix ever grows past it;
+ *     the real caching win would be a large static context, which we don't have
+ *     (church facts are fetched on demand via the knowledge tool, not in-prompt), and
  *   - the offline eval harness (scripts/ai-eval) can import the EXACT strings
  *     the app ships, with no Next/alias/server-only coupling to trip over.
  *

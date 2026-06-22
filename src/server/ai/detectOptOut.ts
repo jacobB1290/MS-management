@@ -1,7 +1,7 @@
 import "server-only"
 import { z } from "zod"
 import { createAnthropicClient } from "./client"
-import { modelSupportsEffort, type AiFeatureConfig } from "./config"
+import { modelSupportsEffort, maxTokensWithThinking, type AiFeatureConfig } from "./config"
 import {
   OPTOUT_SYSTEM_PROMPT,
   OPTOUT_CONFIDENCE_FLOOR,
@@ -63,8 +63,11 @@ export async function detectOptOutIntent(
     const supportsEffort = modelSupportsEffort(config.model)
     const response = await client.messages.create({
       model: config.model,
-      max_tokens: 128,
-      ...(supportsEffort ? { thinking: { type: "disabled" as const } } : {}),
+      // Adaptive thinking so the Settings `effort` genuinely tunes reasoning depth
+      // (off on Opus/Sonnet unless enabled); max_tokens reserves thinking headroom
+      // so a thinking pass can't truncate the JSON. Haiku: no effort, no thinking.
+      max_tokens: maxTokensWithThinking(config.model, config.effort, 128),
+      ...(supportsEffort ? { thinking: { type: "adaptive" as const } } : {}),
       system: [{ type: "text", text: OPTOUT_SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
       messages: [{ role: "user", content: `Recent thread (oldest first):\n${buildTranscript(thread)}` }],
       output_config: {
@@ -73,6 +76,9 @@ export async function detectOptOutIntent(
       },
     })
 
+    // High-stakes path: a refusal (HTTP 200) or truncation must never be read as
+    // an opt-out. Return null (no opt-out) instead of letting JSON.parse decide.
+    if (response.stop_reason === "refusal" || response.stop_reason === "max_tokens") return null
     const raw = response.content
       .filter((b): b is { type: "text"; text: string; citations: null } => b.type === "text")
       .map((b) => b.text)

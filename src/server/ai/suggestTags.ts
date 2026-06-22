@@ -2,7 +2,7 @@ import "server-only"
 import { z } from "zod"
 import { createSupabaseAdminClient } from "@/lib/supabase/server"
 import { createAnthropicClient, isAiEnabled } from "./client"
-import { getFeatureConfig, modelSupportsEffort, type AiFeatureConfig } from "./config"
+import { getFeatureConfig, modelSupportsEffort, maxTokensWithThinking, type AiFeatureConfig } from "./config"
 import { TAGGING_SYSTEM_PROMPT, SENSITIVE_TAG, BASE_TAG_VOCAB, buildTranscript, type ThreadMessage } from "./prompts"
 
 /** How many recent messages to feed the model. Enough to characterize the
@@ -93,8 +93,11 @@ export async function proposeTags(
     const supportsEffort = modelSupportsEffort(config.model)
     const response = await client.messages.create({
       model: config.model,
-      max_tokens: 512,
-      ...(supportsEffort ? { thinking: { type: "disabled" as const } } : {}),
+      // Adaptive thinking so the Settings `effort` genuinely tunes reasoning depth
+      // (off on Opus/Sonnet unless enabled); max_tokens reserves thinking headroom
+      // so a thinking pass can't truncate the JSON. Haiku: no effort, no thinking.
+      max_tokens: maxTokensWithThinking(config.model, config.effort, 512),
+      ...(supportsEffort ? { thinking: { type: "adaptive" as const } } : {}),
       system: [{ type: "text", text: TAGGING_SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
       messages: [{ role: "user", content: userContent }],
       output_config: {
@@ -103,6 +106,9 @@ export async function proposeTags(
       },
     })
 
+    // A refusal (HTTP 200) or truncation returns non-schema content; treat as no
+    // suggestion rather than letting the JSON.parse below throw a cryptic error.
+    if (response.stop_reason === "refusal" || response.stop_reason === "max_tokens") return null
     const raw = response.content
       .filter((b): b is { type: "text"; text: string; citations: null } => b.type === "text")
       .map((b) => b.text)

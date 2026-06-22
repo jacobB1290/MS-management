@@ -1,7 +1,7 @@
 import "server-only"
 import type Anthropic from "@anthropic-ai/sdk"
 import { createSupabaseAdminClient } from "@/lib/supabase/server"
-import { modelSupportsEffort, type AiFeatureConfig } from "@/lib/ai-models"
+import { modelSupportsEffort, maxTokensWithThinking, type AiFeatureConfig } from "@/lib/ai-models"
 
 /**
  * Church knowledge lookup for the AI drafting paths. The model decides WHEN to
@@ -104,10 +104,14 @@ export async function generateWithKnowledge(args: {
   userContent: string
 }): Promise<string> {
   const { client, config, maxTokens, system, userContent } = args
-  // Effort/extended-thinking applies only to Opus + Sonnet; Haiku rejects the
-  // params. Thinking stays disabled — a pastoral reply needs no reasoning trace.
-  const tuning = modelSupportsEffort(config.model)
-    ? { thinking: { type: "disabled" as const }, output_config: { effort: config.effort } }
+  // Adaptive thinking so the Settings `effort` genuinely tunes reasoning depth on
+  // the reply draft (thinking is off on Opus/Sonnet unless enabled). Haiku has no
+  // effort control, so it stays no-thinking. The final round's tool_choice "none"
+  // is thinking-compatible, and the loop echoes thinking blocks back unchanged
+  // with each assistant turn (required when tools + thinking are both active).
+  const supportsEffort = modelSupportsEffort(config.model)
+  const tuning = supportsEffort
+    ? { thinking: { type: "adaptive" as const }, output_config: { effort: config.effort } }
     : {}
 
   const messages: Anthropic.MessageParam[] = [{ role: "user", content: userContent }]
@@ -117,7 +121,7 @@ export async function generateWithKnowledge(args: {
     const forceAnswer = round === MAX_TOOL_ROUNDS
     const response = await client.messages.create({
       model: config.model,
-      max_tokens: maxTokens,
+      max_tokens: maxTokensWithThinking(config.model, config.effort, maxTokens),
       ...tuning,
       system,
       tools: KNOWLEDGE_TOOLS,

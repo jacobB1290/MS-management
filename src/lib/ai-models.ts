@@ -292,6 +292,35 @@ export function modelSupportsEffort(model: string): boolean {
   return effortLevelsForModel(model).length > 0
 }
 
+/**
+ * Per-effort token headroom reserved for adaptive thinking, lowest → highest.
+ * Adaptive thinking shares the `max_tokens` budget with the visible response, and
+ * the model is NOT told that limit (per Anthropic's docs), so without headroom a
+ * thinking pass can truncate the answer (`stop_reason: "max_tokens"`). Higher
+ * effort thinks more, so it reserves more.
+ */
+const THINKING_HEADROOM: Record<AiEffort, number> = {
+  low: 2048,
+  medium: 4096,
+  high: 8192,
+  xhigh: 16384,
+  max: 24576,
+}
+
+/**
+ * Total `max_tokens` for a call: the visible-output budget plus thinking headroom
+ * when the model runs adaptive thinking (i.e. it supports `effort`). A pure
+ * ceiling — you're billed only for tokens actually generated, and adaptive
+ * thinking self-limits on easy inputs, so the cheap path never approaches it.
+ * Models with no effort control (Haiku) pass `outputBudget` through unchanged
+ * (no thinking, no headroom). Every effort-supporting model in the reachable
+ * lineup (Opus 4.6+, Sonnet 4.6, Fable) also runs adaptive thinking, so the
+ * effort-support predicate doubles as the adaptive-thinking gate.
+ */
+export function maxTokensWithThinking(model: string, effort: AiEffort, outputBudget: number): number {
+  return modelSupportsEffort(model) ? outputBudget + THINKING_HEADROOM[effort] : outputBudget
+}
+
 /** Friendly label for any model id, falling back to the raw id. */
 export function modelLabel(model: string): string {
   return deriveModelLabel(model)

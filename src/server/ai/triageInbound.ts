@@ -1,7 +1,7 @@
 import "server-only"
 import { z } from "zod"
 import { createAnthropicClient } from "./client"
-import { modelSupportsEffort, type AiFeatureConfig } from "./config"
+import { modelSupportsEffort, maxTokensWithThinking, type AiFeatureConfig } from "./config"
 import {
   TRIAGE_SYSTEM_PROMPT,
   CRISIS,
@@ -109,8 +109,11 @@ export async function classifyConversation(
     const client = createAnthropicClient()
     const response = await client.messages.create({
       model: config.model,
-      max_tokens: 256,
-      ...(supportsEffort ? { thinking: { type: "disabled" as const } } : {}),
+      // Adaptive thinking so the Settings `effort` genuinely tunes reasoning depth
+      // (off on Opus/Sonnet unless enabled); max_tokens reserves thinking headroom
+      // so a thinking pass can't truncate the JSON. Haiku: no effort, no thinking.
+      max_tokens: maxTokensWithThinking(config.model, config.effort, 256),
+      ...(supportsEffort ? { thinking: { type: "adaptive" as const } } : {}),
       system: [{ type: "text", text: TRIAGE_SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
       messages: [{ role: "user", content: `Recent thread (oldest first):\n${buildTranscript(thread)}` }],
       output_config: {
@@ -119,6 +122,9 @@ export async function classifyConversation(
       },
     })
 
+    if (response.stop_reason === "refusal" || response.stop_reason === "max_tokens") {
+      return { ok: false, reason: "provider_failed" }
+    }
     const raw = response.content
       .filter((b): b is { type: "text"; text: string; citations: null } => b.type === "text")
       .map((b) => b.text)

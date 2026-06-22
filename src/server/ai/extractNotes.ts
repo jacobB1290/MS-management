@@ -1,7 +1,7 @@
 import "server-only"
 import { z } from "zod"
 import { createAnthropicClient } from "./client"
-import { modelSupportsEffort, type AiFeatureConfig } from "./config"
+import { modelSupportsEffort, maxTokensWithThinking, type AiFeatureConfig } from "./config"
 import { NOTES_SYSTEM_PROMPT, buildTranscript, type ThreadMessage } from "./prompts"
 
 /** Matches the contacts.notes column cap; we truncate defensively before write. */
@@ -50,8 +50,11 @@ export async function mergeNotes(
     const supportsEffort = modelSupportsEffort(config.model)
     const response = await client.messages.create({
       model: config.model,
-      max_tokens: 700,
-      ...(supportsEffort ? { thinking: { type: "disabled" as const } } : {}),
+      // Adaptive thinking so the Settings `effort` genuinely tunes reasoning depth
+      // (off on Opus/Sonnet unless enabled); max_tokens reserves thinking headroom
+      // so a thinking pass can't truncate the JSON. Haiku: no effort, no thinking.
+      max_tokens: maxTokensWithThinking(config.model, config.effort, 700),
+      ...(supportsEffort ? { thinking: { type: "adaptive" as const } } : {}),
       system: [{ type: "text", text: NOTES_SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
       messages: [{ role: "user", content: userContent }],
       output_config: {
@@ -60,6 +63,9 @@ export async function mergeNotes(
       },
     })
 
+    // A refusal (HTTP 200) or truncation returns non-schema content; leave the
+    // notes unchanged rather than risk a partial overwrite.
+    if (response.stop_reason === "refusal" || response.stop_reason === "max_tokens") return null
     const raw = response.content
       .filter((b): b is { type: "text"; text: string; citations: null } => b.type === "text")
       .map((b) => b.text)
