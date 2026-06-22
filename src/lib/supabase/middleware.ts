@@ -50,6 +50,11 @@ export async function updateSession(request: NextRequest) {
   const isPublicWebhook =
     path.startsWith("/api/webhook") ||
     path.startsWith("/api/public-form") ||
+    // Public, read-only feeds consumed by ms.church (published sermons, etc.).
+    // They hard-filter to published rows in the handler and are CORS-open by
+    // design, so they must bypass the /login redirect or the site fetches the
+    // HTML sign-in page instead of JSON and silently falls back.
+    path.startsWith("/api/public/") ||
     // Twilio's TwiML callback for browser voice calls — signature-verified in
     // the handler, and cookie-less, so it must bypass the /login redirect or
     // Twilio gets the login page HTML back and fails with 12100. Note this is
@@ -93,6 +98,11 @@ function updateDemoSession(request: NextRequest) {
   const isPublicWebhook =
     path.startsWith("/api/webhook") ||
     path.startsWith("/api/public-form") ||
+    // Public, read-only feeds consumed by ms.church (published sermons, etc.).
+    // They hard-filter to published rows in the handler and are CORS-open by
+    // design, so they must bypass the /login redirect or the site fetches the
+    // HTML sign-in page instead of JSON and silently falls back.
+    path.startsWith("/api/public/") ||
     // Twilio's TwiML callback for browser voice calls — signature-verified in
     // the handler, and cookie-less, so it must bypass the /login redirect or
     // Twilio gets the login page HTML back and fails with 12100. Note this is
