@@ -45,6 +45,7 @@ Produce:
 - segments: an ordered, NON-overlapping, gap-free cover of the service from start to finish. Each segment has:
   - start_sec / end_sec: integers in seconds, taken from the nearest surrounding timestamps. The first segment starts at 0; each segment's end_sec equals the next segment's start_sec; the last ends at the final timestamp.
   - type: one of welcome, worship, scripture, prayer, sermon, discussion, poem, testimony, offering, announcement, benediction, other. Use "worship" for congregational singing/music, "sermon" for a preached message, "discussion" for a two-host message, "scripture" for a passage being read aloud.
+    Telling singing from teaching (this is the easiest place to go wrong): when a stretch carries [music], [singing], [Music], [Applause], or repeated, rhyming, often garbled lyric-like lines, that is SINGING, so it is "worship" (or a "program" song), NOT a sermon, no matter how scriptural or doctrinal the words sound. Worship lyrics are usually rich theology ("his wounds have paid my ransom", "worship his holy name"); that is still a song, not teaching. The "sermon" is the single longest stretch of one person plainly preaching or teaching with little or no [music] under it (there is normally exactly one per service). Never fold a song, a scripture reading, a prayer, or a worship leader's short between-song exhortation into the sermon, and never label a song as a sermon because its lyrics are about Jesus or the cross.
   - title: a short, specific, human title (e.g. "Opening worship", "Sermon: Mending the Broken", "Reading: Psalm 23"). Sentence case, no trailing period.
   - summary: 1-3 plain sentences on what happens in this chapter. For the message, capture the actual main point, not "the pastor preaches".
   - scripture_refs: array of normalized references mentioned or read (e.g. "John 3:16", "Psalm 23:1-6"). Empty array if none.
@@ -53,9 +54,11 @@ Produce:
   - leader: for a "program" song, the performer's name exactly as stated (e.g., "Daniel"). For "worship", the worship leader's name ONLY if it is clearly stated, otherwise "" (worship songs usually name no one).
   - title: the song's name when it is stated or clearly recognizable from distinctive lyrics. If you are not confident which song it is, use a short honest descriptive title from a memorable line rather than guessing a specific hymn or worship-song name. Never fabricate a precise title you are unsure of.
   - topic: ONE short lowercase theme keyword for the song's subject (e.g. "praise", "grace", "the cross", "god's faithfulness", "surrender"). REUSE a topic from the list above whenever one fits, so songs and messages share a vocabulary; only coin a new one when none fit.
-  - start_sec / end_sec: that song's bounds in seconds. Empty array only if there is genuinely no singing.
+  - start_sec / end_sec: the bounds of the SUNG performance itself, since tapping a song on the website plays exactly this clip. These MUST pin the exact moment THIS named song is sung in the video. Read the timestamps carefully and double-check them: never let a song's bounds drift onto a different part of the service (the sermon, a reading, another song, the announcements). The title and the bounds describe the same performance, so the clip a viewer taps shows that song being sung, not someone preaching or talking. Start on the song's first note, INCLUDING its instrumental intro; do not start on the spoken announcement before it ("for our next song we will sing ...") or on a reading or prayer that preceded it. End where the music finishes (let the last note ring), before the next spoken part begins. Someone who taps the song must land on that song, never on someone talking. Empty array only if there is genuinely no singing.
 - summary: 2-4 sentences summarizing the whole service for a website visitor deciding whether to watch. Lead with the message's topic.
 - seo: { description: a single ~155-character meta description for the service page; tags: 5-10 lowercase topical keywords (themes, book names, not the church name). }
+
+Place every boundary for a good viewing experience, because these become the video's chapters and the song clips. When someone jumps to a chapter they should land right where it gets going, so let genuine dead time (silence, off-mic shuffling, technical fumbling, "can everyone hear me", people finding their seats, the milling of a meet-and-greet) fall at the END of the preceding transition chapter, and start the next real chapter on its first real moment. Leave a natural beat of lead-in so nothing begins mid-word: aim for tasteful framing, not a surgically tight cut. Crucial caveat so this does not backfire: a song's instrumental intro and its final ring-out, and any music played under a prayer, communion, or altar call, are CONTENT, never deadspace. Never trim a musical intro or outro thinking it is dead air. "Deadspace" means silence or fumbling only, never music, singing, or meaningful speech.
 
 Aim for roughly 4-12 segments: real chapters, not one per song line. Merge adjacent same-type material. Voice: warm, plain, accurate. Use curly apostrophes. Never use em dashes (or en dashes) in any text you write; phrase so they are not needed, using a colon to introduce, a period to split two thoughts into two sentences, a comma for a short aside, or parentheses for a genuine aside. Do not invent content that is not in the transcript; if the message topic is unclear, describe it generally rather than guessing specifics.`
 
@@ -284,7 +287,7 @@ export async function segmentSermon(
   }
 
   // Songs: clamp into [0, duration], keep order, drop empty/zero-length ones.
-  const songs: SermonSong[] = [...parsed.songs]
+  const songsRaw: SermonSong[] = [...parsed.songs]
     .sort((a, b) => a.start_sec - b.start_sec)
     .map((s) => {
       const start = Math.max(0, Math.round(s.start_sec))
@@ -300,6 +303,21 @@ export async function segmentSermon(
       }
     })
     .filter((s) => Boolean(s.title) && s.endSec > s.startSec)
+
+  // Safety net for a bad model run: a worship/program song is never sung DURING
+  // the sermon. If the model mis-places a song's bounds onto the message (the
+  // title can be right while the start/end drift, so the clip plays the sermon
+  // under a song title), drop it. We test the MIDPOINT against the sermon /
+  // discussion chapters (with a small margin so a song that merely abuts the
+  // message edge is kept). Dropping is safe: songs recur, so the website still
+  // shows it from another service, and a wrong clip is worse than a missing one.
+  const messageSpans = cleaned
+    .filter((c) => c.type === "sermon" || c.type === "discussion")
+    .map((c) => [c.startSec, c.endSec] as const)
+  const songs: SermonSong[] = songsRaw.filter((s) => {
+    const mid = (s.startSec + s.endSec) / 2
+    return !messageSpans.some(([a, b]) => mid > a + 5 && mid < b - 5)
+  })
 
   return {
     ok: true,
