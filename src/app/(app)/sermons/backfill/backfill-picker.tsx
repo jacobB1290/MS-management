@@ -1,7 +1,7 @@
 "use client"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Check, Loader2, ListPlus, UploadCloud } from "lucide-react"
+import { Check, Loader2, ListPlus, RefreshCw, UploadCloud } from "lucide-react"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -53,7 +53,7 @@ export function BackfillPicker({
   const [listing, setListing] = useState<BackfillListing>(initial)
   const [filter, setFilter] = useState<Filter>("todo")
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [busy, setBusy] = useState<null | "queue" | "publish">(null)
+  const [busy, setBusy] = useState<null | "queue" | "publish" | "reprocess">(null)
   const [refreshing, setRefreshing] = useState(false)
 
   const candidates = listing.candidates
@@ -74,10 +74,17 @@ export function BackfillPicker({
 
   const anyInFlight = useMemo(() => candidates.some(isInFlight), [candidates])
 
-  const barMode: "queue" | "publish" = filter === "review" ? "publish" : "queue"
+  // Each filter owns one action: To process → queue, Ready to review → publish,
+  // Published → re-run (re-segment an already-live service, back to review).
+  const barMode: "queue" | "publish" | "reprocess" =
+    filter === "review" ? "publish" : filter === "published" ? "reprocess" : "queue"
   const canAct = useCallback(
     (c: BackfillCandidate) =>
-      barMode === "publish" ? c.state === "review" : QUEUEABLE.includes(c.state),
+      barMode === "publish"
+        ? c.state === "review"
+        : barMode === "reprocess"
+          ? c.state === "published"
+          : QUEUEABLE.includes(c.state),
     [barMode],
   )
 
@@ -147,30 +154,38 @@ export function BackfillPicker({
     })
   }
 
-  async function queueSelected() {
+  async function queueSelected(reprocess = false) {
     const videos = selectedActionable
       .map((id) => byVideo.get(id))
       .filter((c): c is BackfillCandidate => Boolean(c))
       .map((c) => ({ videoId: c.videoId, title: c.title, publishedAt: c.publishedAt }))
     if (videos.length === 0) return
-    setBusy("queue")
+    setBusy(reprocess ? "reprocess" : "queue")
     try {
       const res = await fetch("/api/sermons/backfill", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ videos }),
+        body: JSON.stringify({ videos, reprocess }),
       })
       const json = await res.json().catch(() => null)
       if (!res.ok) {
-        toast.error("Couldn’t queue those services. Try again.")
+        toast.error(
+          reprocess
+            ? "Couldn’t re-run those services. Try again."
+            : "Couldn’t queue those services. Try again.",
+        )
         return
       }
       const enq = json?.enqueued ?? 0
       const skip = json?.skipped ?? 0
       toast.success(
-        enq > 0
-          ? `Queued ${enq} service${enq === 1 ? "" : "s"}${skip ? ` · ${skip} already in progress` : ""}. Processing runs in the background.`
-          : "Those services are already queued or processed.",
+        reprocess
+          ? enq > 0
+            ? `Re-running ${enq} service${enq === 1 ? "" : "s"}${skip ? ` · ${skip} skipped` : ""}. They’ll return to Ready to review — re-publish once you’ve checked them.`
+            : "Those services are already running or queued."
+          : enq > 0
+            ? `Queued ${enq} service${enq === 1 ? "" : "s"}${skip ? ` · ${skip} already in progress` : ""}. Processing runs in the background.`
+            : "Those services are already queued or processed.",
       )
       setSelected(new Set())
       await refresh()
@@ -284,7 +299,11 @@ export function BackfillPicker({
             {allVisibleSelected ? "Clear selection" : `Select all ${actionable.length}`}
           </button>
           <span className="text-micro text-ink-faint">
-            {barMode === "publish" ? "Tap to choose what goes live" : "Tap to choose what to process"}
+            {barMode === "publish"
+              ? "Tap to choose what goes live"
+              : barMode === "reprocess"
+                ? "Tap to choose what to re-run"
+                : "Tap to choose what to process"}
           </span>
         </div>
       )}
@@ -338,8 +357,17 @@ export function BackfillPicker({
                 )}
                 <span>{busy === "publish" ? "Publishing…" : `Publish ${selCount}`}</span>
               </Button>
+            ) : barMode === "reprocess" ? (
+              <Button size="sm" onClick={() => queueSelected(true)} disabled={busy !== null || selCount === 0}>
+                {busy === "reprocess" ? (
+                  <Loader2 size={15} className="animate-spin" />
+                ) : (
+                  <RefreshCw size={15} />
+                )}
+                <span>{busy === "reprocess" ? "Re-running…" : `Re-run ${selCount}`}</span>
+              </Button>
             ) : (
-              <Button size="sm" onClick={queueSelected} disabled={busy !== null || selCount === 0}>
+              <Button size="sm" onClick={() => queueSelected(false)} disabled={busy !== null || selCount === 0}>
                 {busy === "queue" ? (
                   <Loader2 size={15} className="animate-spin" />
                 ) : (

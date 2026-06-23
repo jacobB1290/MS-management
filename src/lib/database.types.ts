@@ -708,6 +708,7 @@ export type Database = {
           error: string | null
           finished_at: string | null
           published_at: string | null
+          reprocess: boolean
           requested_at: string
           requested_by: string | null
           started_at: string | null
@@ -720,6 +721,7 @@ export type Database = {
           error?: string | null
           finished_at?: string | null
           published_at?: string | null
+          reprocess?: boolean
           requested_at?: string
           requested_by?: string | null
           started_at?: string | null
@@ -732,6 +734,7 @@ export type Database = {
           error?: string | null
           finished_at?: string | null
           published_at?: string | null
+          reprocess?: boolean
           requested_at?: string
           requested_by?: string | null
           started_at?: string | null

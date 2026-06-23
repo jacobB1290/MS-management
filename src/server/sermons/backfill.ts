@@ -34,6 +34,13 @@ const SERMON_ACTIVE = new Set([
   "failed",
 ])
 
+/**
+ * Statuses where a run is mid-flight, so a RE-RUN (force) request is skipped: the
+ * existing run owns the row. Everything else (segmented/review/published/failed)
+ * is fair game to re-process on demand.
+ */
+const SERMON_BUSY = new Set(["transcribing", "segmenting"])
+
 function sermonState(status: string): BackfillState {
   if (status === "published") return "published"
   if (status === "review" || status === "segmented") return "review"
@@ -116,40 +123,60 @@ export async function listBackfillCandidates(): Promise<BackfillListing> {
 }
 
 export type EnqueueResult = { enqueued: number; skipped: number }
+export type EnqueueOptions = {
+  /**
+   * Re-run videos that are ALREADY processed (the "Re-run" action on published /
+   * reviewed services). The worker passes this through as the pipeline's `force`,
+   * so the sermon is re-segmented and lands back at `review`. Without it, enqueue
+   * keeps its first-pass behavior: already-processed videos are skipped.
+   */
+  force?: boolean
+}
 
 /**
  * Queue selected past videos for processing. Re-arms a previously failed/skipped
  * item back to `pending`; leaves anything already pending/running/done untouched
  * (idempotent — clicking twice doesn't double-process). A video that already has
  * a sermon row mid-pipeline is skipped here; the worker would no-op it anyway.
+ *
+ * With `force`, it instead RE-RUNS already-processed services: it re-arms even a
+ * `done` queue row and a published/reviewed sermon, skipping only the ones whose
+ * run is genuinely mid-flight (transcribing/segmenting) or already pending.
  */
 export async function enqueueBackfill(
   videos: { videoId: string; title?: string | null; publishedAt?: string | null }[],
   userId: string,
+  opts: EnqueueOptions = {},
 ): Promise<EnqueueResult> {
   const admin = createSupabaseAdminClient()
+  const force = opts.force === true
   const ids = videos.map((v) => v.videoId).filter(Boolean)
   if (ids.length === 0) return { enqueued: 0, skipped: 0 }
 
-  // Don't re-enqueue videos already represented by a sermon row mid/post-pipeline.
+  // First pass: skip anything already represented by a sermon row mid/post-pipeline.
+  // Re-run: only skip the ones whose run is actively in flight — re-processing a
+  // segmented/reviewed/published/failed sermon is exactly the point.
   const { data: sermonRows } = await admin
     .from("sermons")
     .select("youtube_video_id, status")
     .in("youtube_video_id", ids)
+  const skipSermonStatus = force ? SERMON_BUSY : SERMON_ACTIVE
   const hasSermon = new Set(
     (sermonRows ?? [])
-      .filter((s) => SERMON_ACTIVE.has(s.status))
+      .filter((s) => skipSermonStatus.has(s.status))
       .map((s) => s.youtube_video_id),
   )
 
-  // Leave active/terminal-success queue rows alone; re-arm everything else.
+  // First pass: leave active/terminal-success queue rows alone. Re-run: re-arm a
+  // finished (`done`) row too, only an active job (pending/running) blocks it.
+  const lockedStatuses = force ? ["pending", "running"] : ["pending", "running", "done"]
   const { data: queueRows } = await admin
     .from("sermon_backfill_queue")
     .select("youtube_video_id, status")
     .in("youtube_video_id", ids)
   const locked = new Set(
     (queueRows ?? [])
-      .filter((q) => ["pending", "running", "done"].includes(q.status))
+      .filter((q) => lockedStatuses.includes(q.status))
       .map((q) => q.youtube_video_id),
   )
 
@@ -166,6 +193,7 @@ export async function enqueueBackfill(
       title: v.title ?? null,
       published_at: v.publishedAt ?? null,
       status: "pending" as const,
+      reprocess: force,
       error: null,
       attempts: 0,
       requested_by: userId,
@@ -178,11 +206,11 @@ export async function enqueueBackfill(
   if (error) throw new Error(`backfill_enqueue_failed: ${error.message}`)
 
   await logAudit({
-    action: "sermon.backfill_enqueue",
+    action: force ? "sermon.backfill_reprocess" : "sermon.backfill_enqueue",
     actorUserId: userId,
     targetTable: "sermon_backfill_queue",
     targetId: null,
-    diff: { enqueued: toUpsert.length, skipped },
+    diff: { enqueued: toUpsert.length, skipped, force },
   })
   return { enqueued: toUpsert.length, skipped }
 }
@@ -211,7 +239,7 @@ export async function drainNextBackfill(): Promise<DrainResult> {
 
   const { data: next } = await admin
     .from("sermon_backfill_queue")
-    .select("youtube_video_id, title, published_at, attempts, requested_by")
+    .select("youtube_video_id, title, published_at, attempts, requested_by, reprocess")
     .eq("status", "pending")
     .order("requested_at", { ascending: true })
     .limit(1)
@@ -240,6 +268,8 @@ export async function drainNextBackfill(): Promise<DrainResult> {
       title: next.title ?? "Sunday Service",
       publishedAt: next.published_at,
     },
+    // A re-run request re-segments an already-processed service (back to review).
+    force: next.reprocess === true,
   })
 
   const status: "done" | "skipped" | "failed" = !result.ok
