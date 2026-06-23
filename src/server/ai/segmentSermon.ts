@@ -172,23 +172,6 @@ export type SegmentResult =
   | { ok: true; data: SermonSegmentation }
   | { ok: false; reason: "disabled" | "provider_failed"; detail?: string }
 
-/**
- * Safety net for the site's no-em-dash copy rule. The prompt already forbids em
- * dashes and asks the model to phrase without them; this guarantees none ship in
- * the automated public copy (no human sweeps AI output) by turning a stray em or
- * en dash used as punctuation into flowing punctuation. Hyphens (in ranges and
- * scripture refs like "Psalm 23:1-6") are left untouched.
- */
-function noEmDash(s: string): string {
-  return s
-    .replace(/\s*[—―‒]\s*/g, ", ") // em dash / bar -> comma
-    .replace(/\s+–\s+/g, ", ") // spaced en dash (used as a dash) -> comma
-    .replace(/([.!?;:])\s*,\s+/g, "$1 ") // ". , X" -> ". X"
-    .replace(/\s*,\s*,\s*/g, ", ") // collapse doubles
-    .replace(/\s+,/g, ",")
-    .trim()
-}
-
 // Caption transcripts are long; cap the input so a marathon service can't blow
 // the context window. ~120k chars ≈ a multi-hour service of dense captions.
 const MAX_TRANSCRIPT_CHARS = 120_000
@@ -279,8 +262,8 @@ export async function segmentSermon(
       startSec: start,
       endSec: end,
       type: s.type,
-      title: noEmDash(s.title) || "Chapter",
-      summary: noEmDash(s.summary),
+      title: s.title.trim() || "Chapter",
+      summary: s.summary.trim(),
       scriptureRefs: s.scripture_refs.map((r) => r.trim()).filter(Boolean),
     })
   }
@@ -293,7 +276,7 @@ export async function segmentSermon(
       let end = Math.max(start, Math.round(s.end_sec))
       if (dur > 0) end = Math.min(dur, end)
       return {
-        title: noEmDash(s.title),
+        title: s.title.trim(),
         leader: s.leader.trim() || null,
         startSec: dur > 0 ? Math.min(dur, start) : start,
         endSec: end,
@@ -313,9 +296,9 @@ export async function segmentSermon(
       ).slice(0, 1),
       segments: cleaned,
       songs,
-      summary: noEmDash(parsed.summary),
+      summary: parsed.summary.trim(),
       seo: {
-        description: noEmDash(parsed.seo.description),
+        description: parsed.seo.description.trim(),
         tags: parsed.seo.tags.map((t) => t.trim().toLowerCase()).filter(Boolean),
       },
     },
