@@ -48,7 +48,12 @@ Produce:
   - title: a short, specific, human title (e.g. "Opening worship", "Sermon: Mending the Broken", "Reading: Psalm 23"). Sentence case, no trailing period.
   - summary: 1-3 plain sentences on what happens in this chapter. For the message, capture the actual main point, not "the pastor preaches".
   - scripture_refs: array of normalized references mentioned or read (e.g. "John 3:16", "Psalm 23:1-6"). Empty array if none.
-- songs: the individual worship songs sung this service, in order, each as { title, leader, start_sec, end_sec }. title = the song's name if it is stated or clearly recognizable from the lyrics, otherwise a short descriptive title from a memorable line. leader = the person who led or sang it if a name is stated, otherwise "". start_sec / end_sec = that song's bounds in seconds, within the worship portions. List each song separately (not one block of "worship"). Empty array if there is no singing or you genuinely cannot tell the songs apart. Do not invent song titles or names.
+- songs: every song this service, in order, each as { title, leader, kind, start_sec, end_sec }. List each song separately (never one "worship" block).
+  - kind: "worship" or "program". "worship" is the regular congregational singing the whole church does together: there are usually about three worship songs in a service (an opening set, then a closing song), though not always. "program" is a song that is ANNOUNCED or introduced as a special or program item rather than part of that regular set: special music where one person or a group performs a song for the congregation (announced like "our brother Daniel will sing a song for us" or "[name] is going to come and sing"), or an occasional/program piece (a children's song, a holiday or program song). Most songs are "worship"; "program" songs are the announced exception. When unsure, choose "worship".
+  - leader: for a "program" song, the performer's name exactly as stated (e.g., "Daniel"). For "worship", the worship leader's name ONLY if it is clearly stated, otherwise "" (worship songs usually name no one).
+  - title: the song's name when it is stated or clearly recognizable from distinctive lyrics. If you are not confident which song it is, use a short honest descriptive title from a memorable line rather than guessing a specific hymn or worship-song name. Never fabricate a precise title you are unsure of.
+  - topic: ONE short lowercase theme keyword for the song's subject (e.g. "praise", "grace", "the cross", "god's faithfulness", "surrender"). REUSE a topic from the list above whenever one fits, so songs and messages share a vocabulary; only coin a new one when none fit.
+  - start_sec / end_sec: that song's bounds in seconds. Empty array only if there is genuinely no singing.
 - summary: 2-4 sentences summarizing the whole service for a website visitor deciding whether to watch. Lead with the message's topic.
 - seo: { description: a single ~155-character meta description for the service page; tags: 5-10 lowercase topical keywords (themes, book names, not the church name). }
 
@@ -91,10 +96,12 @@ const JSON_SCHEMA = {
         properties: {
           title: { type: "string" },
           leader: { type: "string" },
+          kind: { type: "string", enum: ["worship", "program"] },
+          topic: { type: "string" },
           start_sec: { type: "integer" },
           end_sec: { type: "integer" },
         },
-        required: ["title", "leader", "start_sec", "end_sec"],
+        required: ["title", "leader", "kind", "topic", "start_sec", "end_sec"],
       },
     },
     summary: { type: "string" },
@@ -123,6 +130,8 @@ const SegmentSchema = z.object({
 const SongSchema = z.object({
   title: z.string(),
   leader: z.string(),
+  kind: z.enum(["worship", "program"]),
+  topic: z.string(),
   start_sec: z.number().int().nonnegative(),
   end_sec: z.number().int().nonnegative(),
 })
@@ -149,9 +158,15 @@ export type SermonSegment = {
   scriptureRefs: string[]
 }
 
+export type SongKind = "worship" | "program"
+
 export type SermonSong = {
   title: string
   leader: string | null
+  /** Regular congregational worship vs an announced program song. */
+  kind: SongKind
+  /** One theme keyword, shared with the message topic vocabulary. */
+  topic: string | null
   startSec: number
   endSec: number
 }
@@ -278,6 +293,8 @@ export async function segmentSermon(
       return {
         title: s.title.trim(),
         leader: s.leader.trim() || null,
+        kind: s.kind,
+        topic: s.topic.trim().toLowerCase() || null,
         startSec: dur > 0 ? Math.min(dur, start) : start,
         endSec: end,
       }
