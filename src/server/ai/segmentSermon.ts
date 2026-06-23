@@ -52,7 +52,7 @@ Produce:
 - summary: 2-4 sentences summarizing the whole service for a website visitor deciding whether to watch. Lead with the message's topic.
 - seo: { description: a single ~155-character meta description for the service page; tags: 5-10 lowercase topical keywords (themes, book names, not the church name). }
 
-Aim for roughly 4-12 segments — real chapters, not one per song line. Merge adjacent same-type material. Voice: warm, plain, accurate. Use curly apostrophes. Do not invent content that is not in the transcript; if the message topic is unclear, describe it generally rather than guessing specifics.`
+Aim for roughly 4-12 segments: real chapters, not one per song line. Merge adjacent same-type material. Voice: warm, plain, accurate. Use curly apostrophes. Never use em dashes (or en dashes) in any text you write; phrase so they are not needed, using a colon to introduce, a period to split two thoughts into two sentences, a comma for a short aside, or parentheses for a genuine aside. Do not invent content that is not in the transcript; if the message topic is unclear, describe it generally rather than guessing specifics.`
 
 // NOTE: Anthropic structured-output JSON Schema does NOT support numeric range
 // keywords (minimum/maximum/multipleOf) or length keywords (minLength/maxLength).
@@ -172,6 +172,23 @@ export type SegmentResult =
   | { ok: true; data: SermonSegmentation }
   | { ok: false; reason: "disabled" | "provider_failed"; detail?: string }
 
+/**
+ * Safety net for the site's no-em-dash copy rule. The prompt already forbids em
+ * dashes and asks the model to phrase without them; this guarantees none ship in
+ * the automated public copy (no human sweeps AI output) by turning a stray em or
+ * en dash used as punctuation into flowing punctuation. Hyphens (in ranges and
+ * scripture refs like "Psalm 23:1-6") are left untouched.
+ */
+function noEmDash(s: string): string {
+  return s
+    .replace(/\s*[—―‒]\s*/g, ", ") // em dash / bar -> comma
+    .replace(/\s+–\s+/g, ", ") // spaced en dash (used as a dash) -> comma
+    .replace(/([.!?;:])\s*,\s+/g, "$1 ") // ". , X" -> ". X"
+    .replace(/\s*,\s*,\s*/g, ", ") // collapse doubles
+    .replace(/\s+,/g, ",")
+    .trim()
+}
+
 // Caption transcripts are long; cap the input so a marathon service can't blow
 // the context window. ~120k chars ≈ a multi-hour service of dense captions.
 const MAX_TRANSCRIPT_CHARS = 120_000
@@ -262,8 +279,8 @@ export async function segmentSermon(
       startSec: start,
       endSec: end,
       type: s.type,
-      title: s.title.trim() || "Chapter",
-      summary: s.summary.trim(),
+      title: noEmDash(s.title) || "Chapter",
+      summary: noEmDash(s.summary),
       scriptureRefs: s.scripture_refs.map((r) => r.trim()).filter(Boolean),
     })
   }
@@ -276,7 +293,7 @@ export async function segmentSermon(
       let end = Math.max(start, Math.round(s.end_sec))
       if (dur > 0) end = Math.min(dur, end)
       return {
-        title: s.title.trim(),
+        title: noEmDash(s.title),
         leader: s.leader.trim() || null,
         startSec: dur > 0 ? Math.min(dur, start) : start,
         endSec: end,
@@ -296,9 +313,9 @@ export async function segmentSermon(
       ).slice(0, 1),
       segments: cleaned,
       songs,
-      summary: parsed.summary.trim(),
+      summary: noEmDash(parsed.summary),
       seo: {
-        description: parsed.seo.description.trim(),
+        description: noEmDash(parsed.seo.description),
         tags: parsed.seo.tags.map((t) => t.trim().toLowerCase()).filter(Boolean),
       },
     },
