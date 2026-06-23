@@ -1,7 +1,6 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { formatDistanceToNowStrict } from "date-fns"
-import { Play } from "lucide-react"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import { requireStaff } from "@/server/auth"
 import { DetailScaffold } from "@/components/ui/detail-scaffold"
@@ -9,17 +8,13 @@ import { Badge } from "@/components/ui/badge"
 import { SectionHeading } from "@/components/ui/section-heading"
 import { eventLongDate } from "@/lib/event-format"
 import { SermonActions } from "../sermon-actions"
-import { SermonThumb } from "../sermon-thumb"
 import { PipelineStepsFull } from "../pipeline-steps"
+import { SegmentPlayer, type ClientSong } from "./segment-player"
 import {
   sermonStatus,
   runStatus,
-  segmentVariant,
-  SEGMENT_LABEL,
-  formatClock,
   formatLength,
   formatElapsed,
-  youtubeChapterUrl,
   type SermonSegment,
   type SermonSeo,
   type PipelineStep,
@@ -48,6 +43,7 @@ export default async function SermonDetailPage({ params }: PageProps) {
 
   const status = sermonStatus(sermon.status)
   const segments = (Array.isArray(sermon.segments) ? sermon.segments : []) as SermonSegment[]
+  const songs = (Array.isArray(sermon.songs) ? sermon.songs : []) as ClientSong[]
   const seo = (sermon.seo ?? null) as SermonSeo
   const runs = (runsData ?? []) as {
     id: string
@@ -94,33 +90,12 @@ export default async function SermonDetailPage({ params }: PageProps) {
       meta={meta}
     >
       <div className="space-y-12 pt-6">
-        {/* Watch + summary */}
-        <section className="grid gap-5 sm:grid-cols-[minmax(0,300px)_1fr] sm:gap-6">
-          <a
-            href={`https://youtu.be/${sermon.youtube_video_id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group relative block aspect-video overflow-hidden rounded-xl border border-ink-hairline bg-surface shadow-sm"
-          >
-            <SermonThumb
-              videoId={sermon.youtube_video_id}
-              alt={`${sermon.title} — Morning Star Christian Church, Boise`}
-            />
-            <span className="absolute inset-0 flex items-center justify-center">
-              <span className="flex h-12 w-12 items-center justify-center rounded-pill bg-black/55 text-white backdrop-blur-sm transition-transform duration-[var(--motion-medium)] ease-[var(--ease-out-soft)] group-hover:scale-110 motion-reduce:transition-none">
-                <Play size={20} className="ml-0.5 fill-current" />
-              </span>
-            </span>
-          </a>
-
-          <div className="min-w-0">
-            {sermon.summary ? (
+        {/* Summary + tags */}
+        {(sermon.summary || (seo?.tags?.length ?? 0) > 0) && (
+          <section aria-label="Summary">
+            {sermon.summary && (
               <p className="max-w-prose text-body leading-[var(--leading-prose)] text-ink-soft">
                 {sermon.summary}
-              </p>
-            ) : (
-              <p className="text-body text-ink-faint">
-                A summary appears once the service has been segmented.
               </p>
             )}
             {seo?.tags && seo.tags.length > 0 && (
@@ -135,59 +110,22 @@ export default async function SermonDetailPage({ params }: PageProps) {
                 ))}
               </div>
             )}
-          </div>
-        </section>
+          </section>
+        )}
 
-        {/* Chapters */}
-        <section aria-label="Chapters">
-          <SectionHeading>Chapters</SectionHeading>
+        {/* Review the segmentation: play the video against the chapters + songs */}
+        <section aria-label="Review the segmentation">
+          <SectionHeading>Review the segmentation</SectionHeading>
           {segments.length === 0 ? (
             <p className="text-body text-ink-faint">
               Chapters appear after the transcript is segmented. Run the pipeline to generate them.
             </p>
           ) : (
-            <ol className="overflow-hidden rounded-xl border border-ink-hairline bg-white">
-              {segments.map((seg, i) => (
-                <li
-                  key={i}
-                  className="flex gap-4 border-b border-ink-hairline p-4 last:border-b-0 sm:gap-5 sm:p-5"
-                >
-                  <a
-                    href={youtubeChapterUrl(sermon.youtube_video_id, seg.startSec)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-0.5 inline-flex h-fit shrink-0 items-center gap-1 rounded-pill bg-surface px-2.5 py-1 font-mono text-micro tabular-nums text-ink-muted transition-colors hover:bg-[color-mix(in_oklab,var(--gold)_14%,transparent)] hover:text-gold-dark motion-reduce:transition-none"
-                  >
-                    {formatClock(seg.startSec)}
-                  </a>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant={segmentVariant(seg.type)}>
-                        {SEGMENT_LABEL[seg.type] ?? seg.type}
-                      </Badge>
-                      <h3 className="text-body font-semibold text-ink">{seg.title}</h3>
-                    </div>
-                    {seg.summary && (
-                      <p className="mt-1 text-small leading-[var(--leading-prose)] text-ink-muted">
-                        {seg.summary}
-                      </p>
-                    )}
-                    {seg.scriptureRefs.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        {seg.scriptureRefs.map((ref) => (
-                          <span
-                            key={ref}
-                            className="rounded-md border border-ink-hairline px-2 py-0.5 text-micro text-ink-muted"
-                          >
-                            {ref}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ol>
+            <SegmentPlayer
+              videoId={sermon.youtube_video_id}
+              segments={segments}
+              songs={songs}
+            />
           )}
         </section>
 
