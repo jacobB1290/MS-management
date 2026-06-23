@@ -10,6 +10,7 @@ import { eventLongDate } from "@/lib/event-format"
 import { SermonActions } from "../sermon-actions"
 import { PipelineStepsFull } from "../pipeline-steps"
 import { SegmentPlayer, type ClientSong } from "./segment-player"
+import { TranscriptActions } from "./transcript-actions"
 import {
   sermonStatus,
   runStatus,
@@ -132,7 +133,16 @@ export default async function SermonDetailPage({ params }: PageProps) {
         {/* Transcript */}
         {sermon.transcript && (
           <section aria-label="Transcript">
-            <SectionHeading>Transcript</SectionHeading>
+            <div className="mb-4 flex flex-wrap items-center gap-3">
+              <h2 className="font-display text-lead font-medium text-ink">Transcript</h2>
+              <span
+                className="hidden h-px flex-1 bg-gradient-to-r from-ink-hairline to-transparent sm:block"
+                aria-hidden
+              />
+              <div className="w-full sm:w-auto">
+                <TranscriptActions sermonId={sermon.id} plain={sermon.transcript} />
+              </div>
+            </div>
             <div className="max-h-[28rem] overflow-y-auto overscroll-contain rounded-xl border border-ink-hairline bg-surface/50 p-5">
               <p className="max-w-prose whitespace-pre-wrap text-small leading-[var(--leading-prose)] text-ink-soft">
                 {sermon.transcript}
