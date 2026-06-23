@@ -423,10 +423,15 @@ export async function runSermonPipeline(opts: RunOptions): Promise<RunResult> {
   // after the migration backfills these.
   const { error: cErr } = await admin
     .from("sermons")
-    .update({ format: seg.data.format, speakers: seg.data.speakers, topics: seg.data.topics })
+    .update({
+      format: seg.data.format,
+      speakers: seg.data.speakers,
+      topics: seg.data.topics,
+      songs: seg.data.songs as unknown as Sermon["segments"],
+    })
     .eq("id", sermon.id)
   if (cErr) {
-    console.error("sermon classification write failed (is migration 0038 applied?):", cErr.message)
+    console.error("sermon classification write failed (are migrations 0038/0040 applied?):", cErr.message)
   }
   await rec.finish("segment", "succeeded", {
     detail: `${seg.data.segments.length} chapters`,

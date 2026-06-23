@@ -48,6 +48,7 @@ Produce:
   - title: a short, specific, human title (e.g. "Opening worship", "Sermon: Mending the Broken", "Reading: Psalm 23"). Sentence case, no trailing period.
   - summary: 1-3 plain sentences on what happens in this chapter. For the message, capture the actual main point, not "the pastor preaches".
   - scripture_refs: array of normalized references mentioned or read (e.g. "John 3:16", "Psalm 23:1-6"). Empty array if none.
+- songs: the individual worship songs sung this service, in order, each as { title, leader, start_sec, end_sec }. title = the song's name if it is stated or clearly recognizable from the lyrics, otherwise a short descriptive title from a memorable line. leader = the person who led or sang it if a name is stated, otherwise "". start_sec / end_sec = that song's bounds in seconds, within the worship portions. List each song separately (not one block of "worship"). Empty array if there is no singing or you genuinely cannot tell the songs apart. Do not invent song titles or names.
 - summary: 2-4 sentences summarizing the whole service for a website visitor deciding whether to watch. Lead with the message's topic.
 - seo: { description: a single ~155-character meta description for the service page; tags: 5-10 lowercase topical keywords (themes, book names, not the church name). }
 
@@ -82,6 +83,20 @@ const JSON_SCHEMA = {
         required: ["start_sec", "end_sec", "type", "title", "summary", "scripture_refs"],
       },
     },
+    songs: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          title: { type: "string" },
+          leader: { type: "string" },
+          start_sec: { type: "integer" },
+          end_sec: { type: "integer" },
+        },
+        required: ["title", "leader", "start_sec", "end_sec"],
+      },
+    },
     summary: { type: "string" },
     seo: {
       type: "object",
@@ -93,7 +108,7 @@ const JSON_SCHEMA = {
       required: ["description", "tags"],
     },
   },
-  required: ["format", "speakers", "topics", "segments", "summary", "seo"],
+  required: ["format", "speakers", "topics", "segments", "songs", "summary", "seo"],
 } as const
 
 const SegmentSchema = z.object({
@@ -105,11 +120,19 @@ const SegmentSchema = z.object({
   scripture_refs: z.array(z.string()),
 })
 
+const SongSchema = z.object({
+  title: z.string(),
+  leader: z.string(),
+  start_sec: z.number().int().nonnegative(),
+  end_sec: z.number().int().nonnegative(),
+})
+
 const ResultSchema = z.object({
   format: z.enum(["sermon", "discussion"]),
   speakers: z.array(z.string()),
   topics: z.array(z.string()),
   segments: z.array(SegmentSchema),
+  songs: z.array(SongSchema),
   summary: z.string(),
   seo: z.object({
     description: z.string(),
@@ -126,6 +149,13 @@ export type SermonSegment = {
   scriptureRefs: string[]
 }
 
+export type SermonSong = {
+  title: string
+  leader: string | null
+  startSec: number
+  endSec: number
+}
+
 export type SermonFormat = "sermon" | "discussion"
 
 export type SermonSegmentation = {
@@ -133,6 +163,7 @@ export type SermonSegmentation = {
   speakers: string[]
   topics: string[]
   segments: SermonSegment[]
+  songs: SermonSong[]
   summary: string
   seo: { description: string; tags: string[] }
 }
@@ -237,6 +268,22 @@ export async function segmentSermon(
     })
   }
 
+  // Songs: clamp into [0, duration], keep order, drop empty/zero-length ones.
+  const songs: SermonSong[] = [...parsed.songs]
+    .sort((a, b) => a.start_sec - b.start_sec)
+    .map((s) => {
+      const start = Math.max(0, Math.round(s.start_sec))
+      let end = Math.max(start, Math.round(s.end_sec))
+      if (dur > 0) end = Math.min(dur, end)
+      return {
+        title: s.title.trim(),
+        leader: s.leader.trim() || null,
+        startSec: dur > 0 ? Math.min(dur, start) : start,
+        endSec: end,
+      }
+    })
+    .filter((s) => Boolean(s.title) && s.endSec > s.startSec)
+
   return {
     ok: true,
     data: {
@@ -248,6 +295,7 @@ export async function segmentSermon(
         new Set(parsed.topics.map((t) => t.trim().toLowerCase()).filter(Boolean)),
       ).slice(0, 1),
       segments: cleaned,
+      songs,
       summary: parsed.summary.trim(),
       seo: {
         description: parsed.seo.description.trim(),

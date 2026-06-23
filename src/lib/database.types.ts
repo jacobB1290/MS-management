@@ -814,6 +814,7 @@ export type Database = {
           segments: Json
           seo: Json | null
           slug: string | null
+          songs: Json
           source: string
           speakers: string[]
           status: string
@@ -836,6 +837,7 @@ export type Database = {
           segments?: Json
           seo?: Json | null
           slug?: string | null
+          songs?: Json
           source?: string
           speakers?: string[]
           status?: string
@@ -858,6 +860,7 @@ export type Database = {
           segments?: Json
           seo?: Json | null
           slug?: string | null
+          songs?: Json
           source?: string
           speakers?: string[]
           status?: string

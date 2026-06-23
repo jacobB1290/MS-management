@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { createSupabaseAdminClient } from "@/lib/supabase/server"
 import type { Tables } from "@/lib/database.types"
-import type { SermonSegment, SermonFormat } from "@/server/ai/segmentSermon"
+import type { SermonSegment, SermonFormat, SermonSong } from "@/server/ai/segmentSermon"
 
 /**
  * Public, read-only feed of PUBLISHED sermons for ms.church to render (chaptered
@@ -36,12 +36,15 @@ type PublicSermon = {
   summary: string | null
   seo: { description: string; tags: string[] } | null
   segments: SermonSegment[]
+  /** Individual worship songs (title + who + bounds) for the Songs library. */
+  songs: SermonSong[]
   /** Full transcript only included in the single-sermon (slug) response. */
   transcript?: string | null
 }
 
 function toPublic(row: Row, includeTranscript: boolean): PublicSermon {
   const segments = (Array.isArray(row.segments) ? row.segments : []) as unknown as SermonSegment[]
+  const songs = (Array.isArray(row.songs) ? row.songs : []) as unknown as SermonSong[]
   const seo = (row.seo ?? null) as PublicSermon["seo"]
   return {
     slug: row.slug ?? row.youtube_video_id,
@@ -56,6 +59,7 @@ function toPublic(row: Row, includeTranscript: boolean): PublicSermon {
     summary: row.summary,
     seo,
     segments,
+    songs,
     ...(includeTranscript ? { transcript: row.transcript } : {}),
   }
 }
