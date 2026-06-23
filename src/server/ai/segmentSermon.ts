@@ -41,7 +41,7 @@ The week's MESSAGE is delivered in one of two formats: a sermon (one person teac
 Produce:
 - format: "sermon" or "discussion" — how the main message was delivered this week.
 - speakers: the people who gave the message, named only if the transcript states their names (the preaching pastor, or the two hosts). Use the form given (first name, or first + last). Empty array if no name is stated. Never guess a name.
-- topics: 1-3 short, lowercase theme keywords for the message (e.g. "grace", "fatherhood", "prayer", "the good shepherd"). REUSE an existing topic from the provided list whenever one fits; only coin a new topic when none of them capture it. Broad, durable themes — not the church name, not a bare Bible-book name.
+- topics: EXACTLY ONE short, lowercase theme keyword for the message — the single best one (e.g. "grace", "fatherhood", "prayer", "the good shepherd"). Return it as a one-element array. REUSE an existing topic from the provided list whenever one fits; only coin a new topic when none capture it. A broad, durable theme — not the church name, not a bare Bible-book name. One tag only, so people can filter cleanly.
 - segments: an ordered, NON-overlapping, gap-free cover of the service from start to finish. Each segment has:
   - start_sec / end_sec: integers in seconds, taken from the nearest surrounding timestamps. The first segment starts at 0; each segment's end_sec equals the next segment's start_sec; the last ends at the final timestamp.
   - type: one of welcome, worship, scripture, prayer, sermon, discussion, poem, testimony, offering, announcement, benediction, other. Use "worship" for congregational singing/music, "sermon" for a preached message, "discussion" for a two-host message, "scripture" for a passage being read aloud.
@@ -242,9 +242,11 @@ export async function segmentSermon(
     data: {
       format: parsed.format,
       speakers: Array.from(new Set(parsed.speakers.map((s) => s.trim()).filter(Boolean))),
+      // One tag per item (hard rule): keep only the single best topic so the
+      // public site filters cleanly. The model is asked for exactly one.
       topics: Array.from(
         new Set(parsed.topics.map((t) => t.trim().toLowerCase()).filter(Boolean)),
-      ).slice(0, 3),
+      ).slice(0, 1),
       segments: cleaned,
       summary: parsed.summary.trim(),
       seo: {
