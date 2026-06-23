@@ -68,7 +68,11 @@ const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, OPTIONS",
 }
-const CACHE = "public, s-maxage=300, stale-while-revalidate=86400"
+// Short, bounded edge cache. ms.church fetches this server-side and layers its
+// own caches on top, so a long SWR window here would pin a freshly published
+// sermon out of the public feed for hours. 60s fresh + 120s SWR keeps the feed
+// near-live while still absorbing bursts at the edge.
+const CACHE = "public, s-maxage=60, stale-while-revalidate=120"
 
 export function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS })
