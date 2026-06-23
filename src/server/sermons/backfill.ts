@@ -58,7 +58,7 @@ export async function listBackfillCandidates(): Promise<BackfillListing> {
   const videos = await fetchAllPlaylistVideos()
 
   const [{ data: sermonRows }, { data: queueRows }] = await Promise.all([
-    admin.from("sermons").select("id, youtube_video_id, status"),
+    admin.from("sermons").select("id, youtube_video_id, status, generated_title"),
     admin
       .from("sermon_backfill_queue")
       .select("youtube_video_id, status, error"),
@@ -97,6 +97,7 @@ export async function listBackfillCandidates(): Promise<BackfillListing> {
     return {
       videoId: v.videoId,
       title: v.title,
+      generatedTitle: sermon?.generated_title ?? null,
       publishedAt: v.publishedAt,
       thumbnailUrl: v.thumbnailUrl,
       state,

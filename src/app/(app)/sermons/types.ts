@@ -144,6 +144,8 @@ export type BackfillState =
 export type BackfillCandidate = {
   videoId: string
   title: string
+  /** The AI-generated public title once the service has been segmented; null otherwise. */
+  generatedTitle: string | null
   publishedAt: string | null
   thumbnailUrl: string
   state: BackfillState

@@ -426,13 +426,16 @@ function Row({
 }) {
   const state = BACKFILL_STATE[c.state]
   const date = c.publishedAt ? eventDisplayDate(c.publishedAt) : "Date unknown"
+  // A segmented service shows its generated title; one not yet processed shows
+  // the raw YouTube title (all there is until it runs).
+  const display = c.generatedTitle || c.title
   const inner = (
     <>
       <span className="relative aspect-video w-24 shrink-0 overflow-hidden rounded-md bg-surface sm:w-28">
-        <SermonThumb videoId={c.videoId} alt={c.title} />
+        <SermonThumb videoId={c.videoId} alt={display} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="line-clamp-2 text-small font-medium text-ink">{c.title}</span>
+        <span className="line-clamp-2 text-small font-medium text-ink">{display}</span>
         <span className="mt-1 flex flex-wrap items-center gap-2">
           <Badge variant={state.variant}>{state.label}</Badge>
           <span className="text-micro text-ink-faint">{date}</span>
