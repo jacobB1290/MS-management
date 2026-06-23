@@ -812,6 +812,7 @@ export type Database = {
           duration_sec: number | null
           error: string | null
           format: string
+          generated_title: string | null
           id: string
           published_at: string | null
           segments: Json
@@ -835,6 +836,7 @@ export type Database = {
           duration_sec?: number | null
           error?: string | null
           format?: string
+          generated_title?: string | null
           id?: string
           published_at?: string | null
           segments?: Json
@@ -858,6 +860,7 @@ export type Database = {
           duration_sec?: number | null
           error?: string | null
           format?: string
+          generated_title?: string | null
           id?: string
           published_at?: string | null
           segments?: Json

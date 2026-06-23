@@ -40,6 +40,7 @@ You receive the full transcript with [mm:ss] or [h:mm:ss] timestamps at the star
 
 ## What you produce
 
+- **title**: a short, descriptive public title for the service, centered on the message. See "Title".
 - **format**: "sermon" or "discussion", how the main message was delivered this week. See "The message" below.
 - **speakers**: the people who delivered the message, named only when the transcript states their names. See "Speakers and names".
 - **topics**: a one-element array holding exactly one short lowercase theme keyword for the message. See "Topic".
@@ -58,6 +59,10 @@ Two traps to avoid when locating the message:
 
 - **The reading reflection is not the message.** After the Scripture is read aloud, the reader often spends a minute or two opening up the passage. That reflection belongs to the Scripture chapter, not the message, even though it is one person plainly teaching. The real message comes later, after the meet and greet, introduced by its own hand-off. Do not mistake the longest early solo for the message.
 - **The opening exhortation is not the message either.** The welcome usually includes a short Scripture and a few sentences of encouragement. That stays in the welcome.
+
+## Title
+
+Write a **title**: a short, specific public title for this service, the way a sermon archive names a message. Center it on what the message is actually about, so a visitor scanning the library knows the subject at a glance and a search engine reads the real topic. Good titles: "The Lord's Prayer as a Blueprint for Fathers", "Loving Your Enemies", "The Joy That Outlasts Circumstances", "Longsuffering: The God-Given Power to Wait". Three to eight words, in title case. Make it distinctive week to week and never generic: never the date, the time, the word "live", the service slot, or the church name. A bare one-word topic ("Joy") is weaker than a short phrase that says something specific, so prefer the phrase when one fits. For a discussion, title the subject the hosts work through, the same way. If the message subject is genuinely unclear, name it plainly from what is taught rather than inventing specifics.
 
 ## The shape of a service
 
@@ -181,6 +186,7 @@ const JSON_SCHEMA = {
   properties: {
     // Limits like "1-3 topics" / "2 hosts" live in the prompt + repair pass, not
     // the schema — structured-output JSON Schema rejects minItems/maxItems.
+    title: { type: "string" },
     format: { type: "string", enum: ["sermon", "discussion"] },
     speakers: { type: "array", items: { type: "string" } },
     topics: { type: "array", items: { type: "string" } },
@@ -227,7 +233,7 @@ const JSON_SCHEMA = {
       required: ["description", "tags"],
     },
   },
-  required: ["format", "speakers", "topics", "segments", "songs", "summary", "seo"],
+  required: ["title", "format", "speakers", "topics", "segments", "songs", "summary", "seo"],
 } as const
 
 const SegmentSchema = z.object({
@@ -249,6 +255,7 @@ const SongSchema = z.object({
 })
 
 const ResultSchema = z.object({
+  title: z.string(),
   format: z.enum(["sermon", "discussion"]),
   speakers: z.array(z.string()),
   topics: z.array(z.string()),
@@ -286,6 +293,8 @@ export type SermonSong = {
 export type SermonFormat = "sermon" | "discussion"
 
 export type SermonSegmentation = {
+  /** A clean, descriptive public title for the service, centered on the message. */
+  title: string
   format: SermonFormat
   speakers: string[]
   topics: string[]
@@ -438,6 +447,7 @@ export async function segmentSermon(
   return {
     ok: true,
     data: {
+      title: parsed.title.trim(),
       format: parsed.format,
       speakers: Array.from(new Set(parsed.speakers.map((s) => s.trim()).filter(Boolean))),
       // One tag per item (hard rule): keep only the single best topic so the

@@ -424,6 +424,7 @@ export async function runSermonPipeline(opts: RunOptions): Promise<RunResult> {
   const { error: cErr } = await admin
     .from("sermons")
     .update({
+      generated_title: seg.data.title,
       format: seg.data.format,
       speakers: seg.data.speakers,
       topics: seg.data.topics,

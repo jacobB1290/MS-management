@@ -49,7 +49,9 @@ function toPublic(row: Row, includeTranscript: boolean): PublicSermon {
   return {
     slug: row.slug ?? row.youtube_video_id,
     youtubeVideoId: row.youtube_video_id,
-    title: row.title,
+    // The public title is the AI-generated, descriptive one; fall back to the
+    // raw YouTube livestream title for a service not re-run since 0042.
+    title: row.generated_title || row.title,
     format: row.format === "discussion" ? "discussion" : "sermon",
     speakers: Array.isArray(row.speakers) ? row.speakers : [],
     topics: Array.isArray(row.topics) ? row.topics : [],

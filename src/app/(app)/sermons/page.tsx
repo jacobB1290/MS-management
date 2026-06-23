@@ -33,6 +33,7 @@ type SermonRow = {
   youtube_video_id: string
   slug: string | null
   title: string
+  generated_title: string | null
   status: string
   published_at: string | null
   created_at: string
@@ -61,7 +62,7 @@ export default async function SermonsPage() {
     supabase
       .from("sermons")
       .select(
-        "id, youtube_video_id, slug, title, status, published_at, created_at, thumbnail_url, duration_sec, summary, segments",
+        "id, youtube_video_id, slug, title, generated_title, status, published_at, created_at, thumbnail_url, duration_sec, summary, segments",
       )
       .order("created_at", { ascending: false })
       .limit(60),
@@ -284,13 +285,13 @@ function SermonFeature({ sermon }: { sermon: SermonRow }) {
       <div className="relative aspect-video w-full shrink-0 overflow-hidden bg-surface sm:w-64 md:w-80">
         <SermonThumb
           videoId={sermon.youtube_video_id}
-          alt={`${sermon.title} — Morning Star Christian Church`}
+          alt={`${(sermon.generated_title || sermon.title)} — Morning Star Christian Church`}
         />
       </div>
       <div className="flex flex-1 flex-col justify-center gap-1.5 p-5 sm:p-6 md:p-8">
         <span className="eyebrow text-gold">Most recent</span>
         <h3 className="font-display text-lead leading-[var(--leading-snug)] text-ink">
-          {sermon.title}
+          {(sermon.generated_title || sermon.title)}
         </h3>
         {sermon.summary && (
           <p className="line-clamp-2 max-w-prose text-small text-ink-muted">{sermon.summary}</p>
@@ -324,7 +325,7 @@ function SermonPoster({ sermon }: { sermon: SermonRow }) {
       <div className="relative aspect-video overflow-hidden bg-surface">
         <SermonThumb
           videoId={sermon.youtube_video_id}
-          alt={`${sermon.title} — Morning Star Christian Church`}
+          alt={`${(sermon.generated_title || sermon.title)} — Morning Star Christian Church`}
         />
         <span className="absolute left-2 top-2">
           <Badge variant={status.variant} className="shadow-sm">
@@ -336,7 +337,7 @@ function SermonPoster({ sermon }: { sermon: SermonRow }) {
         <span className="font-display text-body leading-tight text-gold">
           {eventDisplayDate(when)}
         </span>
-        <span className="line-clamp-2 text-small font-medium text-ink">{sermon.title}</span>
+        <span className="line-clamp-2 text-small font-medium text-ink">{(sermon.generated_title || sermon.title)}</span>
         {chapters > 0 && <span className="text-micro text-ink-faint">{chapters} chapters</span>}
       </div>
     </Link>
@@ -388,7 +389,7 @@ function RunsTable({
                       prefetch
                       className="truncate font-medium text-ink underline-offset-2 hover:text-gold-dark hover:underline"
                     >
-                      {sermon.title}
+                      {(sermon.generated_title || sermon.title)}
                     </Link>
                   ) : (
                     <span className="truncate text-ink-muted">{run.youtube_video_id}</span>

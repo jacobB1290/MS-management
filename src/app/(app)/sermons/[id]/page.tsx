@@ -84,13 +84,20 @@ export default async function SermonDetailPage({ params }: PageProps) {
   return (
     <DetailScaffold
       eyebrow="Sermon"
-      title={sermon.title}
+      title={sermon.generated_title || sermon.title}
       backHref="/sermons"
       backLabel="All sermons"
       actions={actions}
       meta={meta}
     >
       <div className="space-y-12 pt-6">
+        {/* The AI title is what the public site shows; surface the original
+            YouTube title so staff can verify the generated one against it. */}
+        {sermon.generated_title && sermon.generated_title !== sermon.title && (
+          <p className="-mt-6 text-small text-ink-faint">
+            <span className="font-medium text-ink-muted">Original title</span> · {sermon.title}
+          </p>
+        )}
         {/* Summary + tags */}
         {(sermon.summary || (seo?.tags?.length ?? 0) > 0) && (
           <section aria-label="Summary">
