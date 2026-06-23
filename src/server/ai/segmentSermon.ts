@@ -246,6 +246,13 @@ export async function segmentSermon(
           format: { type: "json_schema", schema: JSON_SCHEMA },
           ...(supportsEffort ? { effort: config.effort } : {}),
         },
+      }, {
+        // Segmentation is a background job on a 300s function, so it can wait
+        // through Anthropic's transient capacity errors (HTTP 529 overloaded_error,
+        // 500s, 429s) instead of failing the run. The SDK retries these with
+        // exponential backoff; lift the default (2) so a brief overload self-heals
+        // rather than needing a manual re-run.
+        maxRetries: 5,
       })
       .finalMessage()
     // A refusal (HTTP 200) or a truncation returns non-schema content; surface it
