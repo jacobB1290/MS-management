@@ -226,37 +226,61 @@ export async function enqueueBackfill(
   return { enqueued: toUpsert.length, skipped }
 }
 
+type Admin = ReturnType<typeof createSupabaseAdminClient>
+
+export type DrainItem = {
+  videoId: string
+  mode: "session" | "api"
+  status: "done" | "skipped" | "failed"
+  sermonId?: string | null
+}
+
 export type DrainResult = {
   ok: boolean
-  drained: boolean
-  videoId?: string
-  sermonId?: string | null
-  status?: "done" | "skipped" | "failed"
-  detail?: string
+  /** Total queue items processed this tick. */
+  drained: number
+  /** Session-mode ("Hold for Claude Code") items prepared this tick. */
+  held: number
+  /** API-mode items processed this tick (0 or 1 — kept serial). */
+  api: number
+  items: DrainItem[]
   /** Pending items still in the queue after this tick. */
   remaining?: number
 }
 
-/**
- * Claim and process ONE pending item. Called by the pg_cron worker every 5 min.
- * The claim is an optimistic `status = 'pending'` guard (no row locks): if two
- * ticks overlap, only one UPDATE flips the row to `running`; the loser matches 0
- * rows and reports `drained: false`. Segmenting is minutes-long, so one-per-tick
- * keeps each invocation inside the function timeout while still chewing through
- * the catalog over successive ticks.
- */
-export async function drainNextBackfill(): Promise<DrainResult> {
-  const admin = createSupabaseAdminClient()
+// Held items are cheap (detect + transcribe + park a job, NO segmentation — that
+// goes to a session), so the worker prepares ALL pending held items in a single
+// tick. API items run their multi-minute segmentation inline, so they stay
+// strictly one-at-a-time (see the guard) and never overlap, which keeps this safe
+// at a tight cron cadence.
+const HELD_BATCH_CAP = 16
+const SOFT_DEADLINE_MS = 240_000 // stay under the route's 300s maxDuration
+// Only START an API item early in the invocation, so its long segmentation gets
+// the bulk of the function budget. A held-heavy tick defers the API item to the
+// next tick (when step 1 is empty and it gets the full window).
+const API_START_BUDGET_MS = 30_000
 
+type ClaimedRow = {
+  youtube_video_id: string
+  title: string | null
+  published_at: string | null
+  attempts: number | null
+  requested_by: string | null
+  reprocess: boolean | null
+  hold_for_claude: boolean | null
+}
+
+/** Atomically claim the oldest pending row of the given mode (held vs API). */
+async function claimOldestPending(admin: Admin, held: boolean): Promise<ClaimedRow | null> {
   const { data: next } = await admin
     .from("sermon_backfill_queue")
     .select("youtube_video_id, title, published_at, attempts, requested_by, reprocess, hold_for_claude")
     .eq("status", "pending")
+    .eq("hold_for_claude", held)
     .order("requested_at", { ascending: true })
     .limit(1)
     .maybeSingle()
-  if (!next) return { ok: true, drained: false }
-
+  if (!next) return null
   const { data: claimed } = await admin
     .from("sermon_backfill_queue")
     .update({
@@ -269,29 +293,25 @@ export async function drainNextBackfill(): Promise<DrainResult> {
     .eq("status", "pending") // only one worker wins the row
     .select("youtube_video_id")
     .maybeSingle()
-  if (!claimed) return { ok: true, drained: false } // lost the race
+  if (!claimed) return null // lost the race
+  return next
+}
 
+/** Run the pipeline for a claimed row and stamp its final queue status. */
+async function runClaimed(admin: Admin, next: ClaimedRow): Promise<DrainItem> {
+  const held = next.hold_for_claude === true
   const result = await runSermonPipeline({
     trigger: "backfill",
     userId: next.requested_by,
     videoId: next.youtube_video_id,
-    videoMeta: {
-      title: next.title ?? "Sunday Service",
-      publishedAt: next.published_at,
-    },
+    videoMeta: { title: next.title ?? "Sunday Service", publishedAt: next.published_at },
     // A re-run request re-segments an already-processed service (back to review).
     force: next.reprocess === true,
     // Per-item "Hold for Claude Code": hand segmentation to a session instead of
     // the API. The server-side drain honors the choice with no CRM open.
-    segmentMode: next.hold_for_claude === true ? "session" : "api",
+    segmentMode: held ? "session" : "api",
   })
-
-  const status: "done" | "skipped" | "failed" = !result.ok
-    ? "failed"
-    : result.noop
-      ? "skipped"
-      : "done"
-
+  const status: "done" | "skipped" | "failed" = !result.ok ? "failed" : result.noop ? "skipped" : "done"
   await admin
     .from("sermon_backfill_queue")
     .update({
@@ -300,21 +320,61 @@ export async function drainNextBackfill(): Promise<DrainResult> {
       finished_at: new Date().toISOString(),
     })
     .eq("youtube_video_id", next.youtube_video_id)
+  return { videoId: next.youtube_video_id, mode: held ? "session" : "api", status, sermonId: result.sermonId }
+}
+
+/**
+ * Drain the back-catalog queue for one tick. Called by the pg_cron worker.
+ *  - Step 1: prepare ALL pending held ("Hold for Claude Code") items — each only
+ *    transcribes + parks a segmentation job, so a whole selection lands in the
+ *    segmentation queue in ONE tick (bounded by HELD_BATCH_CAP + a time budget)
+ *    instead of one-every-tick.
+ *  - Step 2: at most ONE API item, only if none is already `running` elsewhere
+ *    and we're early enough in the invocation to give its long segmentation room.
+ *    So two heavy segmentations can never overlap, even at a tight cadence.
+ * Optimistic `status='pending'` claim throughout: overlapping ticks never
+ * double-process a row. Never throws — a failed item is marked on its row.
+ */
+export async function drainNextBackfill(): Promise<DrainResult> {
+  const admin = createSupabaseAdminClient()
+  const started = Date.now()
+  const items: DrainItem[] = []
+  let held = 0
+  let api = 0
+
+  // 1) Batch every pending held item (cheap: transcribe + park a job).
+  while (held < HELD_BATCH_CAP && Date.now() - started < SOFT_DEADLINE_MS) {
+    const next = await claimOldestPending(admin, true)
+    if (!next) break
+    items.push(await runClaimed(admin, next))
+    held++
+  }
+
+  // 2) At most one API item, kept strictly serial: skip if one is already running
+  //    elsewhere, or if the held batch already ate into the function budget.
+  if (Date.now() - started < API_START_BUDGET_MS) {
+    const { data: runningApi } = await admin
+      .from("sermon_backfill_queue")
+      .select("youtube_video_id")
+      .eq("status", "running")
+      .eq("hold_for_claude", false)
+      .limit(1)
+      .maybeSingle()
+    if (!runningApi) {
+      const next = await claimOldestPending(admin, false)
+      if (next) {
+        items.push(await runClaimed(admin, next))
+        api++
+      }
+    }
+  }
 
   const { count } = await admin
     .from("sermon_backfill_queue")
     .select("youtube_video_id", { count: "exact", head: true })
     .eq("status", "pending")
 
-  return {
-    ok: result.ok,
-    drained: true,
-    videoId: next.youtube_video_id,
-    sermonId: result.sermonId,
-    status,
-    detail: result.detail,
-    remaining: count ?? undefined,
-  }
+  return { ok: true, drained: items.length, held, api, items, remaining: count ?? undefined }
 }
 
 export type BulkPublishResult = {
