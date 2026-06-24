@@ -79,10 +79,16 @@ export function BackfillPicker({
 
   const anyInFlight = useMemo(() => candidates.some(isInFlight), [candidates])
 
-  // Each filter owns one action: To process → queue, Ready to review → publish,
-  // Published → re-run (re-segment an already-live service, back to review).
+  // Each filter owns its actions: To process → queue; Published → re-run
+  // (re-segment an already-live service, back to review); Ready to review →
+  // publish AND re-run (re-segment what you're reviewing, e.g. to pick up a
+  // prompt change, optionally via Claude Code, without publishing first).
   const barMode: "queue" | "publish" | "reprocess" =
     filter === "review" ? "publish" : filter === "published" ? "reprocess" : "queue"
+  // A (re-)run is reachable in every mode except a pure publish; review has both.
+  const canRerun = filter === "review" || barMode === "reprocess"
+  // The Hold for Claude Code toggle applies to any (re-)run or queue action.
+  const showHold = barMode === "queue" || canRerun
   const canAct = useCallback(
     (c: BackfillCandidate) =>
       barMode === "publish"
@@ -238,7 +244,7 @@ export function BackfillPicker({
     actionable.length > 0 && actionable.every((c) => selected.has(c.videoId))
 
   return (
-    <div className="pb-28">
+    <div className="pb-36 sm:pb-28">
       {/* Summary band */}
       <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-ink-hairline bg-ink-hairline sm:grid-cols-4">
         <Stat label="Past services" value={tally.new + tally.queued + tally.processing + tally.in_progress + tally.review + tally.published + tally.failed + tally.skipped} />
@@ -308,7 +314,7 @@ export function BackfillPicker({
           </button>
           <span className="text-micro text-ink-faint">
             {barMode === "publish"
-              ? "Tap to choose what goes live"
+              ? "Tap to choose what to re-run or publish"
               : barMode === "reprocess"
                 ? "Tap to choose what to re-run"
                 : "Tap to choose what to process"}
@@ -343,15 +349,15 @@ export function BackfillPicker({
         )}
         aria-hidden={selCount === 0}
       >
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+        <div className="mx-auto flex max-w-3xl flex-col gap-2.5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <span className="shrink-0 text-small font-medium text-ink">{selCount} selected</span>
-            {barMode !== "publish" && (
+            {showHold && (
               <button
                 type="button"
                 onClick={() => setHold((h) => !h)}
                 aria-pressed={hold}
-                title="Prepare these (detect + transcribe), then hand the segmentation to a Claude Code session instead of the Anthropic API. The CRM finishes the job when the session returns it."
+                title="Prepare these (detect + transcribe), then hand the segmentation to a Claude Code session instead of the Anthropic API. The CRM finishes the job when the session returns it. Applies to the re-run, not publish."
                 className={cn(
                   "shrink-0 rounded-pill border px-3 py-1.5 text-micro font-medium transition-colors duration-[var(--motion-fast)] ease-[var(--ease-out-soft)] motion-reduce:transition-none",
                   hold
@@ -363,7 +369,7 @@ export function BackfillPicker({
               </button>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-end gap-2">
             <Button
               variant="ghost"
               size="sm"
@@ -373,14 +379,31 @@ export function BackfillPicker({
               Clear
             </Button>
             {barMode === "publish" ? (
-              <Button size="sm" onClick={publishSelected} disabled={busy !== null || selCount === 0}>
-                {busy === "publish" ? (
-                  <Loader2 size={15} className="animate-spin" />
-                ) : (
-                  <UploadCloud size={15} />
-                )}
-                <span>{busy === "publish" ? "Publishing…" : `Publish ${selCount}`}</span>
-              </Button>
+              <>
+                {/* Review offers re-run (secondary) alongside publish (primary):
+                    re-segment what you're reviewing without taking it live first. */}
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => queueSelected(true)}
+                  disabled={busy !== null || selCount === 0}
+                >
+                  {busy === "reprocess" ? (
+                    <Loader2 size={15} className="animate-spin" />
+                  ) : (
+                    <RefreshCw size={15} />
+                  )}
+                  <span>{busy === "reprocess" ? "Re-running…" : `Re-run ${selCount}`}</span>
+                </Button>
+                <Button size="sm" onClick={publishSelected} disabled={busy !== null || selCount === 0}>
+                  {busy === "publish" ? (
+                    <Loader2 size={15} className="animate-spin" />
+                  ) : (
+                    <UploadCloud size={15} />
+                  )}
+                  <span>{busy === "publish" ? "Publishing…" : `Publish ${selCount}`}</span>
+                </Button>
+              </>
             ) : barMode === "reprocess" ? (
               <Button size="sm" onClick={() => queueSelected(true)} disabled={busy !== null || selCount === 0}>
                 {busy === "reprocess" ? (

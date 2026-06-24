@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
 
   let body: {
     videos?: { videoId: string; title?: string | null; publishedAt?: string | null }[]
-    /** Re-run already-processed services (the "Re-run" action on the Published tab). */
+    /** Re-run already-processed services (the "Re-run" action on the Ready to review + Published tabs). */
     reprocess?: boolean
     /** "Hold for Claude Code": prepare + park for a session instead of the API. */
     holdForClaude?: boolean
