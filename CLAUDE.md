@@ -595,6 +595,13 @@ output (clean per-cue timing, the SAME input the API path uses) removes that.
   `sermon_backfill_queue.hold_for_claude` column, so the server-side drain honors
   it with no CRM instance open. `RunOptions.segmentMode` (`'api'|'session'`, default
   `'api'`) carries it into `runSermonPipeline`.
+- **Auto-fallback (max_tokens).** An API-path segment run that overruns the
+  model's output (`stop_reason: max_tokens` — a long or unusual service where
+  adaptive thinking + the chapter JSON don't fit) does NOT fail: it auto-parks a
+  segmentation_job for a session (sermon -> `awaiting_segmentation`), exactly as if
+  Hold for Claude Code had been picked, since a session has far more inference
+  room. So jobs can land in the queue without the operator toggling anything;
+  process them identically.
 - **The bus:** `public.segmentation_jobs` (migration 0043). On `segmentMode:'session'`
   the pipeline parks the sermon at status `awaiting_segmentation` and inserts a job
   carrying the COMPLETE prompt — `system_prompt` (= `SYSTEM_PROMPT`), `user_content`

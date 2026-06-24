@@ -368,16 +368,21 @@ export async function runSermonPipeline(opts: RunOptions): Promise<RunResult> {
   //               /segment-finalize cron then completes it. No API spend, and the
   //               session works the CRM's own clean timestamped transcript.
   // Both modes converge on the same applySegmentation() + finalizeSegmentation,
-  // so the persisted sermon is byte-identical either way.
+  // so the persisted sermon is byte-identical either way. And an API run the
+  // model can't fit (stop_reason: max_tokens on a long, unusual service) AUTO
+  // falls back to the session path below rather than failing — a Claude Code
+  // session has far more inference room, and the operator runs those anomalies
+  // manually.
   await rec.start("segment")
   const segmentMode: "api" | "session" = opts.segmentMode ?? "api"
   const knownTopics = await fetchKnownTopics(admin)
 
-  if (segmentMode === "session") {
-    // The session is ONLY the model: everything it needs (system prompt, the
-    // timestamped transcript, the schema) is baked into the job here, and the
-    // result lands back in the same row for the CRM to finalize. Zero CRM work
-    // on the session side, no API key required.
+  // Park the prepared prompt as a segmentation_job for a Claude Code session and
+  // close the run clean. The session is ONLY the model: everything it needs
+  // (system prompt, the timestamped transcript, the schema) is baked into the job
+  // here, with zero CRM work on the session side and no API key required. Used by
+  // 'session' mode and by the API max_tokens fallback.
+  const handoffToSession = async (detail: string): Promise<RunResult> => {
     await admin.from("sermons").update({ status: "awaiting_segmentation", error: null }).eq("id", sermon.id)
     const enq = await enqueueSegmentationJob(admin, {
       sermonId: sermon.id,
@@ -392,7 +397,7 @@ export async function runSermonPipeline(opts: RunOptions): Promise<RunResult> {
       await rec.finish("segment", "failed", { error: enq.error })
       return fail(sermon.id, enq.error)
     }
-    await rec.finish("segment", "skipped", { detail: `handed to Claude Code (job ${enq.jobId})` })
+    await rec.finish("segment", "skipped", { detail: `${detail} (job ${enq.jobId})` })
     await admin
       .from("sermon_pipeline_runs")
       .update({ status: "succeeded", finished_at: new Date().toISOString() })
@@ -402,7 +407,7 @@ export async function runSermonPipeline(opts: RunOptions): Promise<RunResult> {
       actorUserId: userId,
       targetTable: "sermon_pipeline_runs",
       targetId: run.id,
-      diff: { trigger: opts.trigger, step: "segment", mode: "session", jobId: enq.jobId, videoId: video.videoId },
+      diff: { trigger: opts.trigger, step: "segment", mode: "session", jobId: enq.jobId, videoId: video.videoId, detail },
     })
     return {
       ok: true,
@@ -413,6 +418,10 @@ export async function runSermonPipeline(opts: RunOptions): Promise<RunResult> {
       steps: rec.current(),
       detail: "awaiting_segmentation",
     }
+  }
+
+  if (segmentMode === "session") {
+    return handoffToSession("handed to Claude Code")
   }
 
   // ---- API mode (standard) ----
@@ -444,6 +453,14 @@ export async function runSermonPipeline(opts: RunOptions): Promise<RunResult> {
   await admin.from("sermons").update({ status: "segmenting", error: null }).eq("id", sermon.id)
   const seg = await segmentSermon(timestamped, durationSec, knownTopics)
   if (!seg.ok) {
+    // Anomaly fallback: the API couldn't fit the output — the model truncated
+    // (adaptive thinking + the chapter JSON overran max_tokens) or declined the
+    // length. Hand it to the limitless session path instead of failing the
+    // service; the operator runs those manually. Any other failure (provider
+    // outage, refusal, disabled) still fails the run for the monitor to surface.
+    if (seg.reason === "provider_failed" && /max_tokens/i.test(seg.detail ?? "")) {
+      return handoffToSession("API hit max_tokens; handed to Claude Code")
+    }
     await rec.finish("segment", "failed", { error: `${seg.reason}${seg.detail ? `: ${seg.detail}` : ""}` })
     return fail(sermon.id, `segment_${seg.reason}`)
   }

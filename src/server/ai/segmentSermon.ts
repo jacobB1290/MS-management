@@ -26,11 +26,14 @@ import {
  */
 export * from "./segmentContract"
 
-// Safe ceiling for the segment call's max_tokens (output + adaptive-thinking
-// headroom). Generous enough for a marathon service's chapter JSON plus deep
-// thinking, and below any model's hard max-output so a high/max effort tier can
-// never overshoot the limit and 400.
-const SEGMENT_MAX_OUTPUT = 32000
+// Ceiling for the segment call's max_tokens (output + adaptive-thinking
+// headroom). The default high-effort request lands ~24.5k — comfortably under any
+// model's hard max-output, so ordinary services still segment via the API. This
+// 100k ceiling only bites at the very top effort tiers; if a request ever exceeds
+// the model's real limit (or the model truncates mid-output), the pipeline AUTO
+// falls back to the limitless Claude Code session path (runSermonPipeline step 3),
+// so a too-large request degrades to a parked job rather than a hard failure.
+const SEGMENT_MAX_OUTPUT = 100_000
 
 /**
  * Segment a timestamped transcript via the Anthropic API. `durationSec` is used
