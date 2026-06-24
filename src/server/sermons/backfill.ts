@@ -28,6 +28,7 @@ const SERMON_ACTIVE = new Set([
   "transcribing",
   "transcribed",
   "segmenting",
+  "awaiting_segmentation",
   "segmented",
   "review",
   "published",
@@ -39,7 +40,7 @@ const SERMON_ACTIVE = new Set([
  * existing run owns the row. Everything else (segmented/review/published/failed)
  * is fair game to re-process on demand.
  */
-const SERMON_BUSY = new Set(["transcribing", "segmenting"])
+const SERMON_BUSY = new Set(["transcribing", "segmenting", "awaiting_segmentation"])
 
 function sermonState(status: string): BackfillState {
   if (status === "published") return "published"
@@ -132,6 +133,14 @@ export type EnqueueOptions = {
    * keeps its first-pass behavior: already-processed videos are skipped.
    */
   force?: boolean
+  /**
+   * "Hold for Claude Code": process detect + transcribe, then HAND the
+   * segmentation to a Claude Code session (park a segmentation_job) instead of
+   * calling the metered Anthropic API. The /segment-finalize cron completes it.
+   * Persisted per-item on the queue row so the server-side drain honors the
+   * choice with no CRM instance open. Default false = the standard API path.
+   */
+  holdForClaude?: boolean
 }
 
 /**
@@ -195,6 +204,7 @@ export async function enqueueBackfill(
       published_at: v.publishedAt ?? null,
       status: "pending" as const,
       reprocess: force,
+      hold_for_claude: opts.holdForClaude === true,
       error: null,
       attempts: 0,
       requested_by: userId,
@@ -211,7 +221,7 @@ export async function enqueueBackfill(
     actorUserId: userId,
     targetTable: "sermon_backfill_queue",
     targetId: null,
-    diff: { enqueued: toUpsert.length, skipped, force },
+    diff: { enqueued: toUpsert.length, skipped, force, holdForClaude: opts.holdForClaude === true },
   })
   return { enqueued: toUpsert.length, skipped }
 }
@@ -240,7 +250,7 @@ export async function drainNextBackfill(): Promise<DrainResult> {
 
   const { data: next } = await admin
     .from("sermon_backfill_queue")
-    .select("youtube_video_id, title, published_at, attempts, requested_by, reprocess")
+    .select("youtube_video_id, title, published_at, attempts, requested_by, reprocess, hold_for_claude")
     .eq("status", "pending")
     .order("requested_at", { ascending: true })
     .limit(1)
@@ -271,6 +281,9 @@ export async function drainNextBackfill(): Promise<DrainResult> {
     },
     // A re-run request re-segments an already-processed service (back to review).
     force: next.reprocess === true,
+    // Per-item "Hold for Claude Code": hand segmentation to a session instead of
+    // the API. The server-side drain honors the choice with no CRM open.
+    segmentMode: next.hold_for_claude === true ? "session" : "api",
   })
 
   const status: "done" | "skipped" | "failed" = !result.ok

@@ -28,6 +28,8 @@ export async function POST(request: NextRequest) {
     videos?: { videoId: string; title?: string | null; publishedAt?: string | null }[]
     /** Re-run already-processed services (the "Re-run" action on the Published tab). */
     reprocess?: boolean
+    /** "Hold for Claude Code": prepare + park for a session instead of the API. */
+    holdForClaude?: boolean
   } = {}
   try {
     body = (await request.json()) as typeof body
@@ -45,6 +47,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "no_videos" }, { status: 400 })
   }
 
-  const result = await enqueueBackfill(videos, user.id, { force: body.reprocess === true })
+  const result = await enqueueBackfill(videos, user.id, {
+    force: body.reprocess === true,
+    holdForClaude: body.holdForClaude === true,
+  })
   return NextResponse.json(result)
 }

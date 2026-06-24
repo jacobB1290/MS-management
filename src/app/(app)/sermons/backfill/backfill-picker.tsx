@@ -55,6 +55,10 @@ export function BackfillPicker({
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [busy, setBusy] = useState<null | "queue" | "publish" | "reprocess">(null)
   const [refreshing, setRefreshing] = useState(false)
+  // "Hold for Claude Code": queue/re-run prepares each service (detect +
+  // transcribe + assemble prompt) and parks the segmentation for a Claude Code
+  // session instead of calling the Anthropic API. The CRM finishes it on return.
+  const [hold, setHold] = useState(false)
 
   const candidates = listing.candidates
   const byVideo = useMemo(
@@ -165,7 +169,7 @@ export function BackfillPicker({
       const res = await fetch("/api/sermons/backfill", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ videos, reprocess }),
+        body: JSON.stringify({ videos, reprocess, holdForClaude: hold }),
       })
       const json = await res.json().catch(() => null)
       if (!res.ok) {
@@ -178,13 +182,16 @@ export function BackfillPicker({
       }
       const enq = json?.enqueued ?? 0
       const skip = json?.skipped ?? 0
+      const heldNote = hold
+        ? " Held for Claude Code: a session will segment them, then the CRM finishes automatically."
+        : ""
       toast.success(
         reprocess
           ? enq > 0
-            ? `Re-running ${enq} service${enq === 1 ? "" : "s"}${skip ? ` · ${skip} skipped` : ""}. They’ll return to Ready to review — re-publish once you’ve checked them.`
+            ? `Re-running ${enq} service${enq === 1 ? "" : "s"}${skip ? ` · ${skip} skipped` : ""}.${heldNote || " They’ll return to Ready to review — re-publish once you’ve checked them."}`
             : "Those services are already running or queued."
           : enq > 0
-            ? `Queued ${enq} service${enq === 1 ? "" : "s"}${skip ? ` · ${skip} already in progress` : ""}. Processing runs in the background.`
+            ? `Queued ${enq} service${enq === 1 ? "" : "s"}${skip ? ` · ${skip} already in progress` : ""}.${heldNote || " Processing runs in the background."}`
             : "Those services are already queued or processed.",
       )
       setSelected(new Set())
@@ -336,9 +343,25 @@ export function BackfillPicker({
         aria-hidden={selCount === 0}
       >
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
-          <span className="text-small font-medium text-ink">
-            {selCount} selected
-          </span>
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="shrink-0 text-small font-medium text-ink">{selCount} selected</span>
+            {barMode !== "publish" && (
+              <button
+                type="button"
+                onClick={() => setHold((h) => !h)}
+                aria-pressed={hold}
+                title="Prepare these (detect + transcribe), then hand the segmentation to a Claude Code session instead of the Anthropic API. The CRM finishes the job when the session returns it."
+                className={cn(
+                  "shrink-0 rounded-pill border px-3 py-1.5 text-micro font-medium transition-colors duration-[var(--motion-fast)] ease-[var(--ease-out-soft)] motion-reduce:transition-none",
+                  hold
+                    ? "border-gold bg-[color-mix(in_oklab,var(--gold)_10%,white)] text-gold-dark"
+                    : "border-ink-hairline text-ink-muted hover:bg-surface hover:text-ink",
+                )}
+              >
+                Hold for Claude Code
+              </button>
+            )}
+          </div>
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"

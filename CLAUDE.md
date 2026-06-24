@@ -578,6 +578,57 @@ the structured segmentation itself, with no metered API call.
   `failed` (it restores `published`/`review`), so a provider/limit error can't pull
   a good service off ms.church (`runSermonPipeline`, `src/server/sermons/service.ts`).
 
+### 13.3.1 The CRM handoff queue — the preferred "session as model" path (0043)
+
+The ad-hoc flow above (a session pulls captions with yt-dlp, hand-assembles the
+prompt, hand-writes the DB) is now superseded by a proper queue. The CRM owns
+everything except the model call; the session is reduced to *just segment*. This
+also fixed a real quality bug: the ad-hoc yt-dlp VTT parse collapsed YouTube's
+rolling word-level cues into one coarse `[mm:ss]` per block, so boundaries
+drifted — feeding the session the CRM's own `fetchTranscript` `timestamped`
+output (clean per-cue timing, the SAME input the API path uses) removes that.
+
+- **Per-run choice, not a global mode.** The back-catalog picker
+  (`/sermons/backfill`) has a **"Hold for Claude Code"** toggle. Off (default) =
+  the standard Anthropic-API path, unchanged. On = the pipeline runs detect +
+  transcribe, then parks the segmentation for a session. The choice rides the
+  `sermon_backfill_queue.hold_for_claude` column, so the server-side drain honors
+  it with no CRM instance open. `RunOptions.segmentMode` (`'api'|'session'`, default
+  `'api'`) carries it into `runSermonPipeline`.
+- **The bus:** `public.segmentation_jobs` (migration 0043). On `segmentMode:'session'`
+  the pipeline parks the sermon at status `awaiting_segmentation` and inserts a job
+  carrying the COMPLETE prompt — `system_prompt` (= `SYSTEM_PROMPT`), `user_content`
+  (= `buildSegmentUserContent(...)`, transcript embedded), `json_schema`, plus
+  `duration_sec`. `enqueueSegmentationJob` (`src/server/sermons/segmentQueue.ts`)
+  assembles it from `segmentContract`, so the session does zero setup.
+- **The session's whole job** (via the Supabase MCP — no CRM login; service-role
+  bypasses the default-deny RLS): claim the oldest `pending` row, read
+  `system_prompt` + `user_content`, produce JSON matching `json_schema`, write it to
+  `result` and set `status='returned'`. It never touches `sermons`. Exact protocol:
+  ```sql
+  update public.segmentation_jobs set status='claimed', claimed_at=now(),
+    claimed_by='claude-code', attempts=attempts+1
+  where id = (select id from public.segmentation_jobs where status='pending'
+              order by created_at limit 1)
+  returning id, system_prompt, user_content, json_schema, duration_sec;
+  -- ...session segments, following system_prompt + user_content, matching json_schema...
+  update public.segmentation_jobs
+    set status='returned', result = $JSON$ {raw model JSON} $JSON$::jsonb, returned_at=now()
+  where id = '<job id>';
+  ```
+  Fan out one Opus subagent per job for a batch; each returns raw JSON for its row.
+- **The CRM finishes it:** the `segment-finalize` pg_cron (every 2 min →
+  `/api/cron/segment-finalize`, `CRON_SECRET`-gated) calls
+  `finalizeReturnedSegmentationJobs`: validate `result`, run the IDENTICAL
+  `finalizeSegmentation` boundary-repair the API uses, write the sermon via the
+  shared `applySegmentation` (`segmentApply.ts`) → status `review`, mark the job
+  `finalized`. A bad result marks that one job `error` and is surfaced; the rest
+  proceed. So a session-segmented service is byte-for-byte an API-equivalent run,
+  lands ready-for-review within ~2 min of handoff, and a human still publishes.
+- **`applySegmentation` is the single writer** shared by the API path and the
+  finalize path, so the two can never drift (same reason `segmentContract` is
+  shared for the prompt). Don't re-implement the sermon write in either caller.
+
 ## 14. Future phases (do NOT build yet)
 
 - v2: ONE high-leverage integration — Meta Lead Ads → CRM, or Google

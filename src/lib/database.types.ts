@@ -702,11 +702,93 @@ export type Database = {
         }
         Relationships: []
       }
+      segmentation_jobs: {
+        Row: {
+          attempts: number
+          claimed_at: string | null
+          claimed_by: string | null
+          created_at: string
+          created_by: string | null
+          duration_sec: number
+          error: string | null
+          finalized_at: string | null
+          id: string
+          json_schema: Json
+          known_topics: string[]
+          result: Json | null
+          returned_at: string | null
+          run_id: string | null
+          sermon_id: string
+          status: string
+          system_prompt: string
+          user_content: string
+          youtube_video_id: string
+        }
+        Insert: {
+          attempts?: number
+          claimed_at?: string | null
+          claimed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          duration_sec: number
+          error?: string | null
+          finalized_at?: string | null
+          id?: string
+          json_schema: Json
+          known_topics?: string[]
+          result?: Json | null
+          returned_at?: string | null
+          run_id?: string | null
+          sermon_id: string
+          status?: string
+          system_prompt: string
+          user_content: string
+          youtube_video_id: string
+        }
+        Update: {
+          attempts?: number
+          claimed_at?: string | null
+          claimed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          duration_sec?: number
+          error?: string | null
+          finalized_at?: string | null
+          id?: string
+          json_schema?: Json
+          known_topics?: string[]
+          result?: Json | null
+          returned_at?: string | null
+          run_id?: string | null
+          sermon_id?: string
+          status?: string
+          system_prompt?: string
+          user_content?: string
+          youtube_video_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "segmentation_jobs_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "sermon_pipeline_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "segmentation_jobs_sermon_id_fkey"
+            columns: ["sermon_id"]
+            isOneToOne: false
+            referencedRelation: "sermons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sermon_backfill_queue: {
         Row: {
           attempts: number
           error: string | null
           finished_at: string | null
+          hold_for_claude: boolean
           published_at: string | null
           reprocess: boolean
           requested_at: string
@@ -720,6 +802,7 @@ export type Database = {
           attempts?: number
           error?: string | null
           finished_at?: string | null
+          hold_for_claude?: boolean
           published_at?: string | null
           reprocess?: boolean
           requested_at?: string
@@ -733,6 +816,7 @@ export type Database = {
           attempts?: number
           error?: string | null
           finished_at?: string | null
+          hold_for_claude?: boolean
           published_at?: string | null
           reprocess?: boolean
           requested_at?: string

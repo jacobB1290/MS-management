@@ -6,6 +6,8 @@ import { fetchLatestVideo, fetchRecentVideos, type FeedVideo } from "@/server/yo
 import { fetchTranscript, hasCaptionAccess } from "@/server/youtube/captions"
 import { isAiEnabled } from "@/server/ai/client"
 import { segmentSermon, type SermonSegment } from "@/server/ai/segmentSermon"
+import { applySegmentation } from "./segmentApply"
+import { enqueueSegmentationJob } from "./segmentQueue"
 
 /**
  * Sermon pipeline orchestration. One run = detect → transcribe → segment, with
@@ -52,38 +54,8 @@ type Admin = ReturnType<typeof createSupabaseAdminClient>
 // Statuses past which the cron should not re-process a video automatically.
 const PROCESSED = new Set(["segmented", "review", "published"])
 
-function slugify(input: string): string {
-  return input
-    .toLowerCase()
-    .replace(/['’"]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 80)
-}
-
-function dateStamp(iso: string | null): string {
-  const d = iso ? new Date(iso) : new Date()
-  if (Number.isNaN(d.getTime())) return new Date().toISOString().slice(0, 10)
-  return d.toISOString().slice(0, 10)
-}
-
-/** A readable, unique slug. Collisions get the video id suffixed. */
-async function uniqueSlug(
-  admin: Admin,
-  title: string,
-  publishedAt: string | null,
-  videoId: string,
-  selfId: string,
-): Promise<string> {
-  const base = `${slugify(title) || "service"}-${dateStamp(publishedAt)}`
-  const { data } = await admin
-    .from("sermons")
-    .select("id, slug")
-    .eq("slug", base)
-    .maybeSingle()
-  if (!data || data.id === selfId) return base
-  return `${base}-${videoId.slice(0, 6).toLowerCase()}`
-}
+// slugify / uniqueSlug / applySegmentation moved to ./segmentApply so the API
+// path here and the out-of-band finalize path (segmentQueue) share one writer.
 
 /**
  * The distinct topics already used across sermons, handed to the segmenter so it
@@ -216,6 +188,13 @@ export type RunOptions = {
   videoMeta?: { title: string; publishedAt: string | null; thumbnailUrl?: string }
   /** Re-run all steps even if the sermon is already processed. */
   force?: boolean
+  /**
+   * How step 3 (segment) runs:
+   *   'api'     (default) — call the metered Anthropic API now (standard path).
+   *   'session' — "Hold for Claude Code": prepare + park a segmentation_job for a
+   *               Claude Code session, then the /segment-finalize cron completes it.
+   */
+  segmentMode?: "api" | "session"
 }
 
 /**
@@ -382,7 +361,61 @@ export async function runSermonPipeline(opts: RunOptions): Promise<RunResult> {
   }
 
   // ---- Step 3: segment ----
+  // Two modes, chosen per run (default 'api'):
+  //   'api'     — call the metered Anthropic API now (the standard path).
+  //   'session' — "Hold for Claude Code": assemble the EXACT prompt and park a
+  //               segmentation_job for a Claude Code session to run; the
+  //               /segment-finalize cron then completes it. No API spend, and the
+  //               session works the CRM's own clean timestamped transcript.
+  // Both modes converge on the same applySegmentation() + finalizeSegmentation,
+  // so the persisted sermon is byte-identical either way.
   await rec.start("segment")
+  const segmentMode: "api" | "session" = opts.segmentMode ?? "api"
+  const knownTopics = await fetchKnownTopics(admin)
+
+  if (segmentMode === "session") {
+    // The session is ONLY the model: everything it needs (system prompt, the
+    // timestamped transcript, the schema) is baked into the job here, and the
+    // result lands back in the same row for the CRM to finalize. Zero CRM work
+    // on the session side, no API key required.
+    await admin.from("sermons").update({ status: "awaiting_segmentation", error: null }).eq("id", sermon.id)
+    const enq = await enqueueSegmentationJob(admin, {
+      sermonId: sermon.id,
+      runId: run.id,
+      videoId: video.videoId,
+      timestamped,
+      durationSec,
+      knownTopics,
+      userId,
+    })
+    if (!enq.ok) {
+      await rec.finish("segment", "failed", { error: enq.error })
+      return fail(sermon.id, enq.error)
+    }
+    await rec.finish("segment", "skipped", { detail: `handed to Claude Code (job ${enq.jobId})` })
+    await admin
+      .from("sermon_pipeline_runs")
+      .update({ status: "succeeded", finished_at: new Date().toISOString() })
+      .eq("id", run.id)
+    await logAudit({
+      action: "sermon.run",
+      actorUserId: userId,
+      targetTable: "sermon_pipeline_runs",
+      targetId: run.id,
+      diff: { trigger: opts.trigger, step: "segment", mode: "session", jobId: enq.jobId, videoId: video.videoId },
+    })
+    return {
+      ok: true,
+      runId: run.id,
+      sermonId: sermon.id,
+      videoId: video.videoId,
+      status: "succeeded",
+      steps: rec.current(),
+      detail: "awaiting_segmentation",
+    }
+  }
+
+  // ---- API mode (standard) ----
   if (!isAiEnabled() || !process.env.ANTHROPIC_API_KEY) {
     await rec.finish("segment", "failed", { error: "disabled: ANTHROPIC_API_KEY not set" })
     // Transcript is saved; leave the sermon at 'transcribed' (not 'failed') so a
@@ -409,52 +442,17 @@ export async function runSermonPipeline(opts: RunOptions): Promise<RunResult> {
     }
   }
   await admin.from("sermons").update({ status: "segmenting", error: null }).eq("id", sermon.id)
-  const knownTopics = await fetchKnownTopics(admin)
   const seg = await segmentSermon(timestamped, durationSec, knownTopics)
   if (!seg.ok) {
     await rec.finish("segment", "failed", { error: `${seg.reason}${seg.detail ? `: ${seg.detail}` : ""}` })
     return fail(sermon.id, `segment_${seg.reason}`)
   }
-
-  const slug = await uniqueSlug(admin, sermon.title, sermon.published_at, video.videoId, sermon.id)
-  // Core result — works on any schema version, so the autonomous cron run still
-  // lands a reviewable sermon even if migration 0038 (the watch-library columns)
-  // hasn't been applied yet.
-  const { error: sErr } = await admin
-    .from("sermons")
-    .update({
-      segments: seg.data.segments as unknown as Sermon["segments"],
-      summary: seg.data.summary,
-      seo: seg.data.seo as unknown as Sermon["seo"],
-      slug,
-      status: "review",
-      error: null,
-    })
-    .eq("id", sermon.id)
-  if (sErr) {
-    await rec.finish("segment", "failed", { error: sErr.message })
-    return fail(sermon.id, sErr.message)
+  const applied = await applySegmentation(admin, sermon, seg.data)
+  if (!applied.ok) {
+    await rec.finish("segment", "failed", { error: applied.error })
+    return fail(sermon.id, applied.error)
   }
-  // Classification fields from migration 0038 (format / speakers / topics).
-  // Best-effort + logged: a not-yet-migrated database still completes the sermon
-  // (the public feed defaults format to 'sermon' and topics to []); a re-run
-  // after the migration backfills these.
-  const { error: cErr } = await admin
-    .from("sermons")
-    .update({
-      generated_title: seg.data.title,
-      format: seg.data.format,
-      speakers: seg.data.speakers,
-      topics: seg.data.topics,
-      songs: seg.data.songs as unknown as Sermon["segments"],
-    })
-    .eq("id", sermon.id)
-  if (cErr) {
-    console.error("sermon classification write failed (are migrations 0038/0040 applied?):", cErr.message)
-  }
-  await rec.finish("segment", "succeeded", {
-    detail: `${seg.data.segments.length} chapters`,
-  })
+  await rec.finish("segment", "succeeded", { detail: `${seg.data.segments.length} chapters` })
 
   await admin
     .from("sermon_pipeline_runs")
