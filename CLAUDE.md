@@ -621,7 +621,22 @@ output (clean per-cue timing, the SAME input the API path uses) removes that.
     set status='returned', result = $JSON$ {raw model JSON} $JSON$::jsonb, returned_at=now()
   where id = '<job id>';
   ```
-  Fan out one Opus subagent per job for a batch; each returns raw JSON for its row.
+  Fan out one Opus subagent per job for a batch; each returns raw JSON for its
+  row. **Isolate every parallel worker — load-bearing (a real near-miss in the
+  first multi-job run).** Subagents share ONE scratchpad dir, so workers that
+  write generic filenames (`seg.json`, `update.sql`, …) clobber each other and a
+  worker can read back a *different* job's segmentation and write it to its own
+  row. So: (a) each worker keeps its payload in memory or under a path namespaced
+  by its job id — never a shared generic file; (b) every write stays gated on
+  `and status='claimed'` AND the worker proves the payload is its own before
+  writing (assert the segmentation's title / final `end_sec` fits the job it
+  claimed). Then the PARENT verifies the whole batch before reporting success:
+  every service has a distinct `duration_sec`, so a swapped payload outs itself —
+  assert each row's last segment `end_sec` ≈ its own `duration_sec` (within a few
+  seconds) and that the segments are a gap-free 0→end cover. A large end-gap means
+  a contaminated payload, not a bad segmentation: re-claim and re-run that row.
+  (Belt-and-suspenders only — the CRM's finalize pass still validates every
+  `result` independently before it writes a sermon.)
 - **The CRM finishes it:** the `segment-finalize` pg_cron (every 2 min →
   `/api/cron/segment-finalize`, `CRON_SECRET`-gated) calls
   `finalizeReturnedSegmentationJobs`: validate `result`, run the IDENTICAL
