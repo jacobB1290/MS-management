@@ -551,6 +551,33 @@ parses — no website change. Google Calendar is the public source of truth; the
   calendar — they appear publicly within ~5 minutes. Use mock mode or a separate
   `GOOGLE_CALENDAR_ID` while testing.
 
+## 13.3 Segmenting services without the API (Claude Code as the model)
+
+The Anthropic API has a hard monthly **org spend limit**; when it's reached every
+model call returns `400 "You have reached your specified API usage limits"` until
+it resets or is raised in the Console (Billing → Limits) — model choice is
+irrelevant, the cap is org-wide. For that window (or any time you'd rather not
+spend), a **Claude Code session is the model**: it reads a transcript and produces
+the structured segmentation itself, with no metered API call.
+
+- **One source of truth:** the prompt, JSON schema, and boundary-repair pass live
+  in the pure `src/server/ai/segmentContract.ts`. Both the live API segmenter
+  (`segmentSermon.ts`) and the out-of-band path import it, so output is identical.
+- **The tool:** `tsx scripts/segment/pump.ts` (`prompt` | `schema` | `pull` |
+  `finalize`) is credential-free — it only formats the prompt and runs the schema
+  validation + repair. The session does the DB read/write via the Supabase MCP.
+- **Fan out:** spawn one **Opus subagent per designated service** (parallel); each
+  queries its transcript via MCP and returns the JSON; the parent finalizes and
+  writes. Land full re-segmentations at `review` (human publishes). A title-only
+  pass (timestamp-independent) can update `generated_title` on an already-chaptered
+  published service in place.
+- **Full runbook:** `docs/claude-segment-pump.md` (incl. the timestamped-transcript
+  caveat: accurate chapter/song times need `[mm:ss]` cues, which the DB doesn't
+  store — re-fetch captions or restrict to a metadata pass).
+- **Guardrail:** a failed `force` re-run no longer downgrades a live sermon to
+  `failed` (it restores `published`/`review`), so a provider/limit error can't pull
+  a good service off ms.church (`runSermonPipeline`, `src/server/sermons/service.ts`).
+
 ## 14. Future phases (do NOT build yet)
 
 - v2: ONE high-leverage integration — Meta Lead Ads → CRM, or Google

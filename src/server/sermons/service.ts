@@ -254,6 +254,15 @@ export async function runSermonPipeline(opts: RunOptions): Promise<RunResult> {
 
   const rec = new RunRecorder(admin, run.id)
 
+  // A force re-run mutates the live sermon row in place (transcribing -> ... ->
+  // review). If a re-run of an ALREADY-LIVE sermon fails (e.g. a transient
+  // provider error or a billing/usage limit), we must NOT leave it stranded at
+  // 'failed' — that silently pulls a good, published service off ms.church. So
+  // capture the pre-run status and, on failure, restore a live state instead of
+  // failing it. Set after detect resolves the row.
+  let priorSermonStatus: string | null = null
+  const RESTORABLE_ON_FAIL = new Set(["published", "review"])
+
   const fail = async (
     sermonId: string | null,
     detail: string,
@@ -263,7 +272,12 @@ export async function runSermonPipeline(opts: RunOptions): Promise<RunResult> {
       .update({ status: "failed", error: detail, finished_at: new Date().toISOString(), sermon_id: sermonId })
       .eq("id", run.id)
     if (sermonId) {
-      await admin.from("sermons").update({ status: "failed", error: detail }).eq("id", sermonId)
+      // Preserve a live sermon: a failed re-run leaves the existing content up.
+      if (priorSermonStatus && RESTORABLE_ON_FAIL.has(priorSermonStatus)) {
+        await admin.from("sermons").update({ status: priorSermonStatus, error: null }).eq("id", sermonId)
+      } else {
+        await admin.from("sermons").update({ status: "failed", error: detail }).eq("id", sermonId)
+      }
     }
     await logAudit({
       action: "sermon.run",
@@ -294,7 +308,11 @@ export async function runSermonPipeline(opts: RunOptions): Promise<RunResult> {
     await rec.finish("detect", "failed", { error: up.error })
     return fail(null, up.error)
   }
-  let sermon = up.sermon
+  const sermon = up.sermon
+  // The pre-run status of an EXISTING row (null for a brand-new one). On a failed
+  // re-run, fail() restores this when it's a live state, so a transient failure
+  // never strands a published/review service at 'failed'.
+  priorSermonStatus = up.created ? null : sermon.status
   await admin.from("sermon_pipeline_runs").update({ sermon_id: sermon.id }).eq("id", run.id)
 
   // Already processed and not forced -> clean no-op (the common cron case).
