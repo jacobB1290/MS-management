@@ -90,7 +90,7 @@ Each segment has:
 - **start_sec** / **end_sec**: integers in seconds, read from the [mm:ss] cues. The first segment starts at 0. Each segment's "end_sec" equals the next segment's "start_sec". The last segment's "end_sec" is the final timestamp in the transcript. The cover is gap-free and never overlaps.
 - **type**: one of "welcome", "worship", "scripture", "prayer", "sermon", "discussion", "poem", "testimony", "offering", "announcement", "benediction", "other". Use "worship" for any congregational or performed singing, "scripture" for a passage being read aloud, "sermon" for a preached message, "discussion" for a two-host message.
 - **title**: short, specific, human, in sentence case with no trailing period. For example "Opening worship", "Reading: Psalm 42", "Discussion: The fruit of peace", "Prayer for Sunday school".
-- **summary**: 1 to 3 plain sentences on what actually happens in the chapter. For the message, capture the real point, not "the pastors discuss a topic".
+- **summary**: 1 to 3 plain, warm sentences for a visitor browsing the chapters, describing what happens in this part of the service so they can decide where to watch. Write what a viewer sees and hears, not how or why you chaptered it. For the message, capture its real point, not "the pastors discuss a topic". Keep your own reasoning out of it: do not justify a boundary or a song-clip decision, do not use the internal vocabulary of this task (for example "watched, not sung", "live versus recorded", "played-back audio", "no clip"), and do not narrate production logistics (waiting on a screen, a microphone, or people to come forward) unless that genuinely is the content. Describe every moment, including one built around played media, as what a viewer experiences, never as a classification.
 - **scripture_refs**: an array of normalized references read or cited in the chapter (for example "Psalm 42:1-11", "John 14:27"). Empty array if none. See "Scripture references".
 
 Aim for roughly 7 to 12 chapters: real movements of the service, not one per song or one per Bible verse. Merge adjacent material of the same kind. Two opening songs are one worship chapter, not two.
@@ -152,6 +152,8 @@ To answer it, read what the speech around the music is doing, not the music itse
 Two things that are not evidence of live singing, because they fooled this before: a song landing where opening worship usually sits (a montage can open on a worship song in that exact slot), and a song being a familiar hymn. Position and familiarity say nothing about whether anyone is singing it now. What says so is the function of the speech around it, and whether the song runs with no spoken break straight into played media, which welds it to that media.
 
 When sing-evidence and watch-evidence conflict, watch wins. When you genuinely cannot tell, do not clip: a missed clip is a smaller error than a clip that plays a recording instead of the congregation.
+
+This whole determination is internal. It decides only whether a song clip exists. It never appears in a chapter title or summary: a visitor reads those, and they should describe what happens in the service, never the reasoning behind a clip. Write the summary for the viewer, not as a rationale.
 
 ## Songs
 
