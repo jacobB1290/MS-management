@@ -1,7 +1,8 @@
 "use client"
 import { useCallback, useEffect, useMemo, useState } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Check, Loader2, ListPlus, RefreshCw, UploadCloud } from "lucide-react"
+import { Check, ChevronRight, Loader2, ListPlus, RefreshCw, UploadCloud } from "lucide-react"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -452,7 +453,11 @@ function Row({
   // A segmented service shows its generated title; one not yet processed shows
   // the raw YouTube title (all there is until it runs).
   const display = c.generatedTitle || c.title
-  const inner = (
+  // Once a sermon row exists, the card opens its review/detail page (chapters,
+  // transcript, SEO, publish). Until then there's nothing to open.
+  const sermonId = c.sermonId
+
+  const thumbAndText = (
     <>
       <span className="relative aspect-video w-24 shrink-0 overflow-hidden rounded-md bg-surface sm:w-28">
         <SermonThumb videoId={c.videoId} alt={display} />
@@ -467,6 +472,66 @@ function Row({
           )}
         </span>
       </span>
+    </>
+  )
+
+  // Standalone select control (used when the card itself is a link, so the two
+  // actions don't collide). Stops the navigation; 44px tap target.
+  const selectControl = selectable ? (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        onToggle()
+      }}
+      aria-pressed={selected}
+      aria-label={selected ? "Deselect" : "Select"}
+      className="flex h-11 w-11 items-center justify-center rounded-pill"
+    >
+      <span
+        aria-hidden
+        className={cn(
+          "flex h-6 w-6 items-center justify-center rounded-pill border transition-all duration-[var(--motion-fast)] ease-[var(--ease-out-soft)] motion-reduce:transition-none",
+          selected ? "border-gold bg-gold text-white" : "border-ink-hairline bg-white text-transparent",
+        )}
+      >
+        <Check size={14} className={cn("transition-transform", selected ? "scale-100" : "scale-0")} />
+      </span>
+    </button>
+  ) : null
+
+  // Sermon-backed → the card is a link to the review page; select lives on the
+  // checkmark overlaid on the right (or a chevron cue when not selectable).
+  if (sermonId) {
+    return (
+      <li className="animate-[fade-in_var(--motion-medium)_var(--ease-out-soft)] motion-reduce:animate-none">
+        <div className="relative">
+          <Link
+            href={`/sermons/${sermonId}`}
+            className={cn(
+              "flex w-full items-center gap-3 rounded-xl border bg-white p-2.5 text-left transition-colors duration-[var(--motion-fast)] ease-[var(--ease-out-soft)] motion-reduce:transition-none sm:gap-4 sm:p-3",
+              selectable ? "pr-14 sm:pr-16" : "pr-3",
+              selected
+                ? "border-gold bg-[color-mix(in_oklab,var(--gold)_6%,white)]"
+                : "border-ink-hairline hover:bg-surface",
+            )}
+          >
+            {thumbAndText}
+            <ChevronRight size={16} className="ml-auto shrink-0 text-ink-faint" aria-hidden />
+          </Link>
+          {selectControl && (
+            <span className="absolute right-1.5 top-1/2 -translate-y-1/2 sm:right-2.5">{selectControl}</span>
+          )}
+        </div>
+      </li>
+    )
+  }
+
+  // No sermon yet (to-process rows): the card itself toggles selection.
+  const inner = (
+    <>
+      {thumbAndText}
       {selectable && (
         <span
           aria-hidden
