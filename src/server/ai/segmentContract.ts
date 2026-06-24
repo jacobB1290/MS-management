@@ -37,10 +37,11 @@ You receive the full transcript with [mm:ss] or [h:mm:ss] timestamps at the star
 - **format**: "sermon" or "discussion", how the main message was delivered this week. See "The message" below.
 - **speakers**: the people who delivered the message, named only when the transcript states their names. See "Speakers and names".
 - **topics**: a one-element array holding exactly one short lowercase theme keyword for the message. See "Topic".
-- **segments**: an ordered, non-overlapping, gap-free cover of the whole service. See "Segments" and "The shape of a service".
+- **segments**: an ordered, non-overlapping, gap-free cover of the whole service. See "Segments" and "How to read a service".
 - **songs**: every song in the service, in order, each with its kind, who led or performed it, a title, a one-word topic, and the precise start and end of the sung clip. See "Songs" and "Song clips".
 - **summary**: 2 to 4 plain sentences summarizing the service for a website visitor deciding whether to watch. Lead with the message's topic.
 - **seo**: an object with "description" (a single meta description of about 155 characters) and "tags" (5 to 10 lowercase topical keywords: themes and book names, never the church name).
+- **divergence_note**: a single short line, present only when the service departs from the usual arc in a way a leader announced (a slideshow replacing the post-reading flow, a baptism, communion, a guest format, a near-all-singing service). Name what diverged and how you chaptered it. On an ordinary Sunday that follows the arc, an empty string. See "How to read a service".
 
 ## The message: sermon or discussion
 
@@ -57,17 +58,21 @@ Two traps to avoid when locating the message:
 
 Write a **title**: a short, specific public title for this service, the way a sermon archive names a message. Center it on what the message is actually about, so a visitor scanning the library knows the subject at a glance and a search engine reads the real topic. Good titles: "The Lord's Prayer as a Blueprint for Fathers", "Loving Your Enemies", "The Joy That Outlasts Circumstances", "Longsuffering: The God-Given Power to Wait". Three to eight words, in title case. Make it distinctive week to week and never generic: never the date, the time, the word "live", the service slot, or the church name. A bare one-word topic ("Joy") is weaker than a short phrase that says something specific, so prefer the phrase when one fits. For a discussion, title the subject the hosts work through, the same way. If the message subject is genuinely unclear, name it plainly from what is taught rather than inventing specifics.
 
-## The shape of a service
+## How to read a service
 
-These services follow a steady weekly arc. Use it as your scaffold, then follow the transcript wherever a given week departs from it. Not every chapter appears every week, and occasionally an extra reading or a piece of special music is added.
+Your first job is to understand what actually happened in this service, the way a thoughtful person watching it would, and represent that. Most Sundays follow a steady arc, given below, and on those weeks you lean on it heavily. But the arc is a prior, not a template. It is what to expect before you read, not a set of slots to sort the transcript into. The transcript is the truth. When it diverges from the arc, you follow the transcript.
 
-The usual arc, in order:
+Leaders announce divergence, and that announcement is authority. When someone says "our service is going to be a little different today", "instead of a sermon we're going to", "today we're going to watch", "we're doing a baptism this morning", or anything that reframes the plan, that sentence outranks the usual arc. Read what they say is going to happen, watch it happen in the transcript, and chapter THAT, even when it means a chapter type that is rare or a shape that looks nothing like a normal Sunday. A block that would be worship songs on a normal week is not worship songs if the leader framed it as a slideshow. Comprehension first, arc second.
+
+Before you finalize, reread the leader's framing at the top of each major block and check your segmentation against what was actually announced and what actually occurred, not against the arc. If a chapter exists only because the arc predicts it and the transcript does not support it, remove it. If the transcript shows a block the arc does not name, chapter it on its own terms. When the service diverged from the arc in this way, record it in "divergence_note": a single line naming what diverged and how you chaptered it (for example: "Leader announced a year-in-review slideshow replacing the usual post-reading flow; chaptered as one slideshow block, no worship songs"). On an ordinary Sunday that follows the arc, leave "divergence_note" an empty string.
+
+Most weeks the service moves through the movements below, in this order. Read these as a description of the ordinary Sunday, the prior you start from, not a checklist to satisfy. Not every movement appears every week, an extra reading or a piece of special music is sometimes added, and an unusual service may depart from the arc entirely.
 
 1. **Pre-service** ("other"), only when present. Soundcheck, stray fragments, or dead air before the service truly begins. Include this chapter only if there is real material before the first spoken welcome. If the service opens straight into the welcome, there is no pre-service chapter and the welcome starts at 0.
 2. **Welcome and opening prayer** ("welcome"). A greeting, a short opening Scripture with a few sentences of encouragement, and the prayer over the service.
 3. **Opening worship** ("worship"). The opening congregational songs, usually two.
 4. **Reading** ("scripture"), titled with the passage, for example "Reading: Psalm 42". A Psalm read aloud, often followed by the reader's brief reflection on it. The reflection stays in this chapter.
-5. **Prayer for Sunday school** ("prayer"). Sending the children to class with a prayer, sometimes preceded by a short Proverbs reading or a note about the schedule (summer break, summer school). This is a fixed weekly block; recognize it even when the wording varies.
+5. **Prayer for Sunday school** ("prayer"). Sending the children to class with a prayer, sometimes preceded by a short Proverbs reading or a note about the schedule (summer break, summer school). Usually present, and recognizable even when the wording varies.
 6. **Meet and greet** ("other"). The greeting time. Give it its own chapter, and let it absorb any setup or technical dead air that follows it, up to the moment the message truly begins.
 7. **The message** ("sermon" or "discussion"). The main teaching block. One preacher, or two pastors leading a topic together and taking congregational input.
 8. **Closing worship** ("worship"). The final congregational song.
@@ -75,6 +80,8 @@ The usual arc, in order:
 10. **Benediction** ("benediction"). The closing prayer, the Lord's Prayer recited together, and the final blessing.
 
 Keep this split between Announcements and Benediction as two chapters when the announcements run more than a minute or so, which is the usual case. When the close is very brief, a single "benediction" chapter is fine. Special or program music, when it appears, is its own "worship" chapter placed where it occurs.
+
+You will meet services that do not fit: a baptism, communion, a guest speaker, a testimony night, a service that is almost entirely singing, a played-back video or slideshow, a holiday program. These are not failures of the arc; they are normal church life. Do not force them into the standard blocks. Identify what each actual element is from the transcript, give it the closest fitting type (often "other" with a plain descriptive title), and let the chapter list reflect the real service even when it is unusual. The arc helps you on ordinary weeks; it must never make you misread an extraordinary one.
 
 ## Segments
 
@@ -225,8 +232,13 @@ export const JSON_SCHEMA = {
       },
       required: ["description", "tags"],
     },
+    // A one-line note when the service departed from the usual arc on an
+    // announced divergence; empty string on an ordinary week. A forcing function
+    // (makes the model check the transcript's framing against the arc) and an
+    // audit signal. See "How to read a service".
+    divergence_note: { type: "string" },
   },
-  required: ["title", "format", "speakers", "topics", "segments", "songs", "summary", "seo"],
+  required: ["title", "format", "speakers", "topics", "segments", "songs", "summary", "seo", "divergence_note"],
 } as const
 
 const SegmentSchema = z.object({
@@ -259,6 +271,10 @@ export const ResultSchema = z.object({
     description: z.string(),
     tags: z.array(z.string()),
   }),
+  // Required in the model-facing JSON_SCHEMA (a forcing function), but TOLERANT
+  // here: jobs parked before this field existed, or a model that omits it, still
+  // validate and default to "". So old queued jobs finalize cleanly.
+  divergence_note: z.string().default(""),
 })
 
 export type SermonSegment = {
@@ -295,6 +311,8 @@ export type SermonSegmentation = {
   songs: SermonSong[]
   summary: string
   seo: { description: string; tags: string[] }
+  /** One line when the service diverged from the usual arc (announced); else "". */
+  divergenceNote: string
 }
 
 export type SegmentResult =
@@ -396,5 +414,6 @@ export function finalizeSegmentation(parsed: RawSegmentation, durationSec: numbe
       description: parsed.seo.description.trim(),
       tags: parsed.seo.tags.map((t) => t.trim().toLowerCase()).filter(Boolean),
     },
+    divergenceNote: parsed.divergence_note.trim(),
   }
 }

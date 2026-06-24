@@ -155,7 +155,12 @@ export async function finalizeReturnedSegmentationJobs(limit = 10): Promise<Fina
         actorUserId: null,
         targetTable: "sermons",
         targetId: sermon.id,
-        diff: { source: "session_segmentation_job", jobId: job.id, chapters: finalized.segments.length },
+        diff: {
+          source: "session_segmentation_job",
+          jobId: job.id,
+          chapters: finalized.segments.length,
+          ...(finalized.divergenceNote ? { divergence: finalized.divergenceNote } : {}),
+        },
       })
       out.finalized++
       out.details.push({ jobId: job.id, sermonId: job.sermon_id, status: "finalized" })

@@ -452,7 +452,9 @@ export async function runSermonPipeline(opts: RunOptions): Promise<RunResult> {
     await rec.finish("segment", "failed", { error: applied.error })
     return fail(sermon.id, applied.error)
   }
-  await rec.finish("segment", "succeeded", { detail: `${seg.data.segments.length} chapters` })
+  await rec.finish("segment", "succeeded", {
+    detail: `${seg.data.segments.length} chapters${seg.data.divergenceNote ? ` · divergence: ${seg.data.divergenceNote}` : ""}`,
+  })
 
   await admin
     .from("sermon_pipeline_runs")
