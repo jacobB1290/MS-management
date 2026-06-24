@@ -495,6 +495,145 @@ export async function runSermonPipeline(opts: RunOptions): Promise<RunResult> {
   }
 }
 
+// A pipeline run that has been 'running' longer than this is treated as
+// orphaned: the serverless function that owned it timed out (Vercel caps the
+// function at 300s) or crashed mid-step, so the run row will never close itself
+// and its sermon is frozen at 'transcribing'/'segmenting'. The longest healthy
+// run (a big service segmenting via the API) finishes comfortably under 5 min,
+// so 8 min is a safe "nothing alive is still working on this" threshold.
+const STUCK_RUN_THRESHOLD_MS = 8 * 60_000
+// Cap the re-runs a single recovery tick kicks off, so a backlog of stuck runs
+// can't blow the cron's own 300s budget. Marking orphaned runs failed +
+// un-sticking sermons is cheap and unbounded; only the re-run (which re-fetches
+// captions) is throttled. The rest are picked up on the next 2-min tick.
+const RECOVER_RERUN_CAP = 3
+
+export type RecoverResult = {
+  scanned: number
+  recovered: Array<{ runId: string; sermonId: string | null; action: string }>
+}
+
+/**
+ * Recover sermon pipeline runs orphaned by a function timeout or crash.
+ *
+ * This is the fix for the SOURCE of "the popup said failed but it still shows
+ * running and segmenting." A long API segment call can run ~4-5 min; if Vercel's
+ * 300s function limit (or any crash) kills the request mid-segment, the call
+ * never returns — so neither the success path NOR the max_tokens auto-fallback
+ * ever fires. The run row stays 'running' forever and the sermon is stranded at
+ * 'segmenting'. Nothing self-heals it, because the code that would have is the
+ * code that got killed.
+ *
+ * This sweep (run every 2 min by the segment-finalize cron) finds runs stuck
+ * past STUCK_RUN_THRESHOLD_MS and heals both rows:
+ *   - mark the dead run 'failed' (orphaned_timeout),
+ *   - if the sermon already has chapters, segmentation actually landed before
+ *     the timeout and only the run row failed to close -> promote to 'review',
+ *   - if it died mid-segment ('segmenting', no chapters), auto-route it to the
+ *     limitless Claude Code session path (force re-run, segmentMode 'session') —
+ *     the SAME recovery a max_tokens overrun gets, since a timeout means the
+ *     service was too big to finish inside the API/function window,
+ *   - otherwise restore a sane resting status ('transcribed' if a transcript is
+ *     saved, else 'detected') so a later run can finish it.
+ *
+ * Idempotent: each run is claimed with a status-gated update, so two overlapping
+ * ticks can never double-recover the same run.
+ */
+export async function recoverStuckSermonRuns(): Promise<RecoverResult> {
+  const admin = createSupabaseAdminClient()
+  const cutoff = new Date(Date.now() - STUCK_RUN_THRESHOLD_MS).toISOString()
+  const { data: stuck } = await admin
+    .from("sermon_pipeline_runs")
+    .select("id, sermon_id, youtube_video_id, started_at")
+    .eq("status", "running")
+    .lt("started_at", cutoff)
+    .order("started_at", { ascending: true })
+    .limit(10)
+
+  const recovered: RecoverResult["recovered"] = []
+  let reruns = 0
+  const FROZEN = new Set(["transcribing", "segmenting"])
+
+  for (const r of stuck ?? []) {
+    // Optimistic claim: only proceed if THIS tick flips it out of 'running', so
+    // overlapping ticks (or a manual call racing the cron) can't double-recover.
+    const { data: claimed } = await admin
+      .from("sermon_pipeline_runs")
+      .update({ status: "failed", error: "orphaned_timeout", finished_at: new Date().toISOString() })
+      .eq("id", r.id)
+      .eq("status", "running")
+      .select("id")
+      .maybeSingle()
+    if (!claimed) continue // another tick already claimed it
+
+    if (!r.sermon_id) {
+      recovered.push({ runId: r.id, sermonId: null, action: "run failed (no sermon attached)" })
+      continue
+    }
+    const { data: sermon } = await admin
+      .from("sermons")
+      .select("id, status, transcript, segments, youtube_video_id")
+      .eq("id", r.sermon_id)
+      .maybeSingle()
+    if (!sermon) {
+      recovered.push({ runId: r.id, sermonId: r.sermon_id, action: "run failed (sermon gone)" })
+      continue
+    }
+
+    // Only heal a sermon that's genuinely frozen mid-pipeline. If it already
+    // moved on (review/published/awaiting_segmentation/...), the run row was
+    // merely stale — leave the sermon untouched.
+    if (!FROZEN.has(sermon.status)) {
+      recovered.push({ runId: r.id, sermonId: sermon.id, action: `run failed (sermon ${sermon.status}, left as-is)` })
+      continue
+    }
+
+    const hasChapters = ((sermon.segments as SermonSegment[] | null) ?? []).length > 0
+    if (hasChapters) {
+      // Segmentation finished; only the run row failed to close. Promote it.
+      await admin.from("sermons").update({ status: "review", error: null }).eq("id", sermon.id)
+      recovered.push({ runId: r.id, sermonId: sermon.id, action: "promoted to review (chapters already present)" })
+      continue
+    }
+
+    if (sermon.status === "segmenting" && reruns < RECOVER_RERUN_CAP) {
+      // Died mid-segment with nothing written: the API call was killed by the
+      // function timeout. Route to the limitless session path (same as a
+      // max_tokens overrun). The force re-run re-fetches the timestamped
+      // transcript and parks a segmentation_job; the finalize cron completes it.
+      // Awaited (not fire-and-forget) so it can't be killed by the cron function
+      // returning; session mode makes no API segment call, so it can't time out.
+      reruns++
+      await runSermonPipeline({
+        trigger: "cron",
+        videoId: sermon.youtube_video_id,
+        force: true,
+        segmentMode: "session",
+      })
+      recovered.push({ runId: r.id, sermonId: sermon.id, action: "re-run via Claude Code session (segment timeout)" })
+      continue
+    }
+
+    // Mid-transcribe, or we've hit the per-tick re-run cap: restore a sane
+    // resting status so the monitor is honest and a later run can finish it.
+    const restore = sermon.transcript ? "transcribed" : "detected"
+    await admin.from("sermons").update({ status: restore, error: null }).eq("id", sermon.id)
+    recovered.push({ runId: r.id, sermonId: sermon.id, action: `restored to ${restore}` })
+  }
+
+  if (recovered.length > 0) {
+    await logAudit({
+      action: "sermon.run",
+      actorUserId: null,
+      targetTable: "sermon_pipeline_runs",
+      targetId: recovered[0].runId,
+      diff: { recovery: "stuck_runs", scanned: (stuck ?? []).length, recovered },
+    })
+  }
+
+  return { scanned: (stuck ?? []).length, recovered }
+}
+
 export type PublishResult = { ok: true; id: string } | { ok: false; error: string }
 
 /** Publish a reviewed sermon: it becomes visible on ms.church via the feed. */
