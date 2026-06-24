@@ -601,10 +601,15 @@ output (clean per-cue timing, the SAME input the API path uses) removes that.
   (= `buildSegmentUserContent(...)`, transcript embedded), `json_schema`, plus
   `duration_sec`. `enqueueSegmentationJob` (`src/server/sermons/segmentQueue.ts`)
   assembles it from `segmentContract`, so the session does zero setup.
-- **The session's whole job** (via the Supabase MCP — no CRM login; service-role
-  bypasses the default-deny RLS): claim the oldest `pending` row, read
+- **Running it — the trigger.** When the operator says *process the services*,
+  *run the segmentation queue*, *run the held/waiting ones*, or similar, draining
+  `public.segmentation_jobs` is the task — and it is the session's WHOLE job (via
+  the Supabase MCP on project `nhrgbjkiiqpzwdgsvdrl` — no CRM login; service-role
+  bypasses the default-deny RLS). For each `pending` row: claim it, read
   `system_prompt` + `user_content`, produce JSON matching `json_schema`, write it to
-  `result` and set `status='returned'`. It never touches `sermons`. Exact protocol:
+  `result` and set `status='returned'`. Do NOT touch `sermons`, do NOT publish, do
+  NOT pull transcripts or build prompts — the CRM did all of that. If there are no
+  `pending` rows, say so and stop. Exact protocol:
   ```sql
   update public.segmentation_jobs set status='claimed', claimed_at=now(),
     claimed_by='claude-code', attempts=attempts+1
