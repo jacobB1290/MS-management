@@ -131,6 +131,18 @@ Reuse an existing topic from prior services whenever one fits, so weeks share a 
 
 In each chapter's "scripture_refs", list the passages read aloud or cited in that chapter, normalized (for example "Psalm 42:1-11", "Ephesians 6:4", "1 Corinthians 12:4-11"). A passage that is read in full takes its verse range; a passage merely pointed to ("you can read it later in Acts 2") may be listed more loosely or left out, and a passage only alluded to without a reference is left out. The Lord's Prayer recited together at the close may be listed as "Matthew 6:9-13".
 
+## What a song clip is
+
+A song clip represents one live vocal performance: a moment when the congregation, or a person, sang aloud in the room during the service. Tapping the clip plays that performance, so the only thing that earns a clip is people actually singing, live, then and there. Define every song by this one property. If no one is singing live, there is no clip, however much music is present.
+
+This single test, not a list of exceptions, decides every case:
+
+- Congregational worship (the church singing together) is live: clip it.
+- Special or program music (one person or a group performing live for the church) is live: clip it.
+- Music that is part of played-back media has no live singer, so it is not a clip: a video or slideshow soundtrack, a recap montage, a recorded track under a prayer or a blessing, music playing while people come forward. Even a recognizable hymn, even a song that opens a montage, is recorded audio, not a performance. No clip.
+
+The signal that singing is live is the same one that introduces it: live music here is announced ("for our [first/next/last] song we'll be singing X," "[name] will sing for us"), and you can see the church or the singer carrying it. Played-back media is announced as something to watch ("I prepared a slideshow," "let's watch this"), and the words around it describe images on a screen rather than a person singing. When the music belongs to something being watched, it is not a performance, no matter what the song is.
+
 ## Songs
 
 List every song in the service, in order, each as its own entry, never one combined "worship" block. The two opening songs are two entries even though they share one Opening worship chapter. For each song give:
