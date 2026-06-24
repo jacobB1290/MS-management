@@ -141,7 +141,17 @@ This single test, not a list of exceptions, decides every case:
 - Special or program music (one person or a group performing live for the church) is live: clip it.
 - Music that is part of played-back media has no live singer, so it is not a clip: a video or slideshow soundtrack, a recap montage, a recorded track under a prayer or a blessing, music playing while people come forward. Even a recognizable hymn, even a song that opens a montage, is recorded audio, not a performance. No clip.
 
-The signal that singing is live is the same one that introduces it: live music here is announced ("for our [first/next/last] song we'll be singing X," "[name] will sing for us"), and you can see the church or the singer carrying it. Played-back media is announced as something to watch ("I prepared a slideshow," "let's watch this"), and the words around it describe images on a screen rather than a person singing. When the music belongs to something being watched, it is not a performance, no matter what the song is.
+## How to tell if singing is live
+
+For every song, before clipping it, answer one question: was a person singing aloud in this room, at this moment? If yes, clip it. If you cannot tell, do not.
+
+To answer it, read what the speech around the music is doing, not the music itself, and not the captions, which read "[music and singing]" for played-back audio too. Speech around live singing directs the congregation to sing: someone names a song to be sung, calls the church to stand and worship, or hands off to a person who will sing. Speech around played-back media directs the room to watch or cues a screen: someone calls a video or slideshow to be shown, narrates images as they appear, or checks that the screen and operator are ready before the music starts. The first is a call to sing; the second is a call to watch. A song wrapped in calls to watch is the audio of something being watched, not a performance.
+
+(So a sing cue sounds like "for our last song we'll be singing X" or "let's stand and worship"; a watch cue sounds like "I prepared a slideshow," "let's watch this," or a readiness check like "is the screen ready, good to go?" These are examples of the two functions, not a fixed list: judge any lead-in by which of the two it is doing.)
+
+Two things that are not evidence of live singing, because they fooled this before: a song landing where opening worship usually sits (a montage can open on a worship song in that exact slot), and a song being a familiar hymn. Position and familiarity say nothing about whether anyone is singing it now. What says so is the function of the speech around it, and whether the song runs with no spoken break straight into played media, which welds it to that media.
+
+When sing-evidence and watch-evidence conflict, watch wins. When you genuinely cannot tell, do not clip: a missed clip is a smaller error than a clip that plays a recording instead of the congregation.
 
 ## Songs
 
