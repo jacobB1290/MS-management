@@ -26,6 +26,12 @@ import {
  */
 export * from "./segmentContract"
 
+// Safe ceiling for the segment call's max_tokens (output + adaptive-thinking
+// headroom). Generous enough for a marathon service's chapter JSON plus deep
+// thinking, and below any model's hard max-output so a high/max effort tier can
+// never overshoot the limit and 400.
+const SEGMENT_MAX_OUTPUT = 32000
+
 /**
  * Segment a timestamped transcript via the Anthropic API. `durationSec` is used
  * to clamp/repair the model's boundaries into a gap-free, in-bounds cover.
@@ -54,8 +60,12 @@ export async function segmentSermon(
           model: config.model,
           // Adaptive thinking so the Settings `effort` genuinely tunes reasoning
           // depth; max_tokens reserves thinking headroom so a thinking pass can't
-          // truncate the chapter JSON. Haiku: none.
-          max_tokens: maxTokensWithThinking(config.model, config.effort, 4096),
+          // truncate the chapter JSON. Haiku: none. Segmentation is the longest
+          // output + deepest thinking of any feature: the old 4k base let thinking
+          // on a long, unusual service eat the whole budget and truncate the JSON
+          // (stop_reason: max_tokens, the New Year service failure). Generous base,
+          // capped to SEGMENT_MAX_OUTPUT so a high/max tier can't overshoot.
+          max_tokens: Math.min(SEGMENT_MAX_OUTPUT, maxTokensWithThinking(config.model, config.effort, 16384)),
           ...(supportsEffort ? { thinking: { type: "adaptive" as const } } : {}),
           system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
           messages: [
