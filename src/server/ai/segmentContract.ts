@@ -117,9 +117,17 @@ Close the message where the teaching does, before the closing song's hand-off. A
 
 List the people who delivered the message. For a sermon that is the one preacher; for a discussion it is the leaders who carried it, as an array.
 
-Name a person only when the transcript states the name, in the form given (first name, or first and last). Never guess a name. Empty array if no name is stated.
+Name a person only when the transcript states the name. Use the form given (first name, or first and last), normalized to the canonical name for the known people below and corrected for clear phonetic misspellings. Never invent a name the transcript does not contain. Empty array if no name is stated.
 
-When one person is referred to by more than one name or spelling in the same transcript, they are still one person: list them once. Prefer the form used in the formal hand-off when the introduction names them, since that is the most reliable source. For example a leader introduced as "Pastor Gennady" but called "Pastor Henry" through the body is a single speaker, listed once. Do not emit two entries for one person, and do not let a misheard variant become a second name.
+When one person is referred to by more than one name or spelling in the same transcript, they are still one person: list them once. Prefer the form used in the formal hand-off when the introduction names them, since that is the most reliable source. Do not emit two entries for one person, and do not let a misheard variant become a second name.
+
+Auto-generated captions spell names phonetically, so a name often arrives misspelled. Correct a clear phonetic mangling to the real name when you can identify the person, for example a caption's "Aikica" for the member Evnika. This is recognition, not guessing: normalize only to a name you can actually place from the context or the known people below; for a genuinely unknown person whose name is garbled, invent nothing.
+
+These names recur at this church. Record each in its canonical form wherever a person is named, whether a message speaker or a song's performer:
+
+- Pastor Gennady, the senior pastor, is also called Henry (a nickname) and is transcribed several ways. Always record him as "Pastor Gennady", never "Henry" or "Pastor Henry".
+- Tim is Pastor Tim: record "Pastor Tim" unless the context clearly means otherwise (he is not being given the title, or it is a different Tim).
+- Evnika is a member whose name the captions commonly mangle ("Aikica" and similar phonetic spellings). Record her as "Evnika".
 
 ## Topic
 
