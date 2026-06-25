@@ -76,6 +76,15 @@ const CORS = {
 // near-live while still absorbing bursts at the edge.
 const CACHE = "public, s-maxage=60, stale-while-revalidate=120"
 
+// How many published services the public feed returns (newest first). ms.church
+// renders the WHOLE feed into one /watch page for SEO + client-side search, but
+// shows only the first few per tab and reveals the rest behind a "Show more"
+// button, so a large feed no longer means a heavy first paint. This was 50, which
+// silently capped a growing archive (72 published as of 2026-06). 500 is a sanity
+// bound (years of weekly services + any back-catalog backfill), not a display
+// limit; raise it freely if the archive ever approaches it.
+const PUBLIC_FEED_LIMIT = 500
+
 export function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS })
 }
@@ -104,7 +113,7 @@ export async function GET(request: NextRequest) {
     .select("*")
     .eq("status", "published")
     .order("published_at", { ascending: false, nullsFirst: false })
-    .limit(50)
+    .limit(PUBLIC_FEED_LIMIT)
   if (error) return NextResponse.json({ error: "feed_error" }, { status: 502, headers: CORS })
 
   return NextResponse.json(
