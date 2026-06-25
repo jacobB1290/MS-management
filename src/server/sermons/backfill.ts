@@ -22,7 +22,20 @@ import { runSermonPipeline, publishSermon } from "./service"
  * publish) are interactive; the actual processing is autonomous.
  */
 
-/** Sermon statuses that mean a video has already been (or is being) processed. */
+/**
+ * Sermon statuses that mean a video has already been (or is being) processed, so
+ * a first-pass (non-force) Queue skips it as already handled.
+ *
+ * `failed` is deliberately NOT here. A failed run (e.g. a transient "transcribe
+ * provider failed") leaves a sermon row at status `failed`, and that is the one
+ * case staff explicitly want to retry from the "To process" tab — the picker
+ * offers it as selectable/queueable. Including it made the normal Queue treat a
+ * failed service as "already processed" and skip it (`enqueued: 0` → "Those
+ * services are already queued or processed."), so a failed service could never be
+ * re-queued, only force "Re-run". Re-queuing stays idempotent: the queue-row lock
+ * below blocks a double-click (pending/running/done), and the pipeline re-runs any
+ * non-PROCESSED status, so the worker actually retries it.
+ */
 const SERMON_ACTIVE = new Set([
   "detected",
   "transcribing",
@@ -32,7 +45,6 @@ const SERMON_ACTIVE = new Set([
   "segmented",
   "review",
   "published",
-  "failed",
 ])
 
 /**
@@ -76,8 +88,17 @@ export async function listBackfillCandidates(): Promise<BackfillListing> {
     const sermon = sermonByVideo.get(v.videoId) ?? null
     const queue = queueByVideo.get(v.videoId) ?? null
 
+    // A re-queued retry: the sermon's last run left it `failed`, but an active
+    // queue row (pending/running) means staff just re-queued it. Surface the fresh
+    // queue state so the row visibly moves to Queued/Processing (and the picker's
+    // poll kicks in) instead of staying stuck on its old "Failed" badge. Any
+    // non-failed sermon status still wins over the queue row.
+    const requeuedAfterFail =
+      sermon?.status === "failed" &&
+      (queue?.status === "pending" || queue?.status === "running")
+
     let state: BackfillState
-    if (sermon) {
+    if (sermon && !requeuedAfterFail) {
       state = sermonState(sermon.status)
     } else if (queue?.status === "running") {
       state = "processing"
