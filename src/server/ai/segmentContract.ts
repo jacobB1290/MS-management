@@ -160,10 +160,22 @@ This whole determination is internal. It decides only whether a song clip exists
 List every song in the service, in order, each as its own entry, never one combined "worship" block. The two opening songs are two entries even though they share one Opening worship chapter. For each song give:
 
 - **kind**: "worship" or "program". "worship" is the regular congregational singing the whole church does together, usually two opening songs and a closing one. "program" is a song announced or introduced as a special or program item rather than part of that regular set: special music where a person or group performs for the congregation (announced like "our brother Daniel will sing a song for us" or "[name] is going to come and sing"), or an occasional piece (a children's song, a holiday or program song). Most songs are "worship"; "program" is the announced exception. When unsure, choose "worship".
-- **leader**: for a "program" song, the performer's name exactly as stated (for example "Daniel"). For "worship", the worship leader's name only when it is clearly stated, otherwise an empty string (worship songs usually name no one). Never guess a name.
+- **leader**: for a "program" song, who performed it, named exactly as stated, and every performer when more than one sang, joined naturally in this one field ("Anna and Daniel", "the youth choir"). See "Who performed a song". For "worship", the worship leader's name only when it is clearly stated, otherwise an empty string (worship songs usually name no one). Never guess a name.
 - **title**: the song's name when it is stated or clearly recognizable from distinctive lyrics. If you are not confident which song it is, use a short honest descriptive title drawn from a memorable line rather than guessing a specific hymn or worship-song name. Never fabricate a precise title you are unsure of.
 - **topic**: one short lowercase theme keyword for the song's subject (for example "praise", "grace", "the cross", "god's faithfulness", "surrender"). Reuse a topic from the list in play whenever one fits, so songs and messages share a vocabulary; coin a new one only when none fit.
 - **start_sec** / **end_sec**: the precise span of the sung clip, because tapping a song on the website plays exactly this and nothing else. The clip is the whole performance, its instrumental intro through its final note, and only that one song, never an announcement, a reading, the message, or another song. Place these edges by the rules in "Song clips".
+
+## Who performed a song
+
+Attribute special or program music to whoever actually performed it, naming them as specifically as the introduction or the thanks allows:
+
+- A group (a choir, ensemble, band, or a ministry such as the youth or the children) is named as the group ("Morning Star youth", "the choir").
+- A few named people who performed together (a duet, a trio, two singers) are all named.
+- A single person performing alone is named alone.
+
+Name everyone who performed. When a group sang, the performer is the group, even if a person who directs, leads, or prepared them is also named: that person led the group, they are not by themselves who performed. When several people sang together, name them all, not just the most prominent one.
+
+The unit of attribution is whoever made the sound: as many or as few as actually sang or played. Record them in the song's "leader" field, joined naturally when there is more than one ("Anna and Daniel", "the youth choir").
 
 ## Song clips
 
