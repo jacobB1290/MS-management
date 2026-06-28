@@ -18,6 +18,8 @@ export interface EditorBarProps {
   whisper?: React.ReactNode
   cancelLabel?: string
   onCancel?: () => void
+  /** Optional extra action (e.g. "Save & publish") rendered before Cancel. */
+  secondary?: React.ReactNode
 }
 
 /**
@@ -33,6 +35,7 @@ export function EditorBar({
   whisper,
   cancelLabel = "Cancel",
   onCancel,
+  secondary,
 }: EditorBarProps) {
   const router = useRouter()
   return (
@@ -64,6 +67,7 @@ export function EditorBar({
             >
               {cancelLabel}
             </Button>
+            {secondary}
             <Button type="submit" form={formId} disabled={busy} className="flex-1 sm:flex-initial">
               {busy ? busyLabel : submitLabel}
             </Button>

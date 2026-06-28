@@ -8,6 +8,7 @@ import { getSpendSummary, formatMoney } from "@/server/billing/twilio"
 import { getAiSpendSummary, formatTokens } from "@/server/billing/anthropic"
 import { getAiConfig } from "@/server/ai/config"
 import { getModelFamilies } from "@/server/ai/models"
+import { getSermonsConfig } from "@/server/sermons/config"
 import { modelChoicesFrom } from "@/lib/ai-models"
 import { listMmsMedia } from "@/server/media/storage"
 import { getLastKnowledgeSync } from "@/server/ai/knowledgeSync"
@@ -21,6 +22,7 @@ import { TeamPanel } from "./team-panel"
 import { StoragePanel } from "./storage-panel"
 import { NotificationsPanel } from "./notifications-panel"
 import { AiModelsPanel } from "./ai-models-panel"
+import { ServicesSettingsPanel } from "./services-settings-panel"
 import { ChurchKnowledgePanel } from "./church-knowledge-panel"
 import { SettingsShell, type SettingsSection } from "./settings-shell"
 
@@ -89,6 +91,14 @@ export default async function SettingsPage() {
             content: (
               <Suspense fallback={<CardSkeleton lines={6} />}>
                 <AiModelsCard />
+              </Suspense>
+            ),
+          },
+          {
+            id: "services" as const,
+            content: (
+              <Suspense fallback={<CardSkeleton lines={3} />}>
+                <ServicesCard />
               </Suspense>
             ),
           },
@@ -341,6 +351,15 @@ async function AiModelsCard() {
   return (
     <Card>
       <AiModelsPanel config={config} choices={choices} />
+    </Card>
+  )
+}
+
+async function ServicesCard() {
+  const settings = await getSermonsConfig()
+  return (
+    <Card>
+      <ServicesSettingsPanel settings={settings} />
     </Card>
   )
 }

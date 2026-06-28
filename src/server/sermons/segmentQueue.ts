@@ -10,6 +10,7 @@ import {
   finalizeSegmentation,
 } from "@/server/ai/segmentContract"
 import { applySegmentation } from "./segmentApply"
+import type { RunOrigin } from "./config"
 
 /**
  * "Claude Code as the model", wired as a handoff queue (CLAUDE.md §13.3 + the
@@ -39,6 +40,8 @@ export type EnqueueSegmentationParams = {
   durationSec: number
   knownTopics: string[]
   userId?: string | null
+  /** The run's origin, stamped on the job so finalize can apply the right auto-publish toggle. */
+  origin: RunOrigin
 }
 
 /**
@@ -64,6 +67,7 @@ export async function enqueueSegmentationJob(
       duration_sec: params.durationSec,
       known_topics: params.knownTopics,
       created_by: params.userId ?? null,
+      origin: params.origin,
     })
     .select("id")
     .single()
@@ -93,7 +97,7 @@ export async function finalizeReturnedSegmentationJobs(limit = 10): Promise<Fina
 
   const { data: jobs } = await admin
     .from("segmentation_jobs")
-    .select("id, sermon_id, run_id, duration_sec, result")
+    .select("id, sermon_id, run_id, duration_sec, result, origin")
     .eq("status", "returned")
     .order("returned_at", { ascending: true })
     .limit(limit)
@@ -132,7 +136,7 @@ export async function finalizeReturnedSegmentationJobs(limit = 10): Promise<Fina
 
       const { data: sermon } = await admin
         .from("sermons")
-        .select("id, title, published_at, youtube_video_id")
+        .select("id, title, published_at, youtube_video_id, created_by")
         .eq("id", job.sermon_id)
         .maybeSingle()
       if (!sermon) {
@@ -142,7 +146,7 @@ export async function finalizeReturnedSegmentationJobs(limit = 10): Promise<Fina
         continue
       }
 
-      const applied = await applySegmentation(admin, sermon, finalized)
+      const applied = await applySegmentation(admin, sermon, finalized, (job.origin as RunOrigin) ?? "automatic")
       if (!applied.ok) {
         await admin.from("segmentation_jobs").update({ status: "error", error: applied.error }).eq("id", job.id)
         out.errored++

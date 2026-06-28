@@ -12,6 +12,7 @@ import {
   HardDrive,
   Users,
   Server,
+  Clapperboard,
   type LucideIcon,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -39,6 +40,7 @@ export type SettingsSectionId =
   | "account"
   | "notifications"
   | "ai-models"
+  | "services"
   | "knowledge"
   | "usage"
   | "storage"
@@ -68,6 +70,12 @@ const META: Record<SettingsSectionId, SectionMeta> = {
     blurb:
       "Pick the Claude model and reasoning effort behind each assistant. Changes take effect immediately, no redeploy.",
     icon: Sparkles,
+  },
+  services: {
+    label: "Services",
+    blurb:
+      "How segmented services reach ms.church — auto-publish completed runs, or hold them for review first.",
+    icon: Clapperboard,
   },
   knowledge: {
     label: "Church knowledge",

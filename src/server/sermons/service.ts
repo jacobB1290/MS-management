@@ -392,6 +392,7 @@ export async function runSermonPipeline(opts: RunOptions): Promise<RunResult> {
       durationSec,
       knownTopics,
       userId,
+      origin: opts.trigger === "manual" ? "manual" : "automatic",
     })
     if (!enq.ok) {
       await rec.finish("segment", "failed", { error: enq.error })
@@ -464,7 +465,10 @@ export async function runSermonPipeline(opts: RunOptions): Promise<RunResult> {
     await rec.finish("segment", "failed", { error: `${seg.reason}${seg.detail ? `: ${seg.detail}` : ""}` })
     return fail(sermon.id, `segment_${seg.reason}`)
   }
-  const applied = await applySegmentation(admin, sermon, seg.data)
+  // A hand-kicked "Run now" is the manual auto-publish lane; cron + backfill are
+  // automatic. applySegmentation reads the matching Settings toggle to decide
+  // whether this lands at review or goes straight live.
+  const applied = await applySegmentation(admin, sermon, seg.data, opts.trigger === "manual" ? "manual" : "automatic")
   if (!applied.ok) {
     await rec.finish("segment", "failed", { error: applied.error })
     return fail(sermon.id, applied.error)
