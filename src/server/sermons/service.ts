@@ -645,7 +645,11 @@ export async function publishSermon(id: string, userId: string): Promise<Publish
   const admin = createSupabaseAdminClient()
   const { data: row, error } = await admin.from("sermons").select("*").eq("id", id).maybeSingle()
   if (error || !row) return { ok: false, error: "not_found" }
-  if (!row.transcript || (row.segments as SermonSegment[] | null)?.length === 0) {
+  // Publishable = has chapters. The transcript is supplemental (it only enriches
+  // the single-sermon feed response + on-site transcript view); many good live
+  // services have none, so requiring it here wrongly blocked publishing a fully
+  // segmented service. Chapters are what the public watch page actually renders.
+  if (((row.segments as SermonSegment[] | null) ?? []).length === 0) {
     return { ok: false, error: "not_ready" }
   }
   const { error: upErr } = await admin
