@@ -39,7 +39,7 @@ export function SermonActions({ id, youtubeVideoId, status, ready, isAdmin }: Se
       if (!res.ok) {
         toast.error(
           json?.error === "not_ready"
-            ? "Not ready yet — run the pipeline so it has chapters first."
+            ? "Not ready yet — it needs at least one chapter first."
             : `Publish failed: ${json?.error ?? res.status}`,
         )
         return
