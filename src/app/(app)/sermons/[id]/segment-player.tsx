@@ -1,9 +1,9 @@
 "use client"
-import { useCallback, useEffect, useRef, useState } from "react"
 import { AlertTriangle, Music2, Play } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { segmentVariant, SEGMENT_LABEL, formatClock, type SermonSegment } from "../types"
+import { useYouTubePlayer } from "../use-youtube-player"
 
 /**
  * In-page verification player. Embeds the service video and lets staff click any
@@ -11,7 +11,8 @@ import { segmentVariant, SEGMENT_LABEL, formatClock, type SermonSegment } from "
  * the public site plays), so the segmentation can be checked against the real
  * footage without opening YouTube. Songs whose midpoint lands inside the sermon
  * are flagged ("check placement") — that is the failure mode where a correctly
- * named song clip would play the message.
+ * named song clip would play the message. The YouTube controller is the shared
+ * `useYouTubePlayer` hook, also used by the service editor.
  */
 
 export type ClientSong = {
@@ -23,48 +24,6 @@ export type ClientSong = {
   endSec: number
 }
 
-interface YTPlayer {
-  seekTo(seconds: number, allowSeekAhead: boolean): void
-  playVideo(): void
-  pauseVideo(): void
-  getCurrentTime(): number
-  destroy(): void
-}
-interface YTPlayerCtor {
-  new (
-    el: HTMLElement,
-    opts: {
-      videoId: string
-      playerVars?: Record<string, number | string>
-      events?: { onReady?: () => void }
-    },
-  ): YTPlayer
-}
-declare global {
-  interface Window {
-    YT?: { Player: YTPlayerCtor }
-    onYouTubeIframeAPIReady?: () => void
-  }
-}
-
-let apiPromise: Promise<void> | null = null
-function loadYT(): Promise<void> {
-  if (typeof window === "undefined") return Promise.resolve()
-  if (window.YT?.Player) return Promise.resolve()
-  if (apiPromise) return apiPromise
-  apiPromise = new Promise((resolve) => {
-    const prev = window.onYouTubeIframeAPIReady
-    window.onYouTubeIframeAPIReady = () => {
-      prev?.()
-      resolve()
-    }
-    const s = document.createElement("script")
-    s.src = "https://www.youtube.com/iframe_api"
-    document.head.appendChild(s)
-  })
-  return apiPromise
-}
-
 export function SegmentPlayer({
   videoId,
   segments,
@@ -74,73 +33,7 @@ export function SegmentPlayer({
   segments: SermonSegment[]
   songs: ClientSong[]
 }) {
-  const holderRef = useRef<HTMLDivElement>(null)
-  const playerRef = useRef<YTPlayer | null>(null)
-  const clipEndRef = useRef<number | null>(null)
-  const rafRef = useRef<number | null>(null)
-  const [ready, setReady] = useState(false)
-  const [curSec, setCurSec] = useState(0)
-  const [activeClip, setActiveClip] = useState<number | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    loadYT().then(() => {
-      if (cancelled || !holderRef.current || !window.YT) return
-      playerRef.current = new window.YT.Player(holderRef.current, {
-        videoId,
-        playerVars: { rel: 0, modestbranding: 1, playsinline: 1 },
-        events: { onReady: () => setReady(true) },
-      })
-    })
-    return () => {
-      cancelled = true
-      if (rafRef.current) cancelAnimationFrame(rafRef.current)
-      try {
-        playerRef.current?.destroy()
-      } catch {
-        /* player already gone */
-      }
-      playerRef.current = null
-    }
-  }, [videoId])
-
-  useEffect(() => {
-    if (!ready) return
-    const tick = () => {
-      const p = playerRef.current
-      if (p?.getCurrentTime) {
-        const t = p.getCurrentTime()
-        setCurSec(t)
-        if (clipEndRef.current != null && t >= clipEndRef.current) {
-          try {
-            p.pauseVideo()
-          } catch {
-            /* noop */
-          }
-          clipEndRef.current = null
-          setActiveClip(null)
-        }
-      }
-      rafRef.current = requestAnimationFrame(tick)
-    }
-    rafRef.current = requestAnimationFrame(tick)
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current)
-    }
-  }, [ready])
-
-  const seek = useCallback((sec: number, endSec: number | null, clipIdx: number | null) => {
-    const p = playerRef.current
-    if (!p?.seekTo) return
-    clipEndRef.current = endSec
-    setActiveClip(clipIdx)
-    try {
-      p.seekTo(Math.max(0, sec), true)
-      p.playVideo()
-    } catch {
-      /* noop */
-    }
-  }, [])
+  const { holderRef, curSec, activeClip, seek } = useYouTubePlayer(videoId)
 
   // Which chapter the playhead is in right now (live highlight while watching).
   let activeChapter = -1

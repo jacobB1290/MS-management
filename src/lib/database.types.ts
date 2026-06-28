@@ -715,6 +715,7 @@ export type Database = {
           id: string
           json_schema: Json
           known_topics: string[]
+          origin: string
           result: Json | null
           returned_at: string | null
           run_id: string | null
@@ -736,6 +737,7 @@ export type Database = {
           id?: string
           json_schema: Json
           known_topics?: string[]
+          origin?: string
           result?: Json | null
           returned_at?: string | null
           run_id?: string | null
@@ -757,6 +759,7 @@ export type Database = {
           id?: string
           json_schema?: Json
           known_topics?: string[]
+          origin?: string
           result?: Json | null
           returned_at?: string | null
           run_id?: string | null
@@ -826,15 +829,7 @@ export type Database = {
           title?: string | null
           youtube_video_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "sermon_backfill_queue_requested_by_fkey"
-            columns: ["requested_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       sermon_pipeline_runs: {
         Row: {

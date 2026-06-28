@@ -1,7 +1,8 @@
 "use client"
 import { useState } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ExternalLink, EyeOff, Loader2, MoreHorizontal, RefreshCw, Trash2, Upload } from "lucide-react"
+import { ExternalLink, EyeOff, Loader2, MoreHorizontal, Pencil, RefreshCw, Trash2, Upload } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
@@ -147,6 +148,13 @@ export function SermonActions({ id, youtubeVideoId, status, ready, isAdmin }: Se
           {primary.node}
         </span>
       )}
+
+      <Button asChild variant="secondary" size="sm">
+        <Link href={`/sermons/${id}/edit`}>
+          <Pencil size={15} />
+          <span>Edit</span>
+        </Link>
+      </Button>
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

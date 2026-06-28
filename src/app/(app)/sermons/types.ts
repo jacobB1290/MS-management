@@ -16,6 +16,20 @@ export type SermonSegment = {
   scriptureRefs: string[]
 }
 
+export type SongKind = "worship" | "program"
+
+/** A single song clip — mirrors @/server/ai/segmentContract's SermonSong, client-safe. */
+export type SermonSong = {
+  title: string
+  leader: string | null
+  kind: SongKind
+  topic: string | null
+  startSec: number
+  endSec: number
+}
+
+export type SermonFormat = "sermon" | "discussion"
+
 export type SermonSeo = { description: string; tags: string[] } | null
 
 export type StepName = "detect" | "transcribe" | "segment"
@@ -74,6 +88,7 @@ export const SEGMENT_LABEL: Record<string, string> = {
   scripture: "Scripture",
   prayer: "Prayer",
   sermon: "Sermon",
+  discussion: "Discussion",
   poem: "Poem",
   testimony: "Testimony",
   offering: "Offering",
@@ -87,6 +102,22 @@ export function segmentVariant(type: string): BadgeVariant {
   if (type === "sermon") return "gold"
   if (type === "scripture") return "default"
   return "muted"
+}
+
+/**
+ * Parse a "mm:ss" / "h:mm:ss" / bare-seconds string back into seconds — the
+ * inverse of formatClock, for the service editor's timestamp fields. Tolerant of
+ * partial input while typing; a blank or unparseable value is 0.
+ */
+export function parseClock(input: string): number {
+  const raw = input.trim()
+  if (!raw) return 0
+  const parts = raw.split(":").map((p) => p.trim())
+  if (parts.some((p) => p !== "" && !/^\d+$/.test(p))) return 0
+  const nums = parts.map((p) => (p === "" ? 0 : Number(p)))
+  let sec = 0
+  for (const n of nums) sec = sec * 60 + n
+  return Math.max(0, Math.round(sec))
 }
 
 /** "mm:ss" or "h:mm:ss" — chapter timestamps + YouTube deep-link labels. */
