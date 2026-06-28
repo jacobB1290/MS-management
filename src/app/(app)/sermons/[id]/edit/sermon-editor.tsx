@@ -284,7 +284,7 @@ export function SermonEditor({ initial }: { initial: SermonEditorInitial }) {
         if (!pubRes.ok) {
           toast.error(
             pubJson?.error === "not_ready"
-              ? "Saved, but not ready to publish — it needs a transcript and chapters."
+              ? "Saved, but not ready to publish — add at least one chapter first."
               : `Saved, but publish failed: ${pubJson?.error ?? pubRes.status}`,
           )
           router.push(`/sermons/${initial.id}`)
