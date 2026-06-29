@@ -187,8 +187,21 @@ export type BackfillCandidate = {
   selectable: boolean
 }
 
+/**
+ * Outcome of the live YouTube playlist read that feeds the backfill picker.
+ *  - `ok`           — the playlist was read; the candidate list is complete.
+ *  - `unconfigured` — no YouTube creds (mock mode); nothing to read.
+ *  - `quota`        — Google's daily API limit was hit (403/429 quota reason).
+ *  - `error`        — the playlist was otherwise unreachable this request.
+ * When not `ok`, the picker still renders every service the CRM already tracks
+ * (from its own DB); only discovery of brand-new videos to process is paused.
+ */
+export type PlaylistReadStatus = "ok" | "unconfigured" | "quota" | "error"
+
 export type BackfillListing = {
   configured: boolean
+  /** Status of the live playlist read — drives the degraded banner in the picker. */
+  playlistStatus: PlaylistReadStatus
   candidates: BackfillCandidate[]
   counts: {
     total: number

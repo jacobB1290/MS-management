@@ -1,7 +1,7 @@
 import "server-only"
 import { createSupabaseAdminClient } from "@/lib/supabase/server"
 import { logAudit } from "@/server/audit"
-import { fetchAllPlaylistVideos } from "@/server/youtube/feed"
+import { readAllPlaylistVideos, youtubeThumbUrl } from "@/server/youtube/feed"
 import type {
   BackfillState,
   BackfillCandidate,
@@ -68,13 +68,23 @@ function sermonState(status: string): BackfillState {
  */
 export async function listBackfillCandidates(): Promise<BackfillListing> {
   const admin = createSupabaseAdminClient()
-  const videos = await fetchAllPlaylistVideos()
+  const playlist = await readAllPlaylistVideos()
+
+  if (playlist.status === "quota" || playlist.status === "error") {
+    // Don't fail silently: a hit quota / unreachable playlist is why "new videos
+    // to process" can't be discovered. We still render the catalog from the DB
+    // below, so this is a degraded-but-usable state, logged for observability.
+    console.warn(
+      `[backfill] playlist read ${playlist.status}: ${playlist.detail ?? "unknown"} — ` +
+        "serving known services from the DB; new-video discovery paused.",
+    )
+  }
 
   const [{ data: sermonRows }, { data: queueRows }] = await Promise.all([
     admin.from("sermons").select("id, youtube_video_id, status, generated_title"),
     admin
       .from("sermon_backfill_queue")
-      .select("youtube_video_id, status, error"),
+      .select("youtube_video_id, status, error, title, published_at"),
   ])
 
   const sermonByVideo = new Map(
@@ -83,10 +93,31 @@ export async function listBackfillCandidates(): Promise<BackfillListing> {
   const queueByVideo = new Map(
     (queueRows ?? []).map((q) => [q.youtube_video_id, q]),
   )
+  const playlistByVideo = new Map(playlist.videos.map((v) => [v.videoId, v]))
 
-  const candidates: BackfillCandidate[] = videos.map((v) => {
-    const sermon = sermonByVideo.get(v.videoId) ?? null
-    const queue = queueByVideo.get(v.videoId) ?? null
+  // Build the union of video ids: the live playlist PLUS everything the CRM
+  // already tracks (sermons + queue rows). The DB rows are load-bearing — when
+  // the playlist read fails (quota / unreachable), they keep the page populated
+  // so staff can still see and edit published, queued, awaiting-segmentation, and
+  // in-review services. The playlist only layers brand-new, not-yet-processed
+  // videos on top. Playlist order first (newest-first), then any DB-only ids the
+  // playlist didn't return this request.
+  const order: string[] = []
+  const seen = new Set<string>()
+  const push = (id: string | null | undefined) => {
+    if (id && !seen.has(id)) {
+      seen.add(id)
+      order.push(id)
+    }
+  }
+  for (const v of playlist.videos) push(v.videoId)
+  for (const s of sermonRows ?? []) push(s.youtube_video_id)
+  for (const q of queueRows ?? []) push(q.youtube_video_id)
+
+  const candidates: BackfillCandidate[] = order.map((videoId) => {
+    const video = playlistByVideo.get(videoId) ?? null
+    const sermon = sermonByVideo.get(videoId) ?? null
+    const queue = queueByVideo.get(videoId) ?? null
 
     // A re-queued retry: the sermon's last run left it `failed`, but an active
     // queue row (pending/running) means staff just re-queued it. Surface the fresh
@@ -116,12 +147,18 @@ export async function listBackfillCandidates(): Promise<BackfillListing> {
     const selectable =
       state === "new" || state === "failed" || state === "skipped"
 
+    // Title/date fall back across the sources so a DB-only row (playlist didn't
+    // return it this request) still reads well: live playlist title → the queue's
+    // stored title → the AI title → a generic label.
+    const title =
+      video?.title || queue?.title || sermon?.generated_title || "Sunday service"
+
     return {
-      videoId: v.videoId,
-      title: v.title,
+      videoId,
+      title,
       generatedTitle: sermon?.generated_title ?? null,
-      publishedAt: v.publishedAt,
-      thumbnailUrl: v.thumbnailUrl,
+      publishedAt: video?.publishedAt ?? queue?.published_at ?? null,
+      thumbnailUrl: video?.thumbnailUrl ?? youtubeThumbUrl(videoId),
       state,
       sermonId: sermon?.id ?? null,
       sermonStatus: sermon?.status ?? null,
@@ -142,7 +179,14 @@ export async function listBackfillCandidates(): Promise<BackfillListing> {
     failed: candidates.filter((c) => c.state === "failed").length,
   }
 
-  return { configured: videos.length > 0, candidates, counts }
+  // "configured" now means "there's a usable surface to show". Only a genuine
+  // mock-mode setup with NO known services collapses to the hard empty state; a
+  // quota/error read still renders the picker (with a degraded banner) as long as
+  // the DB knows about anything, and even when it doesn't the picker explains the
+  // outage rather than the misleading "make the playlist public" empty state.
+  const configured = playlist.status !== "unconfigured" || candidates.length > 0
+
+  return { configured, playlistStatus: playlist.status, candidates, counts }
 }
 
 export type EnqueueResult = { enqueued: number; skipped: number }

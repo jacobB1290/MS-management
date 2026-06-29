@@ -1,5 +1,6 @@
 import "server-only"
 import { getYouTubeAccessToken } from "./captions"
+import type { PlaylistReadStatus } from "@/app/(app)/sermons/types"
 
 /**
  * Latest-video detection off the church YouTube channel's public RSS feed.
@@ -24,8 +25,13 @@ export type FeedVideo = {
   thumbnailUrl: string
 }
 
-function thumb(videoId: string): string {
+/** The canonical thumbnail URL for a video id (used for DB-only candidates too). */
+export function youtubeThumbUrl(videoId: string): string {
   return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`
+}
+
+function thumb(videoId: string): string {
+  return youtubeThumbUrl(videoId)
 }
 
 /** Parse the Atom feed entries into our shape, newest first (feed order). */
@@ -81,19 +87,52 @@ export async function fetchLatestVideo(): Promise<FeedVideo | null> {
   return latest ?? null
 }
 
+export type PlaylistRead = {
+  /**
+   * Why the read returned what it did, so callers can tell "the church has no
+   * back catalog" (ok, empty) apart from "we couldn't reach YouTube" (quota /
+   * error). The backfill page leans on this to stay populated from its own DB
+   * when the live read fails instead of blanking the whole view.
+   */
+  status: PlaylistReadStatus
+  videos: FeedVideo[]
+  /** Raw provider reason for logs (e.g. `quotaExceeded`, `http_403`); never shown raw to staff. */
+  detail?: string
+}
+
+/** De-dupe (a video can appear twice in a playlist) and sort newest-first. */
+function dedupeNewestFirst(videos: FeedVideo[]): FeedVideo[] {
+  const seen = new Set<string>()
+  return videos
+    .filter((v) => (seen.has(v.videoId) ? false : (seen.add(v.videoId), true)))
+    .sort((a, b) => (b.publishedAt ?? "").localeCompare(a.publishedAt ?? ""))
+}
+
+const QUOTA_REASONS = new Set([
+  "quotaExceeded",
+  "dailyLimitExceeded",
+  "rateLimitExceeded",
+  "userRateLimitExceeded",
+])
+
 /**
  * The FULL playlist (back catalog), newest first, via the YouTube Data API
  * `playlistItems.list` — the RSS feed above only returns the latest ~15, which
  * is enough for "what's new" but not for backfilling years of services. Needs
  * read access: the channel-owner OAuth token (same one captions use) or a public
- * API key (`GOOGLE_YOUTUBE_API_KEY` / `GOOGLE_CALENDAR_API_KEY`). Returns [] when
- * neither is configured (mock mode) so the backfill UI degrades to empty, never
- * throws. Paginated; capped at `maxPages` * 50 so a huge channel can't run away.
+ * API key (`GOOGLE_YOUTUBE_API_KEY` / `GOOGLE_CALENDAR_API_KEY`).
+ *
+ * Never throws. Reports `status` so the caller can distinguish a genuinely empty
+ * catalog from a transient failure: `unconfigured` (no creds — mock mode),
+ * `quota` (the Google daily limit was hit — a 403/429 with a quota reason), or
+ * `error` (any other unreachable). On quota/error it still returns whatever pages
+ * succeeded before the failure. Paginated; capped at `maxPages` * 50 so a huge
+ * channel can't run away.
  */
-export async function fetchAllPlaylistVideos(maxPages = 40): Promise<FeedVideo[]> {
+export async function readAllPlaylistVideos(maxPages = 40): Promise<PlaylistRead> {
   const apiKey = process.env.GOOGLE_YOUTUBE_API_KEY || process.env.GOOGLE_CALENDAR_API_KEY
   const token = apiKey ? null : await getYouTubeAccessToken().catch(() => null)
-  if (!apiKey && !token) return []
+  if (!apiKey && !token) return { status: "unconfigured", videos: [] }
 
   const out: FeedVideo[] = []
   let pageToken: string | undefined
@@ -109,7 +148,24 @@ export async function fetchAllPlaylistVideos(maxPages = 40): Promise<FeedVideo[]
         cache: "no-store",
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       })
-      if (!res.ok) break
+      if (!res.ok) {
+        // Read the Google error reason so a hit daily quota is reported as such
+        // (and not as "playlist unreachable / make it public"). 403 with a quota
+        // reason or any 429 = quota/rate; everything else = a generic error.
+        let reason = ""
+        try {
+          const body = (await res.json()) as { error?: { errors?: { reason?: string }[] } }
+          reason = body.error?.errors?.[0]?.reason ?? ""
+        } catch {
+          /* non-JSON error body */
+        }
+        const isQuota = res.status === 429 || QUOTA_REASONS.has(reason)
+        return {
+          status: isQuota ? "quota" : "error",
+          videos: dedupeNewestFirst(out),
+          detail: reason || `http_${res.status}`,
+        }
+      }
       const json = (await res.json()) as {
         nextPageToken?: string
         items?: {
@@ -130,12 +186,20 @@ export async function fetchAllPlaylistVideos(maxPages = 40): Promise<FeedVideo[]
       pageToken = json.nextPageToken
       if (!pageToken) break
     }
-  } catch {
-    return out
+  } catch (e) {
+    return {
+      status: "error",
+      videos: dedupeNewestFirst(out),
+      detail: e instanceof Error ? e.message : "fetch_failed",
+    }
   }
-  // De-dupe (a video can appear twice in a playlist) and sort newest-first.
-  const seen = new Set<string>()
-  return out
-    .filter((v) => (seen.has(v.videoId) ? false : (seen.add(v.videoId), true)))
-    .sort((a, b) => (b.publishedAt ?? "").localeCompare(a.publishedAt ?? ""))
+  return { status: "ok", videos: dedupeNewestFirst(out) }
+}
+
+/**
+ * Back-compat thin wrapper: just the videos, [] on any failure. Prefer
+ * `readAllPlaylistVideos` when you need to tell empty from unreachable.
+ */
+export async function fetchAllPlaylistVideos(maxPages = 40): Promise<FeedVideo[]> {
+  return (await readAllPlaylistVideos(maxPages)).videos
 }

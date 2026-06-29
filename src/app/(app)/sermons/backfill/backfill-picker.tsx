@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Check, ChevronRight, Loader2, ListPlus, RefreshCw, UploadCloud } from "lucide-react"
+import { Check, ChevronRight, Loader2, ListPlus, RefreshCw, TriangleAlert, UploadCloud } from "lucide-react"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -257,6 +257,14 @@ export function BackfillPicker({
         <Stat label="Published" value={tally.published} accent={tally.published > 0 ? "success" : undefined} />
       </div>
 
+      {(listing.playlistStatus === "quota" || listing.playlistStatus === "error") && (
+        <PlaylistBanner
+          status={listing.playlistStatus}
+          onRetry={refresh}
+          retrying={refreshing}
+        />
+      )}
+
       {!ready && (
         <p className="mt-4 rounded-xl border border-ink-hairline bg-surface/60 px-4 py-3 text-small text-ink-muted">
           {!captionsReady && !aiReady
@@ -431,6 +439,50 @@ export function BackfillPicker({
 }
 
 /* ----------------------------------------------------------------------- */
+
+/**
+ * Degraded-read banner. When the live YouTube playlist read fails (daily quota
+ * hit, or otherwise unreachable) the list below still shows every service the
+ * CRM already tracks — published, queued, awaiting segmentation, in review. Only
+ * discovery of brand-new videos to process is paused, so this explains that
+ * without implying the page is broken, and offers a one-tap retry.
+ */
+function PlaylistBanner({
+  status,
+  onRetry,
+  retrying,
+}: {
+  status: "quota" | "error"
+  onRetry: () => void
+  retrying: boolean
+}) {
+  const message =
+    status === "quota"
+      ? "YouTube’s daily limit was reached, so checking for new videos to process is paused. Everything already processed, queued, or in review is shown below and stays fully editable. New-video discovery resumes once the limit resets (around midnight Pacific), or try again later."
+      : "Couldn’t reach YouTube just now, so the list of new videos to process may be incomplete. Everything the CRM already tracks is shown below. Try again in a moment."
+  return (
+    <div className="mt-4 flex items-start gap-3 rounded-xl border border-[color-mix(in_oklab,var(--color-warning)_35%,var(--color-ink-hairline))] bg-[color-mix(in_oklab,var(--color-warning)_8%,white)] px-4 py-3 animate-[fade-in_var(--motion-medium)_var(--ease-out-soft)] motion-reduce:animate-none">
+      <TriangleAlert size={17} className="mt-0.5 shrink-0 text-warning" aria-hidden />
+      <div className="min-w-0 flex-1">
+        <p className="text-small text-ink-muted">
+          <span className="font-medium text-ink">
+            {status === "quota" ? "YouTube daily limit reached." : "YouTube is unreachable."}
+          </span>{" "}
+          {message}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onRetry}
+        disabled={retrying}
+        className="flex shrink-0 items-center gap-1.5 rounded-pill border border-ink-hairline bg-white px-3 py-1.5 text-micro font-medium text-ink-muted transition-[color,background-color,opacity] duration-[var(--motion-fast)] ease-[var(--ease-out-soft)] hover:bg-surface hover:text-ink disabled:opacity-60 motion-reduce:transition-none"
+      >
+        <RefreshCw size={13} className={cn(retrying && "animate-spin")} aria-hidden />
+        {retrying ? "Checking…" : "Try again"}
+      </button>
+    </div>
+  )
+}
 
 function Stat({
   label,
