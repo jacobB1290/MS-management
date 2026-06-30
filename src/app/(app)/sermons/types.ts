@@ -7,6 +7,14 @@ import type { BadgeProps } from "@/components/ui/badge"
  * client action components can all share one vocabulary.
  */
 
+/** A sub-section within a chapter — a jump point in the chapter list, never its
+ *  own chapter. Usually a message that works through several parts. */
+export type SermonSubChapter = {
+  startSec: number
+  endSec: number
+  title: string
+}
+
 export type SermonSegment = {
   startSec: number
   endSec: number
@@ -16,6 +24,8 @@ export type SermonSegment = {
   /** Who delivered this chapter's message — only for "sermon"/"discussion" chapters, else []. */
   speakers: string[]
   scriptureRefs: string[]
+  /** Distinct, jump-worthy parts within this one chapter; usually empty. */
+  children: SermonSubChapter[]
 }
 
 export type SongKind = "worship" | "program"

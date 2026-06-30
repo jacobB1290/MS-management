@@ -104,6 +104,20 @@ export function SermonPreview({ data }: { data: SermonPreviewData }) {
                   ))}
                 </span>
               )}
+              {seg.children && seg.children.length > 0 && (
+                <span className="mt-1.5 flex flex-col gap-1 border-l border-ink-hairline pl-3">
+                  {seg.children.map((c, ci) => (
+                    <span key={ci} className="flex items-baseline gap-2">
+                      <span className="font-mono text-micro tabular-nums text-ink-faint">
+                        {formatClock(c.startSec)}
+                      </span>
+                      <span className="text-micro text-ink-muted">
+                        {c.title || <span className="text-ink-fade">Untitled part</span>}
+                      </span>
+                    </span>
+                  ))}
+                </span>
+              )}
             </span>
           </li>
         ))}
