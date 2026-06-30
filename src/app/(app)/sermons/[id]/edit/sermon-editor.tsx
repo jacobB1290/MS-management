@@ -59,6 +59,14 @@ export interface SermonEditorInitial {
   status: string
 }
 
+/** An editable sub-section row (a chapter's child): title + clock-string bounds. */
+type SubRow = {
+  uid: number
+  title: string
+  start: string
+  end: string
+}
+
 type SegRow = {
   uid: number
   type: string
@@ -69,6 +77,8 @@ type SegRow = {
   scriptureRefs: string[]
   start: string
   end: string
+  /** Optional in-chapter sub-sections (jump points); usually empty. */
+  children: SubRow[]
 }
 
 /** A chapter type that carries a speaker (the message itself). */
@@ -162,6 +172,12 @@ export function SermonEditor({ initial }: { initial: SermonEditorInitial }) {
       scriptureRefs: s.scriptureRefs,
       start: formatClock(s.startSec),
       end: formatClock(s.endSec),
+      children: (Array.isArray(s.children) ? s.children : []).map((c) => ({
+        uid: nextUid(),
+        title: c.title,
+        start: formatClock(c.startSec),
+        end: formatClock(c.endSec),
+      })),
     })),
   )
   const [songs, setSongs] = useState<SongRow[]>(() =>
@@ -206,6 +222,14 @@ export function SermonEditor({ initial }: { initial: SermonEditorInitial }) {
         summary: s.summary,
         speakers: isMessageType(s.type) ? s.speakers : [],
         scriptureRefs: s.scriptureRefs,
+        // Sub-sections, dropping any with no title (the server also repairs).
+        children: s.children
+          .filter((c) => c.title.trim())
+          .map((c) => ({
+            startSec: parseClock(c.start),
+            endSec: parseClock(c.end),
+            title: c.title,
+          })),
       })),
       songs: songs.map((s) => ({
         title: s.title,
@@ -292,8 +316,50 @@ export function SermonEditor({ initial }: { initial: SermonEditorInitial }) {
     const here = formatClock(getCurrentTime())
     setSegments((rows) => [
       ...rows,
-      { uid: nextUid(), type: "sermon", title: "", summary: "", speakers: [], scriptureRefs: [], start: here, end: here },
+      { uid: nextUid(), type: "sermon", title: "", summary: "", speakers: [], scriptureRefs: [], start: here, end: here, children: [] },
     ])
+  }
+
+  // ----- sub-section (child) helpers -----
+  const patchChild = (segUid: number, childUid: number, patch: Partial<SubRow>) =>
+    setSegments((rows) =>
+      rows.map((r) =>
+        r.uid === segUid
+          ? { ...r, children: r.children.map((c) => (c.uid === childUid ? { ...c, ...patch } : c)) }
+          : r,
+      ),
+    )
+  const addChild = (segUid: number) => {
+    const here = formatClock(getCurrentTime())
+    setSegments((rows) =>
+      rows.map((r) =>
+        r.uid === segUid
+          ? { ...r, children: [...r.children, { uid: nextUid(), title: "", start: here, end: here }] }
+          : r,
+      ),
+    )
+  }
+  // Collapse the sub-row for one motion beat, then splice (reduced motion skips
+  // straight to the splice) — same pattern as a chapter/song row removal.
+  const removeChild = (segUid: number, childUid: number) => {
+    const commit = () => {
+      setSegments((rows) =>
+        rows.map((r) =>
+          r.uid === segUid ? { ...r, children: r.children.filter((c) => c.uid !== childUid) } : r,
+        ),
+      )
+      setExiting((s) => {
+        const n = new Set(s)
+        n.delete(childUid)
+        return n
+      })
+    }
+    if (prefersReducedMotion()) {
+      commit()
+      return
+    }
+    setExiting((s) => new Set(s).add(childUid))
+    window.setTimeout(commit, ROW_MOTION_MS)
   }
   const addSong = () => {
     const here = formatClock(getCurrentTime())
@@ -565,6 +631,70 @@ export function SermonEditor({ initial }: { initial: SermonEditorInitial }) {
                         ready={ready}
                       />
                     </div>
+
+                    {/* Sub-sections (children): jump points WITHIN this one chapter,
+                        not chapters of their own. Offered on the message by default;
+                        shown on any chapter that already has them so model output is
+                        never hidden. Most chapters have none. */}
+                    <Collapse show={isMessageType(row.type) || row.children.length > 0}>
+                      <div className="border-t border-ink-hairline pt-[var(--space-md)]">
+                        <p className="text-micro text-ink-faint">
+                          Sub-sections
+                          <span className="text-ink-fade">
+                            {" "}
+                            · optional, for a chapter that works through distinct parts
+                          </span>
+                        </p>
+                        {row.children.length > 0 && (
+                          <ul className="mt-[var(--space-sm)] space-y-[var(--space-sm)]">
+                            {row.children.map((c, ci) => (
+                              <Collapse key={c.uid} show={!exiting.has(c.uid)}>
+                                <li className="border-l border-ink-hairline pl-[var(--space-md)]">
+                                  <div className="mb-2 flex items-center gap-2">
+                                    <span className="text-micro text-ink-faint">Part {ci + 1}</span>
+                                    <span className="ml-auto" />
+                                    <RowRemove
+                                      label={`Remove sub-section ${ci + 1}`}
+                                      onClick={() => removeChild(row.uid, c.uid)}
+                                    />
+                                  </div>
+                                  <div className="space-y-[var(--space-sm)]">
+                                    <FormField variant="quiet" label="Title" htmlFor={`sub-title-${c.uid}`}>
+                                      <Input
+                                        variant="quiet"
+                                        id={`sub-title-${c.uid}`}
+                                        value={c.title}
+                                        onChange={(e) => patchChild(row.uid, c.uid, { title: e.target.value })}
+                                        placeholder="Short sub-section title"
+                                      />
+                                    </FormField>
+                                    <div className="grid grid-cols-2 gap-[var(--space-md)]">
+                                      <TimeField
+                                        label="Start"
+                                        value={c.start}
+                                        onChange={(v) => patchChild(row.uid, c.uid, { start: v })}
+                                        onCapture={() => patchChild(row.uid, c.uid, { start: formatClock(getCurrentTime()) })}
+                                        onSeek={() => seek(parseClock(c.start))}
+                                        ready={ready}
+                                      />
+                                      <TimeField
+                                        label="End"
+                                        value={c.end}
+                                        onChange={(v) => patchChild(row.uid, c.uid, { end: v })}
+                                        onCapture={() => patchChild(row.uid, c.uid, { end: formatClock(getCurrentTime()) })}
+                                        onSeek={() => seek(parseClock(c.end))}
+                                        ready={ready}
+                                      />
+                                    </div>
+                                  </div>
+                                </li>
+                              </Collapse>
+                            ))}
+                          </ul>
+                        )}
+                        <AddRowButton onClick={() => addChild(row.uid)} label="Add sub-section" />
+                      </div>
+                    </Collapse>
                   </div>
                 </RowShell>
               ))}

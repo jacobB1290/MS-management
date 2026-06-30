@@ -31,6 +31,11 @@ const SegmentInput = z.object({
   // Per-message attribution; tolerant of payloads from before the field existed.
   speakers: z.array(z.string()).default([]),
   scriptureRefs: z.array(z.string()),
+  // Optional in-chapter sub-sections; tolerant default so an editor that doesn't
+  // touch them still validates, and a save preserves whatever was there.
+  children: z
+    .array(z.object({ startSec: z.number(), endSec: z.number(), title: z.string() }))
+    .default([]),
 })
 
 const SongInput = z.object({
@@ -109,9 +114,25 @@ export function normalizeEditPayload(payload: EditSermonPayload) {
     .map((s) => {
       const type = (SEGMENT_TYPE_SET.has(s.type) ? s.type : "other") as SegmentType
       const isMessage = type === "sermon" || type === "discussion"
+      const pStart = clamp(s.startSec)
+      const pEnd = clamp(s.endSec)
+      // Preserve in-chapter sub-sections through a manual edit: clamp each inside
+      // the (clamped) parent, keep order, drop overlaps/empties. Mirrors the
+      // finalize repair so the editor and the model path can't drift.
+      const children: { startSec: number; endSec: number; title: string }[] = []
+      let cursor = pStart
+      for (const c of [...(s.children ?? [])].sort((a, b) => a.startSec - b.startSec)) {
+        const title = c.title.trim()
+        if (!title) continue
+        const cs = Math.max(cursor, Math.min(pEnd, clamp(c.startSec)))
+        const ce = Math.min(pEnd, Math.max(cs, clamp(c.endSec)))
+        if (ce <= cs) continue
+        children.push({ startSec: cs, endSec: ce, title })
+        cursor = ce
+      }
       return {
-        startSec: clamp(s.startSec),
-        endSec: clamp(s.endSec),
+        startSec: pStart,
+        endSec: pEnd,
         type,
         title: s.title.trim(),
         summary: s.summary.trim(),
@@ -119,6 +140,7 @@ export function normalizeEditPayload(payload: EditSermonPayload) {
         // leak into the derived service speaker line.
         speakers: isMessage ? cleanList(s.speakers) : [],
         scriptureRefs: cleanList(s.scriptureRefs),
+        children: children.length >= 2 ? children : [],
       }
     })
     .filter((s) => s.endSec > s.startSec)

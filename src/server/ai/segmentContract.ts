@@ -93,8 +93,9 @@ Each segment has:
 - **summary**: 1 to 3 plain, warm sentences for a visitor browsing the chapters, describing what happens in this part of the service so they can decide where to watch. Write what a viewer sees and hears, not how or why you chaptered it. For the message, capture its real point, not "the pastors discuss a topic". Keep your own reasoning out of it: do not justify a boundary or a song-clip decision, do not use the internal vocabulary of this task (for example "watched, not sung", "live versus recorded", "played-back audio", "no clip"), and do not narrate production logistics (waiting on a screen, a microphone, or people to come forward) unless that genuinely is the content. Describe every moment, including one built around played media, as what a viewer experiences, never as a classification.
 - **speakers**: for a "sermon" or "discussion" chapter, the person or people who delivered THAT message, as an array of canonical names (one for a sermon, the leaders for a discussion). For every other chapter type, an empty array. This is per-message attribution: when a service has two sermons, each sermon chapter lists only its own preacher, never both. See "Speakers and names".
 - **scripture_refs**: an array of normalized references read or cited in the chapter (for example "Psalm 42:1-11", "John 14:27"). Empty array if none. See "Scripture references".
+- **children**: an OPTIONAL ordered list of sub-sections inside this one chapter, each with "start_sec", "end_sec", and "title". This is navigation only: a viewer can jump to a part of the chapter, but the chapter itself, its type, and its boundaries do not change. Almost always leave this empty. Add children only when a single long chapter clearly works through distinct, separately-watchable parts that a viewer would actually want to jump between, and there are at least two such parts (a sermon with several named points, a discussion that moves through several questions, a teaching in clear movements). Never add children to a short chapter or to one continuous thought, and never use them to pad. Each child stays within the parent's [start_sec, end_sec], they are in order and do not overlap, and they are titled like chapters (short, specific, sentence case, no trailing period).
 
-Aim for roughly 7 to 12 chapters: real movements of the service, not one per song or one per Bible verse. Merge adjacent material of the same kind. Two opening songs are one worship chapter, not two.
+Aim for roughly 7 to 12 chapters: real movements of the service, not one per song or one per Bible verse. Merge adjacent material of the same kind. Two opening songs are one worship chapter, not two. Subdividing a chapter into children does not change this: prefer one well-titled chapter (with children only if they genuinely help) over many thin chapters.
 
 ## Dead air and transitions
 
@@ -113,6 +114,8 @@ Open the message on its first real beat. For a sermon that is the first true lin
 Segment what actually occurs, not what a speaker says will occur. A hand-off often previews a running order that does not hold ("Pastor Tim will do a couple announcements and then a topic"), and then the announcements happen somewhere else or not at all. Place chapters on the events you can see in the transcript, never on an announced plan.
 
 Close the message where the teaching does, before the closing song's hand-off. A closing prayer that ends the message can sit inside the message chapter rather than becoming its own one-line chapter.
+
+The message is ONE chapter, even when it ranges over several subjects. A discussion that works through three topics, or a sermon with three points, is a single "discussion" or "sermon" chapter spanning the whole message, not three message chapters. When those internal movements are distinct and substantial enough to be worth jumping between, record them as that chapter's "children" (see "Segments"); when they are not, leave the chapter whole with no children. Use more than one "sermon" or "discussion" chapter ONLY for genuinely separate messages in the same service (two different preachers, or a sermon and a separate discussion), and then each names its own speaker. Never split one continuous message into multiple sibling message chapters: that is what children are for.
 
 ## Speakers and names
 
@@ -257,8 +260,23 @@ export const JSON_SCHEMA = {
           // "sermon" or "discussion" chapter; an empty array for every other type.
           speakers: { type: "array", items: { type: "string" } },
           scripture_refs: { type: "array", items: { type: "string" } },
+          // OPTIONAL sub-sections WITHIN this one chapter (navigation only). Most
+          // chapters have NONE (empty array). See "The message chapter".
+          children: {
+            type: "array",
+            items: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                start_sec: { type: "integer" },
+                end_sec: { type: "integer" },
+                title: { type: "string" },
+              },
+              required: ["start_sec", "end_sec", "title"],
+            },
+          },
         },
-        required: ["start_sec", "end_sec", "type", "title", "summary", "speakers", "scripture_refs"],
+        required: ["start_sec", "end_sec", "type", "title", "summary", "speakers", "scripture_refs", "children"],
       },
     },
     songs: {
@@ -307,6 +325,19 @@ const SegmentSchema = z.object({
   // validate and default to no per-chapter speaker.
   speakers: z.array(z.string()).default([]),
   scripture_refs: z.array(z.string()),
+  // Optional sub-sections within this chapter. Required in the model-facing
+  // JSON_SCHEMA (a forcing function so the model always considers them), but
+  // TOLERANT here: rows/jobs from before this field existed validate and default
+  // to none.
+  children: z
+    .array(
+      z.object({
+        start_sec: z.number().int().nonnegative(),
+        end_sec: z.number().int().nonnegative(),
+        title: z.string(),
+      }),
+    )
+    .default([]),
 })
 
 const SongSchema = z.object({
@@ -336,6 +367,14 @@ export const ResultSchema = z.object({
   divergence_note: z.string().default(""),
 })
 
+/** An optional sub-section within a chapter — navigation only (a jump point in
+ *  the chapter list), never its own chapter. */
+export type SermonSubChapter = {
+  startSec: number
+  endSec: number
+  title: string
+}
+
 export type SermonSegment = {
   startSec: number
   endSec: number
@@ -345,6 +384,8 @@ export type SermonSegment = {
   /** Who delivered this chapter's message — populated only for "sermon"/"discussion" chapters, else []. */
   speakers: string[]
   scriptureRefs: string[]
+  /** Distinct, jump-worthy parts WITHIN this one chapter; usually empty. */
+  children: SermonSubChapter[]
 }
 
 export type SongKind = "worship" | "program"
@@ -439,6 +480,20 @@ export function finalizeSegmentation(parsed: RawSegmentation, durationSec: numbe
     // leak into the service's combined speaker line.
     const isMessage = s.type === "sermon" || s.type === "discussion"
     const segSpeakers = isMessage ? dedupeNames(s.speakers ?? []) : []
+    // Repair child sub-sections: keep each inside the parent's [start, end], in
+    // order, non-overlapping; drop the empty/untitled. A chapter normally has
+    // none. Children are navigation only — they never alter the chapter cover.
+    const children: SermonSubChapter[] = []
+    let childCursor = start
+    for (const c of [...(s.children ?? [])].sort((a, b) => a.start_sec - b.start_sec)) {
+      const title = (c.title ?? "").trim()
+      if (!title) continue
+      const cs = Math.max(childCursor, Math.min(end, Math.round(c.start_sec)))
+      const ce = Math.min(end, Math.max(cs, Math.round(c.end_sec)))
+      if (ce <= cs) continue
+      children.push({ startSec: cs, endSec: ce, title })
+      childCursor = ce
+    }
     cleaned.push({
       startSec: start,
       endSec: end,
@@ -447,6 +502,9 @@ export function finalizeSegmentation(parsed: RawSegmentation, durationSec: numbe
       summary: s.summary.trim(),
       speakers: segSpeakers,
       scriptureRefs: s.scripture_refs.map((r) => r.trim()).filter(Boolean),
+      // A lone child that just restates the whole chapter is noise — only keep
+      // sub-sections when there are at least two (a real breakdown).
+      children: children.length >= 2 ? children : [],
     })
   }
 

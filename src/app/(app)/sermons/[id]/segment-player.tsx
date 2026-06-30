@@ -102,6 +102,23 @@ export function SegmentPlayer({
                     )}
                   </span>
                 </button>
+                {seg.children && seg.children.length > 0 && (
+                  <div className="border-b border-ink-hairline bg-[color-mix(in_oklab,var(--surface)_45%,white)]">
+                    {seg.children.map((c, ci) => (
+                      <button
+                        key={ci}
+                        type="button"
+                        onClick={() => seek(c.startSec, null, null)}
+                        className="flex w-full items-baseline gap-3 border-l-2 border-ink-hairline py-2 pl-9 pr-4 text-left transition-colors duration-[var(--motion-fast)] ease-[var(--ease-out-soft)] hover:bg-surface motion-reduce:transition-none"
+                      >
+                        <span className="font-mono text-micro tabular-nums text-ink-faint">
+                          {formatClock(c.startSec)}
+                        </span>
+                        <span className="text-micro text-ink-muted">{c.title}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </li>
             ))}
           </ol>
