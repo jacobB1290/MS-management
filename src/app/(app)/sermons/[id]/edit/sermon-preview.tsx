@@ -86,6 +86,9 @@ export function SermonPreview({ data }: { data: SermonPreviewData }) {
                 <span className="text-small font-semibold text-ink">
                   {seg.title || <span className="text-ink-fade">Untitled chapter</span>}
                 </span>
+                {seg.speakers && seg.speakers.length > 0 && (
+                  <span className="text-micro text-ink-faint">with {seg.speakers.join(", ")}</span>
+                )}
               </span>
               {seg.summary && (
                 <span className="mt-0.5 block text-micro leading-[var(--leading-prose)] text-ink-muted">

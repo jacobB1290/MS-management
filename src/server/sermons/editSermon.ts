@@ -28,6 +28,8 @@ const SegmentInput = z.object({
   type: z.string(),
   title: z.string(),
   summary: z.string(),
+  // Per-message attribution; tolerant of payloads from before the field existed.
+  speakers: z.array(z.string()).default([]),
   scriptureRefs: z.array(z.string()),
 })
 
@@ -104,16 +106,31 @@ export function normalizeEditPayload(payload: EditSermonPayload) {
   const clamp = (n: number) => Math.min(intSec(n), cap)
 
   const segments = payload.segments
-    .map((s) => ({
-      startSec: clamp(s.startSec),
-      endSec: clamp(s.endSec),
-      type: (SEGMENT_TYPE_SET.has(s.type) ? s.type : "other") as SegmentType,
-      title: s.title.trim(),
-      summary: s.summary.trim(),
-      scriptureRefs: cleanList(s.scriptureRefs),
-    }))
+    .map((s) => {
+      const type = (SEGMENT_TYPE_SET.has(s.type) ? s.type : "other") as SegmentType
+      const isMessage = type === "sermon" || type === "discussion"
+      return {
+        startSec: clamp(s.startSec),
+        endSec: clamp(s.endSec),
+        type,
+        title: s.title.trim(),
+        summary: s.summary.trim(),
+        // Speakers live only on message chapters; cleared elsewhere so they can't
+        // leak into the derived service speaker line.
+        speakers: isMessage ? cleanList(s.speakers) : [],
+        scriptureRefs: cleanList(s.scriptureRefs),
+      }
+    })
     .filter((s) => s.endSec > s.startSec)
     .sort((a, b) => a.startSec - b.startSec || a.endSec - b.endSec)
+
+  // Service speakers are derived from the message chapters (union, in play order),
+  // so the whole-service line matches the per-message attribution. Fall back to the
+  // explicit speakers field only when no message chapter names anyone (legacy rows).
+  const chapterSpeakers = cleanList(
+    segments.filter((s) => s.type === "sermon" || s.type === "discussion").flatMap((s) => s.speakers),
+  )
+  const speakers = chapterSpeakers.length > 0 ? chapterSpeakers : cleanList(payload.speakers)
 
   const songs = payload.songs
     .map((s) => ({
@@ -135,7 +152,7 @@ export function normalizeEditPayload(payload: EditSermonPayload) {
     durationSec: payload.durationSec && payload.durationSec > 0 ? intSec(payload.durationSec) : null,
     summary: payload.summary.trim(),
     transcript: payload.transcript,
-    speakers: cleanList(payload.speakers),
+    speakers,
     topics: cleanList(payload.topics, true),
     seo: {
       description: payload.seo.description.trim(),

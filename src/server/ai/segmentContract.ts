@@ -35,7 +35,7 @@ You receive the full transcript with [mm:ss] or [h:mm:ss] timestamps at the star
 
 - **title**: a short, descriptive public title for the service, centered on the message. See "Title".
 - **format**: "sermon" or "discussion", how the main message was delivered this week. See "The message" below.
-- **speakers**: the people who delivered the message, named only when the transcript states their names. See "Speakers and names".
+- **speakers**: the combined list of everyone who delivered a message this service, named only when the transcript states their names, in the order they spoke. When the service has more than one message (two sermons, or a sermon and a discussion), this is the union of every message chapter's own speakers. See "Speakers and names".
 - **topics**: a one-element array holding exactly one short lowercase theme keyword for the message. See "Topic".
 - **segments**: an ordered, non-overlapping, gap-free cover of the whole service. See "Segments" and "How to read a service".
 - **songs**: every song in the service, in order, each with its kind, who led or performed it, a title, a one-word topic, and the precise start and end of the sung clip. See "Songs" and "Song clips".
@@ -91,6 +91,7 @@ Each segment has:
 - **type**: one of "welcome", "worship", "scripture", "prayer", "sermon", "discussion", "poem", "testimony", "offering", "announcement", "benediction", "other". Use "worship" for any congregational or performed singing, "scripture" for a passage being read aloud, "sermon" for a preached message, "discussion" for a two-host message.
 - **title**: short, specific, human, in sentence case with no trailing period. For example "Opening worship", "Reading: Psalm 42", "Discussion: The fruit of peace", "Prayer for Sunday school".
 - **summary**: 1 to 3 plain, warm sentences for a visitor browsing the chapters, describing what happens in this part of the service so they can decide where to watch. Write what a viewer sees and hears, not how or why you chaptered it. For the message, capture its real point, not "the pastors discuss a topic". Keep your own reasoning out of it: do not justify a boundary or a song-clip decision, do not use the internal vocabulary of this task (for example "watched, not sung", "live versus recorded", "played-back audio", "no clip"), and do not narrate production logistics (waiting on a screen, a microphone, or people to come forward) unless that genuinely is the content. Describe every moment, including one built around played media, as what a viewer experiences, never as a classification.
+- **speakers**: for a "sermon" or "discussion" chapter, the person or people who delivered THAT message, as an array of canonical names (one for a sermon, the leaders for a discussion). For every other chapter type, an empty array. This is per-message attribution: when a service has two sermons, each sermon chapter lists only its own preacher, never both. See "Speakers and names".
 - **scripture_refs**: an array of normalized references read or cited in the chapter (for example "Psalm 42:1-11", "John 14:27"). Empty array if none. See "Scripture references".
 
 Aim for roughly 7 to 12 chapters: real movements of the service, not one per song or one per Bible verse. Merge adjacent material of the same kind. Two opening songs are one worship chapter, not two.
@@ -115,7 +116,14 @@ Close the message where the teaching does, before the closing song's hand-off. A
 
 ## Speakers and names
 
-List the people who delivered the message. For a sermon that is the one preacher; for a discussion it is the leaders who carried it, as an array.
+Attribute the message to the people who delivered it. For a sermon that is the one preacher; for a discussion it is the leaders who carried it, as an array.
+
+There are two places speakers appear, and they must agree:
+
+- Each "sermon" or "discussion" CHAPTER carries its own "speakers": only the person or people who delivered that one message. This is where attribution actually lives.
+- The top-level "speakers" is the COMBINED list across the whole service: every name from every message chapter, in the order they spoke, each listed once.
+
+Most services have a single message, so the one message chapter's speakers and the top-level list are the same. But a service sometimes has more than one message: two separate sermons by two preachers, or a sermon and then a discussion. When that happens, give each message chapter ONLY its own speaker, and let the top-level list be the union. Do not put both preachers on each of their separate sermons; that is the exact error to avoid. For a true co-led discussion (two pastors leading one topic together) both names belong on that one discussion chapter, because they delivered it together.
 
 Name a person only when the transcript states the name. Use the form given (first name, or first and last), normalized to the canonical name for the known people below and corrected for clear phonetic misspellings. Never invent a name the transcript does not contain. Empty array if no name is stated.
 
@@ -245,9 +253,12 @@ export const JSON_SCHEMA = {
           type: { type: "string", enum: SEGMENT_TYPES as unknown as string[] },
           title: { type: "string" },
           summary: { type: "string" },
+          // The person(s) who delivered THIS chapter's message — only for a
+          // "sermon" or "discussion" chapter; an empty array for every other type.
+          speakers: { type: "array", items: { type: "string" } },
           scripture_refs: { type: "array", items: { type: "string" } },
         },
-        required: ["start_sec", "end_sec", "type", "title", "summary", "scripture_refs"],
+        required: ["start_sec", "end_sec", "type", "title", "summary", "speakers", "scripture_refs"],
       },
     },
     songs: {
@@ -291,6 +302,10 @@ const SegmentSchema = z.object({
   type: z.enum(SEGMENT_TYPES),
   title: z.string(),
   summary: z.string(),
+  // Required in the model-facing JSON_SCHEMA, but TOLERANT here: chapters
+  // segmented before this field existed (and the rare model omission) still
+  // validate and default to no per-chapter speaker.
+  speakers: z.array(z.string()).default([]),
   scripture_refs: z.array(z.string()),
 })
 
@@ -327,6 +342,8 @@ export type SermonSegment = {
   type: SegmentType
   title: string
   summary: string
+  /** Who delivered this chapter's message — populated only for "sermon"/"discussion" chapters, else []. */
+  speakers: string[]
   scriptureRefs: string[]
 }
 
@@ -380,11 +397,28 @@ export function buildSegmentUserContent(
   return `Service length: about ${Math.round(durationSec)} seconds.\n\nExisting topics used across past services (reuse one when it fits; only coin a new topic when none do):\n${knownTopics.length ? knownTopics.join(", ") : "(none yet)"}\n\nTranscript:\n${t}`
 }
 
+/** Trim, drop blanks, de-duplicate case-insensitively, preserving first-seen order. */
+function dedupeNames(names: string[]): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const raw of names) {
+    const v = raw.trim()
+    if (!v) continue
+    const k = v.toLowerCase()
+    if (seen.has(k)) continue
+    seen.add(k)
+    out.push(v)
+  }
+  return out
+}
+
 /**
  * Repair + normalize a raw model result into the persisted shape: gap-free,
  * in-bounds chapter cover; clamped, de-duplicated song clips with the
- * never-during-the-message safety net; trimmed/lowercased metadata. Pure, so the
- * API path and the out-of-band pump produce byte-identical persisted output.
+ * never-during-the-message safety net; trimmed/lowercased metadata; per-message
+ * speakers on each sermon/discussion chapter with the service speaker line
+ * derived from their union. Pure, so the API path and the out-of-band pump
+ * produce byte-identical persisted output.
  */
 export function finalizeSegmentation(parsed: RawSegmentation, durationSec: number): SermonSegmentation {
   // Repair boundaries: sort, clamp into [0, duration], make gap-free, drop empties.
@@ -400,15 +434,31 @@ export function finalizeSegmentation(parsed: RawSegmentation, durationSec: numbe
     if (i === sorted.length - 1) end = dur > 0 ? dur : Math.max(start, end)
     end = Math.min(dur > 0 ? dur : end, Math.max(start, end))
     if (end <= start && i !== sorted.length - 1) continue // skip zero-length middles
+    // Per-chapter speakers are meaningful only on a message chapter; anything else
+    // is forced empty so a stray model attribution on worship/announcements can't
+    // leak into the service's combined speaker line.
+    const isMessage = s.type === "sermon" || s.type === "discussion"
+    const segSpeakers = isMessage ? dedupeNames(s.speakers ?? []) : []
     cleaned.push({
       startSec: start,
       endSec: end,
       type: s.type,
       title: s.title.trim() || "Chapter",
       summary: s.summary.trim(),
+      speakers: segSpeakers,
       scriptureRefs: s.scripture_refs.map((r) => r.trim()).filter(Boolean),
     })
   }
+
+  // Service speakers are DERIVED from the message chapters: the ordered union of
+  // every sermon/discussion chapter's own speakers, so the whole-service line
+  // ("with Dmitri and Zach") can never disagree with the per-message attribution.
+  // Fall back to the model's top-level list only when no message chapter names
+  // anyone (a service whose speakers weren't stated, or pre-per-chapter data).
+  const unionFromChapters = dedupeNames(
+    cleaned.filter((c) => c.type === "sermon" || c.type === "discussion").flatMap((c) => c.speakers),
+  )
+  const speakers = unionFromChapters.length > 0 ? unionFromChapters : dedupeNames(parsed.speakers)
 
   // Songs: clamp into [0, duration], keep order, drop empty/zero-length ones.
   const songsRaw: SermonSong[] = [...parsed.songs]
@@ -446,7 +496,7 @@ export function finalizeSegmentation(parsed: RawSegmentation, durationSec: numbe
   return {
     title: parsed.title.trim(),
     format: parsed.format,
-    speakers: Array.from(new Set(parsed.speakers.map((s) => s.trim()).filter(Boolean))),
+    speakers,
     // One tag per item (hard rule): keep only the single best topic.
     topics: Array.from(
       new Set(parsed.topics.map((t) => t.trim().toLowerCase()).filter(Boolean)),
