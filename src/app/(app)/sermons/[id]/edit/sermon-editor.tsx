@@ -64,9 +64,40 @@ type SegRow = {
   type: string
   title: string
   summary: string
+  /** Who delivered this chapter — used only for sermon/discussion chapters. */
+  speakers: string[]
   scriptureRefs: string[]
   start: string
   end: string
+}
+
+/** A chapter type that carries a speaker (the message itself). */
+function isMessageType(type: string): boolean {
+  return type === "sermon" || type === "discussion"
+}
+
+/**
+ * The service speaker line, DERIVED from the message chapters: the ordered union
+ * of every sermon/discussion chapter's speakers (in play order), de-duplicated.
+ * This is the single source for "with X and Y" so it can never disagree with the
+ * per-chapter attribution. Empty when no message chapter names anyone.
+ */
+function deriveServiceSpeakers(rows: SegRow[]): string[] {
+  const ordered = [...rows].sort((a, b) => parseClock(a.start) - parseClock(b.start))
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const r of ordered) {
+    if (!isMessageType(r.type)) continue
+    for (const sp of r.speakers) {
+      const v = sp.trim()
+      if (!v) continue
+      const k = v.toLowerCase()
+      if (seen.has(k)) continue
+      seen.add(k)
+      out.push(v)
+    }
+  }
+  return out
 }
 type SongRow = {
   uid: number
@@ -127,6 +158,7 @@ export function SermonEditor({ initial }: { initial: SermonEditorInitial }) {
       type: s.type,
       title: s.title,
       summary: s.summary,
+      speakers: Array.isArray(s.speakers) ? s.speakers : [],
       scriptureRefs: s.scriptureRefs,
       start: formatClock(s.startSec),
       end: formatClock(s.endSec),
@@ -150,6 +182,10 @@ export function SermonEditor({ initial }: { initial: SermonEditorInitial }) {
 
   const buildPayload = useCallback(() => {
     const durationSec = durationStr.trim() ? Math.max(0, Math.round(Number(durationStr))) : null
+    // The service speaker line is derived from the message chapters' speakers;
+    // the manual `speakers` state is only the fallback for a service whose
+    // chapters name no one (legacy rows not yet given per-chapter speakers).
+    const derivedSpeakers = deriveServiceSpeakers(segments)
     return {
       generatedTitle: generatedTitle,
       format,
@@ -159,7 +195,7 @@ export function SermonEditor({ initial }: { initial: SermonEditorInitial }) {
       slug: slug.trim() || null,
       summary,
       transcript: transcript.trim() ? transcript : null,
-      speakers,
+      speakers: derivedSpeakers.length > 0 ? derivedSpeakers : speakers,
       topics,
       seo: { description: seoDescription, tags: seoTags },
       segments: segments.map((s) => ({
@@ -168,6 +204,7 @@ export function SermonEditor({ initial }: { initial: SermonEditorInitial }) {
         type: s.type,
         title: s.title,
         summary: s.summary,
+        speakers: isMessageType(s.type) ? s.speakers : [],
         scriptureRefs: s.scriptureRefs,
       })),
       songs: songs.map((s) => ({
@@ -216,6 +253,11 @@ export function SermonEditor({ initial }: { initial: SermonEditorInitial }) {
     }
   }, [buildPayload, initial.title])
 
+  // The service speaker line shown in Details, derived live from the chapters'
+  // speakers. When a message chapter names someone, this is read-only (combined
+  // from below); otherwise the editable fallback field is shown.
+  const derivedSpeakers = useMemo(() => deriveServiceSpeakers(segments), [segments])
+
   // ----- row helpers (with symmetric enter/exit collapse) -----
   // Removal collapses the row (grid-rows 1fr→0fr) for one motion beat, then
   // splices — so neighbors slide up instead of snapping. Reduced motion skips
@@ -250,7 +292,7 @@ export function SermonEditor({ initial }: { initial: SermonEditorInitial }) {
     const here = formatClock(getCurrentTime())
     setSegments((rows) => [
       ...rows,
-      { uid: nextUid(), type: "sermon", title: "", summary: "", scriptureRefs: [], start: here, end: here },
+      { uid: nextUid(), type: "sermon", title: "", summary: "", speakers: [], scriptureRefs: [], start: here, end: here },
     ])
   }
   const addSong = () => {
@@ -401,14 +443,18 @@ export function SermonEditor({ initial }: { initial: SermonEditorInitial }) {
               </FormField>
             </div>
 
-            <TagField
-              label="Speakers"
-              htmlFor="speakers"
-              values={speakers}
-              onChange={setSpeakers}
-              placeholder="Add a name and press Enter"
-              hint="The preacher, or the hosts of a discussion."
-            />
+            {derivedSpeakers.length > 0 ? (
+              <DerivedSpeakers values={derivedSpeakers} />
+            ) : (
+              <TagField
+                label="Speakers"
+                htmlFor="speakers"
+                values={speakers}
+                onChange={setSpeakers}
+                placeholder="Add a name and press Enter"
+                hint="Set each message's speaker on its chapter below. Until then, you can list the service speakers here."
+              />
+            )}
 
             <FormField variant="quiet" label="Summary" htmlFor="summary" hint="2 to 4 sentences for the watch library.">
               <Textarea
@@ -453,6 +499,25 @@ export function SermonEditor({ initial }: { initial: SermonEditorInitial }) {
                     <span className="ml-auto" />
                     <RowRemove label={`Remove chapter ${i + 1}`} onClick={() => removeSeg(row.uid)} />
                   </div>
+
+                  {/* Per-message speaker — only a sermon or discussion has one. Reveals
+                      and hides on the type change, so the field never snaps in. */}
+                  <Collapse show={isMessageType(row.type)}>
+                    <div className="pb-[var(--space-md)]">
+                      <TagField
+                        label={row.type === "discussion" ? "Hosts" : "Speaker"}
+                        htmlFor={`seg-speakers-${row.uid}`}
+                        values={row.speakers}
+                        onChange={(v) => patchSeg(row.uid, { speakers: v })}
+                        placeholder="Add a name and press Enter"
+                        hint={
+                          row.type === "discussion"
+                            ? "Who led this discussion. Shown on this chapter, and combined into the service speakers above."
+                            : "Who preached this sermon. Shown on this chapter, and combined into the service speakers above."
+                        }
+                      />
+                    </div>
+                  </Collapse>
 
                   <div className="space-y-[var(--space-md)]">
                     <FormField variant="quiet" label="Title" htmlFor={`seg-title-${row.uid}`}>
@@ -806,6 +871,57 @@ function RowShell({ exiting, children }: { exiting: boolean; children: React.Rea
         </div>
       </div>
     </li>
+  )
+}
+
+/**
+ * A height + opacity collapse for a single field that appears/disappears on a
+ * state change (the per-chapter speaker field, shown only for a message chapter).
+ * Same honest grid-rows 0fr↔1fr technique as RowShell; the field's own bottom
+ * spacing lives inside the collapsing area, so closing leaves no orphaned gap.
+ */
+function Collapse({ show, children }: { show: boolean; children: React.ReactNode }) {
+  return (
+    <div
+      className={cn(
+        "grid transition-all duration-[var(--motion-medium)] ease-[var(--ease-out-soft)] motion-reduce:transition-none",
+        show ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
+      )}
+    >
+      <div className="min-h-0 overflow-hidden">{children}</div>
+    </div>
+  )
+}
+
+/**
+ * The Details "Speakers" line once the chapters carry their own speakers: a
+ * read-only, derived display (the combined service speaker list). Rendered flush
+ * on the canvas, not in a `.field-quiet` well, so it reads as a computed value
+ * rather than an editable input. Edit a chapter's speaker to change it.
+ */
+function DerivedSpeakers({ values }: { values: string[] }) {
+  return (
+    <FormField
+      variant="quiet"
+      label="Speakers"
+      htmlFor="speakers"
+      hint="Combined from each sermon or discussion below. Edit a chapter's speaker to change this."
+      // Match the editable field's height (min-h-11) so swapping to this derived
+      // display the moment a chapter names a speaker never pops the layout, and
+      // fade the block in so the swap eases rather than snaps.
+      className="animate-[fade-in_var(--motion-medium)_var(--ease-out-soft)] motion-reduce:animate-none"
+    >
+      <div className="flex min-h-11 flex-wrap items-center gap-1.5" aria-readonly="true">
+        {values.map((v, i) => (
+          <span
+            key={`${v}-${i}`}
+            className="inline-flex items-center rounded-pill bg-surface px-2.5 py-1 text-micro text-ink-muted animate-[fade-in_var(--motion-fast)_var(--ease-out-soft)] motion-reduce:animate-none"
+          >
+            {v}
+          </span>
+        ))}
+      </div>
+    </FormField>
   )
 }
 

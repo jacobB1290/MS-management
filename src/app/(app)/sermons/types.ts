@@ -13,6 +13,8 @@ export type SermonSegment = {
   type: string
   title: string
   summary: string
+  /** Who delivered this chapter's message — only for "sermon"/"discussion" chapters, else []. */
+  speakers: string[]
   scriptureRefs: string[]
 }
 

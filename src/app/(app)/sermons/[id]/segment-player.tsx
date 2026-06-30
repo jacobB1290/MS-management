@@ -91,6 +91,9 @@ export function SegmentPlayer({
                         {SEGMENT_LABEL[seg.type] ?? seg.type}
                       </Badge>
                       <span className="text-small font-semibold text-ink">{seg.title}</span>
+                      {seg.speakers && seg.speakers.length > 0 && (
+                        <span className="text-micro text-ink-faint">with {seg.speakers.join(", ")}</span>
+                      )}
                     </span>
                     {seg.summary && (
                       <span className="mt-1 block text-micro leading-[var(--leading-prose)] text-ink-muted">
