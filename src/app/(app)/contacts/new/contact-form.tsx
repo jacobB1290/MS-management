@@ -5,9 +5,9 @@ import { toast } from "sonner"
 import { withContactFrom } from "@/lib/contact-nav"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 import { FormField } from "@/components/ui/form-field"
 import { TagInput } from "@/components/tag-input"
+import { NotesEditor } from "@/components/notes-editor"
 import type { Tables } from "@/lib/database.types"
 
 const CONSENT_OPTIONS = [
@@ -190,13 +190,8 @@ export function ContactForm({
         />
       </FormField>
 
-      <FormField label="Notes" htmlFor="notes">
-        <Textarea
-          id="notes"
-          name="notes"
-          rows={3}
-          defaultValue={initialValues?.notes ?? ""}
-        />
+      <FormField label="Notes" htmlFor="notes" hint="One point per line. The AI adds points here too as you chat.">
+        <NotesEditor name="notes" defaultValue={initialValues?.notes ?? ""} />
       </FormField>
 
       <div className="flex items-center justify-end gap-3 pt-4 border-t border-ink-hairline">

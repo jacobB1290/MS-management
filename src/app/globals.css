@@ -605,6 +605,32 @@ h1, h2, h3, h4, h5, h6 {
 .email-ai-preview a { color: var(--color-gold-dark); text-decoration: underline; }
 .email-ai-preview strong { font-weight: 600; }
 
+/* Notes bullet editor — animated add/remove of points (notes-editor.tsx). A
+ * point unfolds in, and a removed one folds away, via a grid-rows height
+ * collapse (animates height with no JS measurement) plus an opacity fade, so
+ * adding or removing a fact never snaps the list or shoves its siblings. The
+ * inner wrapper clips its overflow and zeroes its min-height so the row can
+ * collapse to nothing. The open pose is the default; the data-state attribute
+ * drives the enter/exit poses. The global prefers-reduced-motion rule above
+ * zeroes the durations, landing each row on its correct end state. */
+.note-row {
+  display: grid;
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transition:
+    grid-template-rows var(--motion-medium) var(--ease-out-soft),
+    opacity var(--motion-fast) var(--ease-standard);
+}
+.note-row > .note-row-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+.note-row[data-state="enter"],
+.note-row[data-state="exit"] {
+  grid-template-rows: 0fr;
+  opacity: 0;
+}
+
 /* Settings (iOS/macOS-style panes): the freshly-selected pane — and, on the
  * mobile drill-in, the category list when you return to it — settles in with a
  * gentle fade + 6px rise. An earlier horizontal "push" was dropped: only the

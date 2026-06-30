@@ -5,8 +5,10 @@ import { toast } from "sonner"
 import { Pencil, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Textarea } from "@/components/ui/textarea"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+import { NotesEditor } from "@/components/notes-editor"
+import { NotesList } from "@/components/notes-list"
+import { splitNoteLines } from "@/lib/notes"
 import { CallButton } from "@/components/call-button"
 import { OptInRequest } from "@/components/opt-in-request"
 import { TagList } from "@/components/tag-list"
@@ -279,18 +281,27 @@ function NotesBlock({
   onSaved: (next: string) => void
 }) {
   const [editing, setEditing] = useState(false)
-  const [value, setValue] = useState(initial)
+  // The joined value the bullet editor reports; seeded from the current notes
+  // when the editor opens and kept in sync as staff add/edit/remove points.
+  const [draft, setDraft] = useState(initial)
   const [saving, setSaving] = useState(false)
+  const hasNotes = splitNoteLines(initial).length > 0
 
-  // Sync when parent's snapshot.notes changes (e.g., after a successful save).
+  // Sync when parent's snapshot.notes changes (e.g., a STOP reply or the AI
+  // adding a point in the background) while we're not editing.
   const [lastInitial, setLastInitial] = useState(initial)
   if (lastInitial !== initial) {
     setLastInitial(initial)
-    if (!editing) setValue(initial)
+    if (!editing) setDraft(initial)
+  }
+
+  function openEditor() {
+    setDraft(initial)
+    setEditing(true)
   }
 
   async function save() {
-    const trimmed = value.trim() || null
+    const trimmed = draft.trim() || null
     setSaving(true)
     // Optimistic: close the editor + push the new value up immediately.
     onSaved(trimmed ?? "")
@@ -306,7 +317,7 @@ function NotesBlock({
         toast.error(`Save failed: ${j?.error ?? res.status}`)
         // Roll back.
         onSaved(initial)
-        setValue(initial)
+        setDraft(initial)
         setEditing(true)
       } else {
         toast.success("Note saved")
@@ -320,20 +331,14 @@ function NotesBlock({
     return (
       <div className="mt-6 border-t border-ink-hairline pt-6">
         <p className="text-label text-ink-muted mb-1.5">Notes</p>
-        <Textarea
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          rows={4}
-          placeholder="Lives near the church; has two kids; spouse Maria…"
-          autoFocus
-        />
-        <div className="flex items-center justify-end gap-2 mt-2">
+        <NotesEditor defaultValue={initial} onChange={setDraft} autoFocusAdd />
+        <div className="flex items-center justify-end gap-2 mt-3">
           <Button
             type="button"
             variant="ghost"
             size="sm"
             onClick={() => {
-              setValue(initial)
+              setDraft(initial)
               setEditing(false)
             }}
             disabled={saving}
@@ -341,7 +346,7 @@ function NotesBlock({
             Cancel
           </Button>
           <Button type="button" size="sm" onClick={save} disabled={saving}>
-            Save note
+            Save notes
           </Button>
         </div>
       </div>
@@ -354,17 +359,15 @@ function NotesBlock({
         <p className="text-label text-ink-muted">Notes</p>
         <button
           type="button"
-          onClick={() => setEditing(true)}
+          onClick={openEditor}
           className="text-micro text-ink-muted hover:text-ink inline-flex items-center gap-1"
         >
           <Pencil size={12} />
-          {initial ? "Edit" : "Add"}
+          {hasNotes ? "Edit" : "Add"}
         </button>
       </div>
-      {initial ? (
-        <p className="text-small text-ink-muted whitespace-pre-wrap leading-prose">
-          {initial}
-        </p>
+      {hasNotes ? (
+        <NotesList text={initial} dense />
       ) : (
         <p className="text-small text-ink-muted italic">
           Nothing noted yet. Key facts get saved automatically as you chat.

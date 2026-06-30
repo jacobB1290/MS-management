@@ -12,6 +12,8 @@ import { TagList } from "@/components/tag-list"
 import { CallButton } from "@/components/call-button"
 import { MobileCollapsingHeader } from "@/components/ui/collapsing-header"
 import { cn, formatPhone, humanizeSource } from "@/lib/utils"
+import { splitNoteLines } from "@/lib/notes"
+import { NotesList } from "@/components/notes-list"
 import { resolveContactBack, withContactFrom } from "@/lib/contact-nav"
 import { DeleteContactButton } from "@/components/delete-contact-button"
 import { SuggestTags } from "@/components/suggest-tags"
@@ -262,10 +264,12 @@ export default async function ContactDetailPage({ params, searchParams }: PagePr
               </div>
             </div>
 
-            {contact.notes && (
+            {splitNoteLines(contact.notes).length > 0 && (
               <div className="px-4 py-3.5">
-                <dt className="eyebrow mb-1">Notes</dt>
-                <dd className="text-body text-ink-muted leading-normal whitespace-pre-wrap">{contact.notes}</dd>
+                <dt className="eyebrow mb-2">Notes</dt>
+                <dd>
+                  <NotesList text={contact.notes} />
+                </dd>
               </div>
             )}
           </dl>
