@@ -93,9 +93,8 @@ Each segment has:
 - **summary**: 1 to 3 plain, warm sentences for a visitor browsing the chapters, describing what happens in this part of the service so they can decide where to watch. Write what a viewer sees and hears, not how or why you chaptered it. For the message, capture its real point, not "the pastors discuss a topic". Keep your own reasoning out of it: do not justify a boundary or a song-clip decision, do not use the internal vocabulary of this task (for example "watched, not sung", "live versus recorded", "played-back audio", "no clip"), and do not narrate production logistics (waiting on a screen, a microphone, or people to come forward) unless that genuinely is the content. Describe every moment, including one built around played media, as what a viewer experiences, never as a classification.
 - **speakers**: for a "sermon" or "discussion" chapter, the person or people who delivered THAT message, as an array of canonical names (one for a sermon, the leaders for a discussion). For every other chapter type, an empty array. This is per-message attribution: when a service has two sermons, each sermon chapter lists only its own preacher, never both. See "Speakers and names".
 - **scripture_refs**: an array of normalized references read or cited in the chapter (for example "Psalm 42:1-11", "John 14:27"). Empty array if none. See "Scripture references".
-- **children**: an OPTIONAL ordered list of sub-sections inside this one chapter, each with "start_sec", "end_sec", and "title". This is navigation only: a viewer can jump to a part of the chapter, but the chapter itself, its type, and its boundaries do not change. Almost always leave this empty. Add children only when a single long chapter clearly works through distinct, separately-watchable parts that a viewer would actually want to jump between, and there are at least two such parts (a sermon with several named points, a discussion that moves through several questions, a teaching in clear movements). Never add children to a short chapter or to one continuous thought, and never use them to pad. Each child stays within the parent's [start_sec, end_sec], they are in order and do not overlap, and they are titled like chapters (short, specific, sentence case, no trailing period).
 
-Aim for roughly 7 to 12 chapters: real movements of the service, not one per song or one per Bible verse. Merge adjacent material of the same kind. Two opening songs are one worship chapter, not two. Subdividing a chapter into children does not change this: prefer one well-titled chapter (with children only if they genuinely help) over many thin chapters.
+Aim for roughly 7 to 12 chapters: real movements of the service, not one per song or one per Bible verse. Merge adjacent material of the same kind. Two opening songs are one worship chapter, not two.
 
 ## Dead air and transitions
 
@@ -115,7 +114,7 @@ Segment what actually occurs, not what a speaker says will occur. A hand-off oft
 
 Close the message where the teaching does, before the closing song's hand-off. A closing prayer that ends the message can sit inside the message chapter rather than becoming its own one-line chapter.
 
-The message is ONE chapter, even when it ranges over several subjects. A discussion that works through three topics, or a sermon with three points, is a single "discussion" or "sermon" chapter spanning the whole message, not three message chapters. When those internal movements are distinct and substantial enough to be worth jumping between, record them as that chapter's "children" (see "Segments"); when they are not, leave the chapter whole with no children. Use more than one "sermon" or "discussion" chapter ONLY for genuinely separate messages in the same service (two different preachers, or a sermon and a separate discussion), and then each names its own speaker. Never split one continuous message into multiple sibling message chapters: that is what children are for.
+The message is one chapter. A discussion that ranges across several topics, or a sermon with several points, is still a single "discussion" or "sermon" chapter spanning the whole message, not one chapter per topic. Use more than one "sermon" or "discussion" chapter only when the service truly holds separate messages (two different preachers, or a sermon and a separate discussion), and then each names its own speaker.
 
 ## Speakers and names
 
@@ -260,10 +259,14 @@ export const JSON_SCHEMA = {
           // "sermon" or "discussion" chapter; an empty array for every other type.
           speakers: { type: "array", items: { type: "string" } },
           scripture_refs: { type: "array", items: { type: "string" } },
-          // OPTIONAL sub-sections WITHIN this one chapter (navigation only). Most
-          // chapters have NONE (empty array). See "The message chapter".
+          // Optional in-chapter sub-sections — navigation jump points only. The
+          // field is intentionally documented ONLY here (a neutral schema line),
+          // not promoted in the prose, so the model reaches for it on its own when
+          // a chapter plainly divides and otherwise leaves it empty.
           children: {
             type: "array",
+            description:
+              "Optional sub-sections within this one chapter (jump points only; they never change the chapter, its type, or its bounds). Usually an empty array.",
             items: {
               type: "object",
               additionalProperties: false,

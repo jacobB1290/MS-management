@@ -54,7 +54,7 @@ const FABLE_PREFIX = FABLE_MODEL_ID.replace(/-\d.*$/, "")
 export const AI_MODEL_FAMILIES: AiModelFamilies = {
   fable: { latest: FABLE_MODEL_ID, blurb: "Newest flagship" },
   opus: { latest: "claude-opus-4-8", blurb: "Highest quality, highest cost" },
-  sonnet: { latest: "claude-sonnet-4-6", blurb: "Balanced quality and cost" },
+  sonnet: { latest: "claude-sonnet-5", blurb: "Balanced quality and cost" },
   haiku: { latest: "claude-haiku-4-5", blurb: "Fastest and cheapest" },
 }
 
@@ -163,10 +163,13 @@ function versionAtLeast(major: number, minor: number, m: number, n: number): boo
  * model has no effort control (the call sites then omit the parameter; sending
  * it would 400). The matrix mirrors Anthropic's effort support:
  *   - low / medium / high : Opus 4.5+ and Sonnet 4.6+ (NOT Sonnet 4.5, NOT Haiku)
- *   - max                 : Opus 4.6 and later only (never Sonnet or Haiku)
- *   - xhigh               : Opus 4.7 and later only (between high and max)
- * Parsed from the model id, so a future Opus 4.9 inherits the full set without
- * a code change, matching how the model families auto-update.
+ *   - max                 : Opus 4.6+ and Sonnet 4.6+ (never Haiku)
+ *   - xhigh               : Opus 4.7+ and Sonnet 5+ (between high and max)
+ * Each class expands its set BY VERSION, parsed from the model id, so a newer
+ * release inherits the right tiers without a code change — the same mechanism
+ * that auto-updates the model families. (This is why Sonnet 5 picked up xhigh +
+ * max automatically once it became the latest sonnet: the branch keys off the
+ * version, not a hardcoded list.)
  */
 export function effortLevelsForModel(model: string): AiEffort[] {
   const v = parseModelVersion(model)
@@ -176,8 +179,13 @@ export function effortLevelsForModel(model: string): AiEffort[] {
   // the model's real support and trim this one line if it caps lower.
   if (cls === "fable") return ["low", "medium", "high", "xhigh", "max"]
   if (cls === "haiku") return []
+  // Sonnet: effort starts at 4.6 (low/medium/high + max); xhigh arrives at 5.
   if (cls === "sonnet") {
-    return versionAtLeast(major, minor, 4, 6) ? ["low", "medium", "high"] : []
+    if (!versionAtLeast(major, minor, 4, 6)) return []
+    const tiers: AiEffort[] = ["low", "medium", "high"]
+    if (versionAtLeast(major, minor, 5, 0)) tiers.push("xhigh")
+    tiers.push("max")
+    return tiers
   }
   // Opus: effort starts at 4.5; max at 4.6; xhigh at 4.7.
   if (cls === "opus") {
